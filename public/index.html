@@ -1,0 +1,1812 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Freeze Foundry — AI Software Factory</title>
+    <style>
+        :root {
+            --bg-dark: #1a1520;
+            --bg-panel: #241f2b;
+            --bg-input: #121014;
+            --primary-orange: #ff9d00;
+            --primary-teal: #00e5ff;
+            --primary-purple: #a855f7;
+            --text-main: #e2e8f0;
+            --text-muted: #94a3b8;
+            --border-color: #333;
+            --success: #10b981;
+            --error: #ef4444;
+            --warning: #f59e0b;
+            --font-stack: 'Courier New', Courier, monospace;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            font-family: var(--font-stack);
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* --- Header & Status Bar --- */
+        header {
+            background: #0f0e12;
+            border-bottom: 2px solid var(--primary-purple);
+            padding: 0.5rem 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            height: 48px;
+            flex-shrink: 0;
+        }
+
+        .brand {
+            font-weight: bold;
+            font-size: 1.2rem;
+            color: var(--primary-orange);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .status-bar {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            display: flex;
+            gap: 20px;
+        }
+
+        .status-item span { color: var(--primary-teal); }
+
+        /* --- Main Layout --- */
+        main {
+            flex: 1;
+            display: grid;
+            grid-template-columns: 350px 1fr 400px;
+            grid-template-rows: 1fr;
+            gap: 1rem;
+            padding: 1rem;
+            overflow: hidden;
+        }
+
+        /* --- Panels --- */
+        .panel {
+            background: var(--bg-panel);
+            border: 2px solid var(--border-color);
+            border-radius: 4px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+
+        .panel-header {
+            background: #1e1b25;
+            padding: 0.5rem 0.8rem;
+            border-bottom: 1px solid var(--border-color);
+            font-weight: bold;
+            color: var(--primary-teal);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .panel-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 0.8rem;
+            font-size: 0.9rem;
+        }
+
+        /* --- Left: Task Queue --- */
+        #task-queue-panel {
+            grid-row: 1 / -1;
+            border-right: 2px solid var(--primary-purple);
+        }
+
+        .task-item {
+            background: var(--bg-input);
+            border: 1px solid var(--border-color);
+            padding: 0.8rem;
+            margin-bottom: 0.6rem;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s;
+            position: relative;
+        }
+
+        .task-item:hover { border-color: var(--primary-teal); }
+        .task-item.active { border-color: var(--primary-orange); background: #2a2530; }
+        
+        .task-header { display: flex; justify-content: space-between; margin-bottom: 4px; }
+        .task-id { color: var(--primary-purple); font-weight: bold; }
+        .task-status { font-size: 0.75rem; padding: 2px 6px; border-radius: 3px; background: #333; }
+
+        /* --- Center: Factory Floor --- */
+        #factory-floor-panel {
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 1rem;
+            background: radial-gradient(circle at center, #2a2530 0%, #1a1520 100%);
+        }
+
+        .worker-station {
+            background: #25212b;
+            border: 3px solid var(--border-color);
+            border-radius: 8px;
+            padding: 1rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            position: relative;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .worker-station.running { border-color: var(--primary-teal); box-shadow: 0 0 15px rgba(0, 229, 255, 0.3); }
+        .worker-station.success { border-color: var(--success); background: #1a2e24; }
+        .worker-station.error { border-color: var(--error); background: #2e1a1a; }
+
+        .station-icon {
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+            color: var(--text-muted);
+        }
+
+        .station-name { font-weight: bold; color: var(--text-main); margin-bottom: 0.5rem; text-align: center;}
+        
+        .station-log {
+            width: 100%;
+            height: 80px;
+            background: #121014;
+            border: 1px solid #333;
+            font-family: monospace;
+            font-size: 0.75rem;
+            padding: 4px;
+            overflow-y: auto;
+            color: var(--text-muted);
+        }
+
+        .station-status-light {
+            width: 12px; height: 12px; border-radius: 50%;
+            margin-bottom: 8px; background: #333;
+            box-shadow: inset 0 0 2px rgba(0,0,0,0.5);
+        }
+
+        /* --- Right: System Inspector & Console --- */
+        #system-inspector-panel {
+            border-left: 2px solid var(--primary-orange);
+        }
+
+        .file-browser {
+            height: 150px;
+            border-bottom: 1px solid var(--border-color);
+            padding: 0.5rem;
+            font-size: 0.8rem;
+            overflow-y: auto;
+        }
+
+        .file-item {
+            display: flex; align-items: center; gap: 6px;
+            padding: 2px 4px; cursor: pointer; color: var(--text-muted);
+        }
+        .file-item:hover { color: var(--primary-teal); background: rgba(255,255,255,0.05); }
+
+        #console-output {
+            flex: 1;
+            padding: 0.5rem;
+            font-family: monospace;
+            font-size: 0.8rem;
+            overflow-y: auto;
+            color: var(--text-main);
+        }
+
+        .log-entry { margin-bottom: 4px; border-left: 2px solid transparent; padding-left: 6px; }
+        .log-info { border-color: var(--primary-teal); color: #a5f3fc; }
+        .log-success { border-color: var(--success); color: #86efac; }
+        .log-error { border-color: var(--error); color: #fca5a5; background: rgba(239, 68, 68, 0.1); }
+        .log-warn { border-color: var(--warning); color: #fcd34d; }
+
+        /* --- Controls --- */
+        .controls {
+            padding: 1rem;
+            background: var(--bg-panel);
+            border-top: 2px solid var(--border-color);
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        input[type="text"], #goal-input {
+            flex: 1;
+            background: var(--bg-input);
+            border: 1px solid var(--border-color);
+            color: var(--text-main);
+            padding: 8px;
+            font-family: var(--font-stack);
+        }
+
+        button {
+            background: var(--primary-purple);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            cursor: pointer;
+            font-family: var(--font-stack);
+            font-weight: bold;
+            text-transform: uppercase;
+            transition: background 0.2s;
+        }
+
+        button:hover { background: #9333ea; }
+        button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        /* --- Pixel factory floor --- */
+        #factory-floor-panel { gap: 12px; overflow-y: auto; }
+        .floor-wrap { width: 100%; max-width: 960px; border: 2px solid #0d0b10; box-shadow: 0 0 0 2px #3a3342, 0 6px 0 2px #0d0b10; }
+        #floor-canvas { display: block; width: 100%; height: auto; image-rendering: pixelated; image-rendering: crisp-edges; }
+        .readouts { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; width: 100%; max-width: 960px; }
+        .readouts .worker-station { padding: 6px; cursor: pointer; align-items: stretch; }
+        .readout-head { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
+        .readouts .station-status-light { margin: 0; }
+        .readouts .station-name { margin: 0; font-size: 0.75rem; }
+        .readouts .station-log { height: 70px; font-size: 0.65rem; white-space: pre-wrap; word-break: break-word; }
+        #detail-view {
+            max-height: 40vh; overflow: auto; margin: 0 0 0.5rem; padding: 6px;
+            background: #121014; border: 1px solid #333; font-size: 0.72rem; white-space: pre-wrap; word-break: break-word;
+        }
+        .diff-add { color: var(--success); }
+        .diff-del { color: var(--error); }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #1a1520; }
+        ::-webkit-scrollbar-thumb { background: #444; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #555; }
+
+        /* Responsive */
+        @media (max-width: 1024px) {
+            main { grid-template-columns: 300px 1fr; }
+            #system-inspector-panel { display: none; }
+        }
+
+        @media (max-width: 768px) {
+            main { grid-template-columns: 1fr; }
+            #task-queue-panel { height: auto; overflow-y: auto; border-right: none; border-bottom: 2px solid var(--primary-purple); }
+            .readouts { grid-template-columns: repeat(2, 1fr); }
+        }
+            /* --- Models dialog --- */
+        .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; z-index: 50; }
+        .modal[hidden] { display: none; }
+        .modal-box { background: var(--bg-panel); border: 2px solid #0d0b10; box-shadow: 0 0 0 2px var(--primary-purple); padding: 12px; width: min(460px, 92vw); display: flex; flex-direction: column; gap: 8px; }
+        .modal-box label { display: flex; flex-direction: column; gap: 3px; font-size: 0.75rem; color: var(--text-muted); }
+        .modal-box select, .modal-box input { background: var(--bg-input); color: var(--text-main); border: 1px solid #333; padding: 6px; font-family: inherit; }
+        .hint { font-size: 0.7rem; color: var(--text-muted); }
+        .modal-actions { display: flex; gap: 8px; justify-content: flex-end; }
+        .link-btn, .link-btn:hover { background: none; border: none; box-shadow: none; color: var(--primary-teal); padding: 0; font: inherit; text-transform: none; cursor: pointer; }
+        .link-btn:hover { text-decoration: underline; }
+        /* ===== Modern shell (overrides the older styles above) ===== */
+        :root {
+            --bg-dark: #0e0c12; --bg-panel: #16131c; --bg-input: #0e0c12; --bg-raise: #1e1a26;
+            --border-color: #2a2533; --text-main: #ece9f2; --text-muted: #8e879e;
+            --ui-font: 'Segoe UI Variable Text', 'Segoe UI', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+            --mono: 'Cascadia Code', 'SF Mono', Consolas, monospace;
+            --radius: 12px;
+        }
+        body { font-family: var(--ui-font); font-size: 14px; }
+        header { height: 52px; background: var(--bg-panel); border-bottom: 1px solid var(--border-color); padding: 0 16px; }
+        .brand { font-size: 15px; letter-spacing: 0.3px; font-weight: 700; }
+        .status-bar { font-size: 12px; gap: 8px; align-items: center; }
+        .status-item { background: var(--bg-raise); border: 1px solid var(--border-color); border-radius: 999px; padding: 4px 10px; white-space: nowrap; }
+        .app-shell { flex: 1; display: flex; min-height: 0; }
+        .rail { width: 72px; flex: none; background: var(--bg-panel); border-right: 1px solid var(--border-color); display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 12px 0; }
+        .rail button { width: 56px; height: 56px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; font-size: 11px; font-weight: 500; background: transparent; color: var(--text-muted); border-radius: 12px; padding: 0; }
+        .rail button span { font-size: 19px; line-height: 1; }
+        .rail button:hover { background: var(--bg-raise); color: var(--text-main); }
+        .rail button.active { background: rgba(168, 85, 247, 0.16); color: #d8b4fe; }
+        .rail .spacer { flex: 1; }
+        main { flex: 1; min-width: 0; grid-template-columns: 280px 1fr 360px; grid-template-rows: 1fr auto; gap: 12px; padding: 12px; }
+        main[hidden], .view[hidden] { display: none; }
+        .controls { grid-column: 1 / -1; border: 1px solid var(--border-color); border-radius: var(--radius); padding: 10px; }
+        #goal-input { min-height: 46px; max-height: 40vh; border-radius: 10px; font-family: var(--ui-font); font-size: 14px; padding: 12px 14px; }
+        .panel { border: 1px solid var(--border-color); border-radius: var(--radius); box-shadow: none; }
+        #task-queue-panel, #system-inspector-panel { border: 1px solid var(--border-color); }
+        .panel-header { background: transparent; color: var(--text-muted); font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; padding: 12px 14px; }
+        button { font-family: var(--ui-font); text-transform: none; font-weight: 600; font-size: 13px; border-radius: 9px; padding: 9px 14px; border: 1px solid transparent; }
+        button.ghost { background: var(--bg-raise); border-color: var(--border-color); color: var(--text-main); }
+        button.ghost:hover { background: #29232f; }
+        button.success { background: var(--success); } button.success:hover { background: #059669; }
+        button.danger { background: var(--error); } button.danger:hover { background: #dc2626; }
+        .task-item { border-radius: 10px; background: var(--bg-raise); }
+        .worker-station, .station-log, #detail-view { border-radius: 10px; }
+        #console-output, .station-log, #detail-view, code { font-family: var(--mono); }
+        #factory-floor-panel { background: var(--bg-panel); justify-content: flex-start; }
+        .floor-wrap { position: relative; border: none; border-radius: 14px; overflow: hidden; box-shadow: 0 0 0 1px var(--border-color), 0 18px 50px rgba(0,0,0,0.45); }
+        .floor-wrap, .readouts { max-width: 1200px; }
+        .floor-wrap::after { content: ''; position: absolute; inset: 0; pointer-events: none; box-shadow: inset 0 0 90px rgba(0,0,0,0.6); }
+        #floor-light { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; mix-blend-mode: screen; }
+        .staged-item { background: var(--bg-raise); border: 1px solid var(--border-color); border-radius: 10px; padding: 10px; margin-bottom: 8px; display: flex; flex-direction: column; gap: 6px; font-size: 12px; }
+        .staged-item .goal { color: var(--text-main); }
+        .staged-item .meta { color: var(--text-muted); font-family: var(--mono); font-size: 11px; }
+        .staged-item button { padding: 5px 10px; font-size: 12px; }
+        .empty { color: var(--text-muted); font-size: 12px; padding: 4px; }
+        .view { flex: 1; overflow-y: auto; padding: 28px 32px; }
+        .view h1 { font-size: 24px; margin: 0 0 4px; } .view .sub { color: var(--text-muted); margin: 0 0 22px; }
+        .card { background: var(--bg-panel); border: 1px solid var(--border-color); border-radius: 14px; padding: 18px; margin-bottom: 16px; max-width: 860px; display: flex; flex-direction: column; gap: 12px; }
+        .card h2, .modal-box h2 { font-size: 16px; margin: 0; }
+        .card label { display: flex; flex-direction: column; gap: 5px; font-size: 12px; color: var(--text-muted); }
+        .card textarea { font-family: var(--mono); font-size: 12px; resize: vertical; }
+        .card input:not([type=checkbox]), .card select, .card textarea, .modal-box select { background: var(--bg-input); color: var(--text-main); border: 1px solid var(--border-color); border-radius: 9px; padding: 9px 11px; font: inherit; }
+        .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; } .row > input { flex: 1; min-width: 220px; }
+        .check { flex-direction: row !important; align-items: center; color: var(--text-main) !important; font-size: 13px !important; }
+        .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        .list { font-family: var(--mono); font-size: 12px; color: var(--text-muted); background: var(--bg-input); border-radius: 9px; padding: 10px 12px; max-height: 200px; overflow: auto; white-space: pre-wrap; }
+        .hint { font-size: 12px; color: var(--text-muted); line-height: 1.5; }
+        .pill { display: inline-block; padding: 3px 9px; border-radius: 999px; font-size: 11px; border: 1px solid var(--border-color); }
+        .pill.ok { color: #6ee7b7; border-color: #065f46; } .pill.bad { color: #fca5a5; border-color: #7f1d1d; }
+        a { color: var(--primary-teal); }
+        .modal-box { border: 1px solid var(--border-color); border-radius: 16px; box-shadow: 0 24px 70px rgba(0,0,0,0.6); width: min(560px, 92vw); padding: 24px; gap: 14px; }
+        .modal-box p { margin: 0; line-height: 1.55; }
+        .steps { color: var(--text-muted); font-size: 12px; }
+    </style>
+</head>
+<body>
+
+<header>
+    <div class="brand">
+        <span style="font-size: 1.5rem;">❄️</span> Freeze Foundry
+    </div>
+    <div class="status-bar">
+        <div class="status-item">API: <span id="api-status">Connecting...</span></div>
+        <div class="status-item">Model: <button class="link-btn" onclick="app.openModels()" title="Choose models"><span id="model-name">...</span> &#9662;</button></div>
+        <div class="status-item">Tokens: <span id="token-count">0</span></div>
+        <div class="status-item">Root: <span id="root-path">D:\FreezeFoundry\factory</span></div>
+    </div>
+</header>
+
+<div class="app-shell">
+<nav class="rail">
+    <button class="active" data-view="factory" onclick="app.showView('factory')"><span>&#127981;</span>Factory</button>
+    <button data-view="models" onclick="app.showView('models')"><span>&#129504;</span>Models</button>
+    <button data-view="skills" onclick="app.showView('skills')"><span>&#129513;</span>Skills</button>
+    <button data-view="settings" onclick="app.showView('settings')"><span>&#9881;&#65039;</span>Settings</button>
+    <div class="spacer"></div>
+    <button onclick="app.openSetup()" title="Setup guide"><span>&#10067;</span>Guide</button>
+</nav>
+<main id="view-factory">
+    <!-- Left Panel: Task Queue -->
+    <section class="panel" id="task-queue-panel">
+        <div class="panel-header">
+            <span>Task Queue</span>
+            <button onclick="app.resetQueue()" style="padding: 2px 8px; font-size: 0.7rem;">Clear</button>
+        </div>
+        <div class="panel-content" id="task-list" style="flex: 0 1 auto; max-height: 40%;">
+            <!-- Tasks injected here -->
+        </div>
+        <div class="panel-header"><span>Staged changes</span><button class="ghost" onclick="app.refreshStaged()" style="padding: 2px 8px; font-size: 0.7rem;">Refresh</button></div>
+        <div class="panel-content" id="staged-list"></div>
+    </section>
+
+    <!-- Center Panel: Factory Floor -->
+    <section class="panel" id="factory-floor-panel">
+        <div class="floor-wrap"><canvas id="floor-canvas" width="400" height="240"></canvas><canvas id="floor-light"></canvas></div>
+        <div class="readouts">
+            <div class="worker-station" id="station-planner" data-role="planner">
+                <div class="readout-head"><div class="station-status-light" id="light-planner"></div><div class="station-name">PLANNER</div></div>
+                <div class="station-log" id="log-planner">Waiting for input...</div>
+            </div>
+            <div class="worker-station" id="station-builder" data-role="builder">
+                <div class="readout-head"><div class="station-status-light" id="light-builder"></div><div class="station-name">BUILDER</div></div>
+                <div class="station-log" id="log-builder">Ready to build.</div>
+            </div>
+            <div class="worker-station" id="station-tester" data-role="tester">
+                <div class="readout-head"><div class="station-status-light" id="light-tester"></div><div class="station-name">TESTER</div></div>
+                <div class="station-log" id="log-tester">Ready to test.</div>
+            </div>
+            <div class="worker-station" id="station-reviewer" data-role="reviewer">
+                <div class="readout-head"><div class="station-status-light" id="light-reviewer"></div><div class="station-name">REVIEWER</div></div>
+                <div class="station-log" id="log-reviewer">Ready to review.</div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Right Panel: System Inspector -->
+    <section class="panel" id="system-inspector-panel">
+        <div class="panel-header">System Inspector</div>
+        <div class="panel-content">
+            <div class="file-browser" id="file-browser">
+                <div style="color: var(--text-muted); padding: 4px;">Select a task to view files.</div>
+            </div>
+            <div class="panel-header" id="detail-title" style="font-size: 0.8rem; border-bottom: none; margin-top: 0;">Detail</div>
+            <pre id="detail-view">Click a station to see its full output.</pre>
+            <div class="panel-header" style="font-size: 0.8rem; border-bottom: none; margin-top: 0;">System Console</div>
+            <div id="console-output"></div>
+        </div>
+    </section>
+
+    <!-- Controls -->
+    <footer class="controls">
+        <textarea id="goal-input" rows="1" style="resize: vertical; font-family: inherit;" placeholder="Describe a goal. One goal per line queues several tasks. Ctrl+Enter to submit."></textarea>
+        <label style="font-size: 0.75rem; white-space: nowrap;" title="Apply a change by itself when tests pass and the Reviewer approves; anything else stays staged and the queue keeps going."><input type="checkbox" id="auto-apply"> Auto-apply</label>
+        <button class="ghost" onclick="app.showReport()">Report</button>
+        <button onclick="app.submitTask()">Submit Goal</button>
+        <button onclick="app.applyChanges()" id="btn-apply" class="success" disabled>Apply Changes</button>
+        <button onclick="app.rejectChanges()" id="btn-reject" class="danger" disabled>Reject</button>
+    </footer>
+</main>
+
+<section class="view" id="view-models" hidden>
+    <h1>Models</h1>
+    <p class="sub">Connect a local model server, choose a model for each worker, and download new ones.</p>
+    <div class="card">
+        <h2>Model server</h2>
+        <div class="row"><input id="set-base" placeholder="http://127.0.0.1:1234/v1"><button class="ghost" onclick="app.useServer('http://127.0.0.1:1234/v1')">LM Studio</button><button class="ghost" onclick="app.useServer('http://127.0.0.1:11434/v1')">Ollama</button><button onclick="app.refreshModels()">Connect</button></div>
+        <div id="models-msg" class="hint"></div>
+    </div>
+    <div class="card">
+        <h2>Worker models</h2>
+        <div class="grid2">
+            <label>Default (all workers) <select id="set-model"></select></label>
+            <label>Planner <select class="role-model" data-role="planner"></select></label>
+            <label>Builder <select class="role-model" data-role="builder"></select></label>
+            <label>Reviewer <select class="role-model" data-role="reviewer"></select></label>
+        </div>
+        <div class="row"><button onclick="app.saveModels()">Save models</button></div>
+    </div>
+    <div class="card">
+        <h2>Download a model for LM Studio</h2>
+        <div class="hint">Paste the link to a .gguf file on Hugging Face (<a href="https://huggingface.co/models?library=gguf&sort=trending" target="_blank">browse GGUF models</a>). It's saved in your LM Studio models folder, where LM Studio picks it up. A 7&ndash;9B model in Q4_K_M is a good fit for most GPUs. You can also download inside LM Studio's Discover tab.</div>
+        <div class="row"><input id="dl-url" placeholder="https://huggingface.co/owner/repo/blob/main/model-Q4_K_M.gguf"><button onclick="app.startDownload()">Download</button></div>
+        <div class="row hint">Saving to <code id="models-dir"></code><button class="ghost" onclick="app.openFolder('models')">Open folder</button></div>
+        <div id="dl-list" class="list">No downloads yet.</div>
+        <div class="hint">Model files in that folder</div>
+        <div id="local-models" class="list"></div>
+    </div>
+    <div class="card">
+        <h2>Pull a model for Ollama</h2>
+        <div class="hint">Enter a name from the <a href="https://ollama.com/library" target="_blank">Ollama library</a>, like qwen2.5-coder:7b. Ollama must be running. Progress shows in the download list above.</div>
+        <div class="row"><input id="ollama-name" placeholder="qwen2.5-coder:7b"><button onclick="app.pullOllama()">Pull</button></div>
+    </div>
+</section>
+
+<section class="view" id="view-skills" hidden>
+    <h1>Skills</h1>
+    <p class="sub">Reusable instructions your workers follow. A skill turns on when one of its trigger words appears in a goal, or on every task if it has none. Skills use the open Agent Skills format (one SKILL.md per folder), so you can drop in skills from other tools.</p>
+    <div class="row" style="max-width: 860px; margin-bottom: 16px;"><button onclick="app.editSkill()">New skill</button><button class="ghost" onclick="app.openFolder('skills')">Open skills folder</button><button class="ghost" onclick="app.refreshSkills()">Reload</button></div>
+    <div class="card" id="skill-editor" hidden>
+        <h2 id="skill-editor-title">New skill</h2>
+        <div class="grid2">
+            <label>Name <input id="sk-name"></label>
+            <label>Trigger words, comma-separated (empty = always on) <input id="sk-triggers" placeholder="apify, scraper"></label>
+        </div>
+        <label>Description <input id="sk-desc"></label>
+        <div class="row hint">Workers:
+            <label class="check"><input type="checkbox" class="sk-role" value="planner"> Planner</label>
+            <label class="check"><input type="checkbox" class="sk-role" value="builder"> Builder</label>
+            <label class="check"><input type="checkbox" class="sk-role" value="reviewer"> Reviewer</label>
+            (none ticked = all)</div>
+        <label>Instructions <textarea id="sk-body" rows="10"></textarea></label>
+        <div class="row"><button onclick="app.saveSkill()">Save skill</button><button class="ghost" onclick="document.getElementById('skill-editor').hidden = true">Cancel</button><span id="sk-msg" class="hint"></span></div>
+    </div>
+    <div id="skills-list"></div>
+</section>
+
+<section class="view" id="view-settings" hidden>
+    <h1>Settings</h1>
+    <p class="sub">Folders, queue behaviour and help.</p>
+    <div class="card">
+        <h2>Folders</h2>
+        <label>Workspace: where approved code is written (takes effect after restarting the app)
+            <div class="row"><input id="set-workspace"><button class="ghost" onclick="app.openFolder('workspace')">Open</button></div></label>
+        <label>LM Studio models folder
+            <div class="row"><input id="set-modelsdir"><button class="ghost" onclick="app.openFolder('models')">Open</button></div></label>
+        <div class="row hint">App data (tasks, proposals, usage): <code id="data-dir"></code><button class="ghost" onclick="app.openFolder('data')">Open</button></div>
+    </div>
+    <div class="card">
+        <h2>Queue</h2>
+        <label class="check"><input type="checkbox" id="set-autoapply"> Start with Auto-apply on</label>
+        <label>Builder attempts before a task gives up <input id="set-attempts" type="number" min="1" max="10" style="max-width: 120px"></label>
+    </div>
+    <div class="row" style="max-width: 860px; margin-bottom: 16px;"><button onclick="app.saveSettings()">Save settings</button></div>
+    <div class="card">
+        <h2>Help</h2>
+        <div class="row"><button class="ghost" onclick="app.openSetup()">Run the setup guide</button><button class="ghost" onclick="app.clearReport()">Clear run report</button></div>
+    </div>
+</section>
+</div>
+
+<div id="setup-modal" class="modal" hidden>
+    <div class="modal-box">
+        <div class="steps" id="setup-steps"></div>
+        <div id="setup-body" style="display: flex; flex-direction: column; gap: 12px;"></div>
+        <div class="modal-actions"><button class="ghost" id="setup-back" onclick="app.setupStep(-1)">Back</button><button id="setup-next" onclick="app.setupStep(1)">Next</button></div>
+    </div>
+</div>
+
+<script>
+/**
+ * Freeze Foundry - Core Application Logic
+ * Implements the 4-worker pipeline with real file system interaction.
+ */
+
+const CONFIG = {
+    apiBase: '', // Relative path for same-origin requests
+};
+
+class Worker {
+    constructor(id, role) {
+        this.id = id;
+        this.role = role;
+        this.element = document.getElementById(`station-${role}`);
+        this.logElement = document.getElementById(`log-${role}`);
+        this.lightElement = document.getElementById(`light-${role}`);
+        this.status = 'idle'; // idle, running, success, error
+    }
+
+    log(msg, type = 'info') {
+        const div = document.createElement('div');
+        div.className = `log-entry log-${type}`;
+        div.textContent = `[${this.role}] ${msg}`;
+        this.logElement.appendChild(div);
+        this.logElement.scrollTop = this.logElement.scrollHeight;
+    }
+
+    setStatus(state) {
+        this.status = state;
+        this.element.classList.remove('running', 'success', 'error');
+        
+        if (state === 'running') this.element.classList.add('running');
+        else if (state === 'success') this.element.classList.add('success');
+        else if (state === 'error') this.element.classList.add('error');
+
+        // Light animation
+        this.lightElement.style.animation = 'none';
+        this.lightElement.offsetHeight; /* trigger reflow */
+        this.lightElement.style.background = state === 'running' ? '#00e5ff' : 
+                                            state === 'success' ? '#10b981' : 
+                                            state === 'error' ? '#ef4444' : '#333';
+    }
+
+    // Short summary in the station, full text kept for the inspector.
+    show(text) {
+        this.output = String(text || '');
+        this.logElement.textContent = this.output.slice(0, 600);
+    }
+
+    reset() {
+        this.output = '';
+        this.logElement.innerHTML = '';
+        this.setStatus('idle');
+    }
+}
+
+// ---------- Pixel-art factory floor (canvas, 320x180 logical pixels) ----------
+function shade(hex, f) {
+    const n = parseInt(hex.slice(1), 16);
+    const ch = v => Math.max(0, Math.min(255, Math.round(f < 0 ? v * (1 + f) : v + (255 - v) * f)));
+    return `rgb(${ch(n >> 16)},${ch((n >> 8) & 255)},${ch(n & 255)})`;
+}
+
+const PIXEL_FONT = {
+    'A': '.#.#.#####.##.#',
+    'B': '##.#.###.#.###.',
+    'D': '##.#.##.##.###.',
+    'E': '####..##.#..###',
+    'H': '#.##.#####.##.#',
+    'I': '###.#..#..#.###',
+    'K': '#.##.###.#.##.#',
+    'L': '#..#..#..#..###',
+    'N': '##.#.##.##.##.#',
+    'P': '##.#.###.#..#..',
+    'R': '##.#.###.#.##.#',
+    'S': '.###...#...###.',
+    'T': '###.#..#..#..#.',
+    'U': '#.##.##.##.####',
+    'V': '#.##.##.##.#.#.',
+    'W': '#.##.##.#####.#',
+    'X': '#.##.#.#.#.##.#',
+    ' ': '...............',
+    '0': '####.##.##.####',
+    '1': '.#.##..#..#.###',
+    '2': '##...#.#.#..###',
+    '3': '##...#.#...###.',
+    '4': '#.##.####..#..#',
+    '5': '####..##...###.',
+    '6': '.###..####.####',
+    '7': '###..#.#..#..#.',
+    '8': '####.#####.####',
+    '9': '####.####..###.'
+};
+
+class FactoryFloor {
+    constructor(app, canvas) {
+        this.app = app; this.c = canvas; this.g = canvas.getContext('2d');
+        this.W = 400; this.H = 240; this.BY = 124;
+        this.path = [[22, 124], [70, 124], [150, 124], [230, 124], [310, 124], [378, 124]];
+        this.stops = { intake: 0, planner: 1, builder: 2, tester: 3, reviewer: 4, dock: 5 };
+        this.machines = [
+            { id: 'intake', label: 'INTAKE', p: 0 },
+            { id: 'planner', label: 'PLANNER', p: 1, col: '#a855f7', shirt: '#8b3fd9', hair: '#3b2a1a', up: true },
+            { id: 'builder', label: 'BUILDER', p: 2, col: '#ff9d00', shirt: '#ff9d00', hair: '#f5c518', up: false },
+            { id: 'tester', label: 'TESTER', p: 3, col: '#00e5ff', shirt: '#e2e8f0', hair: '#cbd5e1', up: true },
+            { id: 'reviewer', label: 'REVIEWER', p: 4, col: '#10b981', shirt: '#10b981', hair: '#7c4a1e', up: false },
+            { id: 'dock', label: 'SHIPPED', p: 5 }
+        ];
+        this.cum = this.path.map(([x]) => x - this.path[0][0]);
+        this.offices = {}; this.sprites = {};
+        for (const m of this.machines) if (m.col) {
+            const cx = this.path[m.p][0];
+            const o = { m, cx, x: cx - 38, y: m.up ? 8 : 160, w: 76, h: 76 };
+            o.desk = { x: o.x + 8, y: o.y + (m.up ? 14 : 30), w: 22, h: 9 };
+            o.seat = [o.desk.x + 11, o.desk.y + 21];
+            o.doorY = m.up ? 90 : 154;
+            o.pick = [cx + 26, m.up ? this.BY - 12 : this.BY + 14];
+            this.offices[m.id] = o;
+            this.sprites[m.id] = { x: o.seat[0], y: o.seat[1], path: [], state: 'home', workT: 0, dy: 0 };
+        }
+        this.s = 0; this.target = 0; this.visible = false; this.rework = false; this.moving = false;
+        this.queue = []; this.dest = null; this.owner = null; this.crateBusy = false;
+        this.shipped = 0; this.t = 0; this.beltT = 0; this.puffs = []; this.sparks = []; this.hover = null;
+        this.bg = this.makeFloor();
+        this.light = document.getElementById('floor-light'); this.lg = this.light.getContext('2d');
+        this.motes = Array.from({ length: 40 }, () => ({ x: Math.random() * 400, y: Math.random() * 240, v: 2 + Math.random() * 4, p: Math.random() * 6 }));
+        this.leds = []; this.anyBusy = false;
+
+        canvas.addEventListener('mousemove', e => {
+            this.hover = this.hit(e);
+            canvas.style.cursor = this.hover ? 'pointer' : 'default';
+        });
+        canvas.addEventListener('mouseleave', () => { this.hover = null; });
+        canvas.addEventListener('click', e => {
+            const id = this.hit(e), w = this.app.workers[id];
+            if (w) this.app.showDetail(id.toUpperCase(), w.output || 'No output yet.');
+        });
+        let last = performance.now();
+        const loop = now => {
+            this.update(Math.min(0.05, (now - last) / 1000)); last = now;
+            this.draw(); requestAnimationFrame(loop);
+        };
+        requestAnimationFrame(loop);
+    }
+
+    // ---------- static background: floor, offices, decor ----------
+    makeFloor() {
+        const bg = document.createElement('canvas'); bg.width = this.W; bg.height = this.H;
+        const b = bg.getContext('2d');
+        const r = (x, y, w, h, c) => { b.fillStyle = c; b.fillRect(x, y, w, h); };
+        for (let y = 0; y < this.H; y += 16) for (let x = 0; x < this.W; x += 16) {
+            r(x, y, 16, 16, ((x + y) / 16) % 2 ? '#221d29' : '#1f1a25');
+            r(x, y, 16, 1, '#2a2432'); r(x, y, 1, 16, '#2a2432');
+            r(x + 2, y + 2, 1, 1, '#363040'); r(x + 13, y + 2, 1, 1, '#363040');
+        }
+        // walkway stripes either side of the belt
+        for (let x = 0; x < this.W; x += 8) { r(x, this.BY - 18, 4, 1, '#3a3342'); r(x, this.BY + 18, 4, 1, '#3a3342'); }
+        for (let x = 0; x < this.W; x += 8) r(x, this.H - 4, 4, 4, '#f59e0b'), r(x + 4, this.H - 4, 4, 4, '#2a2430');
+        Object.values(this.offices).forEach(o => this.drawOffice(r, o));
+
+        const crates = (x, y) => [[0, 8], [9, 8], [4, 0]].forEach(([dx, dy]) => {
+            r(x + dx, y + dy, 9, 9, '#4a2f0a'); r(x + dx + 1, y + dy + 1, 7, 7, '#a8701f'); r(x + dx + 1, y + dy + 1, 7, 1, '#d69a45');
+            r(x + dx + 4, y + dy + 1, 1, 7, '#4a2f0a');
+        });
+        const barrel = (x, y) => { r(x, y, 10, 12, '#0d0b10'); r(x + 1, y + 1, 8, 10, '#4b6b8a'); r(x + 1, y + 3, 8, 1, '#2c4257'); r(x + 1, y + 8, 8, 1, '#2c4257'); r(x + 2, y + 1, 2, 10, '#6f93b5'); };
+        const plant = (x, y) => { r(x + 2, y + 8, 7, 6, '#0d0b10'); r(x + 3, y + 9, 5, 4, '#9a5b34'); r(x, y + 2, 11, 6, '#1f6b3a'); r(x + 2, y, 7, 4, '#2f9e55'); r(x + 3, y + 1, 2, 2, '#58c47c'); };
+        const gen = (x, y) => {
+            r(x, y, 34, 26, '#0d0b10'); r(x + 1, y + 1, 32, 24, '#4a4252'); r(x + 1, y + 1, 32, 2, '#6b6275');
+            for (let i = 0; i < 4; i++) r(x + 4, y + 7 + i * 4, 18, 2, '#2a2430');
+            r(x + 25, y + 7, 5, 5, '#f59e0b'); r(x + 25, y + 15, 5, 5, '#10b981');
+            r(x + 14, y + 26, 4, 60, '#3a3342'); r(x + 15, y + 26, 1, 60, '#5a5163');
+        };
+        crates(120, 34); barrel(160, 26); barrel(172, 30); plant(150, 62);
+        r(310, 40, 4, 70, '#3a3342'); r(311, 40, 1, 70, '#5a5163'); // power cable down to the line
+        r(40, 107, 274, 3, '#2a2430'); r(40, 107, 274, 1, '#3a3342');
+        gen(296, 14); plant(380, 16); crates(352, 56);
+        crates(14, 176); barrel(60, 196); plant(88, 166);
+        barrel(206, 190); crates(232, 198);
+        plant(368, 174); barrel(380, 206);
+        return bg;
+    }
+
+    drawOffice(r, o) {
+        const { x, y, w, h, cx, m } = o, col = m.col;
+        // carpet
+        for (let j = 0; j < h; j += 8) for (let i = 0; i < w; i += 8)
+            r(x + i, y + j, 8, 8, ((i + j) / 8) % 2 ? shade(col, -0.8) : shade(col, -0.76));
+        // walls with a door gap facing the belt
+        const wall = (wx, wy, ww, wh) => { r(wx, wy, ww, wh, '#5a5163'); r(wx, wy, ww, 1, '#7a7085'); };
+        const gapL = cx - 7, gapR = cx + 7;
+        const hwall = wy => {
+            const isDoor = m.up ? wy === y + h - 3 : wy === y;
+            if (!isDoor) return wall(x, wy, w, 3);
+            wall(x, wy, gapL - x, 3); wall(gapR, wy, x + w - gapR, 3);
+            r(gapL, m.up ? wy + 3 : wy - 3, 14, 3, shade(col, -0.5)); // door mat
+        };
+        hwall(y); hwall(y + h - 3);
+        wall(x, y, 3, h); wall(x + w - 3, y, 3, h);
+        r(x, y + h, w, 2, 'rgba(0,0,0,0.35)');
+        // desk, keyboard, chair
+        const d = o.desk;
+        r(d.x, d.y, d.w, d.h, '#0d0b10'); r(d.x + 1, d.y + 1, d.w - 2, d.h - 2, '#6b4423'); r(d.x + 1, d.y + 1, d.w - 2, 1, '#8a5a2b');
+        r(d.x + 2, d.y - 6, 12, 8, '#0d0b10'); r(d.x + 7, d.y + 1, 2, 2, '#2a2430');
+        r(d.x + 4, d.y + 5, 8, 2, '#2a2430');
+        r(o.seat[0] - 4, o.seat[1] - 6, 8, 7, '#0d0b10'); r(o.seat[0] - 3, o.seat[1] - 5, 6, 5, '#3a3342');
+        // name sign on the wall opposite the door
+        const sy = m.up ? y + 5 : y + h - 11, sx = x + 38;
+        r(sx - 2, sy - 2, m.label.length * 4 + 3, 9, '#0d0b10'); r(sx - 1, sy - 1, m.label.length * 4 + 1, 7, shade(col, -0.6));
+        this.textTo(r, m.label, sx, sy, col);
+        // plant in a corner
+        const pyy = m.up ? y + 60 : y + 8;
+        r(x + 63, pyy + 6, 6, 5, '#9a5b34'); r(x + 61, pyy, 10, 6, '#1f6b3a'); r(x + 63, pyy - 2, 6, 3, '#2f9e55');
+        // role prop
+        const py = m.up ? y + 40 : y + 48;
+        if (m.id === 'planner') { r(x + 40, py, 26, 14, '#0d0b10'); r(x + 41, py + 1, 24, 12, '#e2e8f0'); r(x + 43, py + 3, 12, 1, col); r(x + 43, py + 6, 18, 1, '#ff9d00'); r(x + 43, py + 9, 9, 1, col); }
+        if (m.id === 'builder') { r(x + 44, py, 20, 9, '#0d0b10'); r(x + 45, py + 1, 18, 7, '#c0453a'); r(x + 51, py - 2, 6, 3, '#0d0b10'); r(x + 46, py + 3, 16, 1, '#7a2018'); }
+        if (m.id === 'tester') { r(x + 40, py, 26, 8, '#0d0b10'); r(x + 41, py + 1, 24, 6, '#94a3b8'); [44, 51, 58].forEach((fx, k) => { r(x + fx, py - 6, 4, 6, '#0d0b10'); r(x + fx + 1, py - 3, 2, 3, ['#00e5ff', '#a855f7', '#10b981'][k]); }); }
+        if (m.id === 'reviewer') { r(x + 46, py, 14, 16, '#0d0b10'); r(x + 47, py + 1, 12, 14, '#64748b'); r(x + 47, py + 7, 12, 1, '#0d0b10'); r(x + 51, py + 3, 4, 1, '#cbd5e1'); r(x + 51, py + 10, 4, 1, '#cbd5e1'); }
+    }
+
+    textTo(r, str, x, y, col) {
+        let cx = x;
+        for (const ch of str) {
+            const gl = PIXEL_FONT[ch] || PIXEL_FONT[' '];
+            for (let i = 0; i < 15; i++) if (gl[i] === '#') r(cx + i % 3, y + Math.floor(i / 3), 1, 1, col);
+            cx += 4;
+        }
+    }
+
+    // ---------- interaction ----------
+    hit(e) {
+        const rc = this.c.getBoundingClientRect();
+        const x = (e.clientX - rc.left) * this.W / rc.width, y = (e.clientY - rc.top) * this.H / rc.height;
+        for (const [id, o] of Object.entries(this.offices)) {
+            if (x >= o.x && x <= o.x + o.w && y >= o.y && y <= o.y + o.h) return id;
+            if (x >= o.cx - 19 && x <= o.cx + 19 && y >= this.BY - 34 && y <= this.BY + 8) return id;
+        }
+        return null;
+    }
+
+    // Requests are queued so the crate waits for each worker to carry it back before moving on.
+    moveTo(id, instant) {
+        this.visible = true;
+        if (!instant) { this.queue.push(id); return; }
+        this.queue = []; this.dest = null; this.owner = null; this.crateBusy = false; this.rework = false;
+        this.s = this.target = this.cum[this.stops[id]];
+        for (const [rid, sp] of Object.entries(this.sprites)) {
+            const o = this.offices[rid];
+            Object.assign(sp, { x: o.seat[0], y: o.seat[1], path: [], state: 'home' });
+        }
+    }
+
+    routeOut(id) { const o = this.offices[id]; return [[o.cx, o.seat[1]], [o.cx, o.doorY], [o.pick[0], o.doorY], o.pick.slice()]; }
+    routeIn(id) { const o = this.offices[id]; return [[o.pick[0], o.doorY], [o.cx, o.doorY], [o.cx, o.seat[1]], o.seat.slice()]; }
+    go(id, state, path) { const sp = this.sprites[id]; sp.state = state; sp.path = path; }
+
+    arrive(id, sp) {
+        if (sp.state === 'fetch') { this.owner = id; this.go(id, 'carryIn', this.routeIn(id)); }
+        else if (sp.state === 'carryIn') { sp.state = 'work'; sp.workT = 0; }
+        else if (sp.state === 'carryOut') {
+            this.owner = null; this.s = this.target = this.cum[this.stops[id]]; this.crateBusy = false;
+            this.go(id, 'return', this.routeIn(id));
+        } else sp.state = 'home';
+    }
+
+    stepSprite(id, sp, dt) {
+        if (sp.state === 'work') {
+            sp.workT += dt;
+            if (sp.workT > 0.8 / this.hurry() && (this.status(id) !== 'running' || this.queue.length)) this.go(id, 'carryOut', this.routeOut(id));
+            return;
+        }
+        if (!sp.path.length) return;
+        const [tx, ty] = sp.path[0], step = 60 * dt * this.hurry();
+        const dx = tx - sp.x, dy = ty - sp.y;
+        if (Math.abs(dx) > 0.01) { sp.x += Math.sign(dx) * Math.min(Math.abs(dx), step); sp.dy = 0; }
+        else if (Math.abs(dy) > 0.01) { sp.y += Math.sign(dy) * Math.min(Math.abs(dy), step); sp.dy = Math.sign(dy); }
+        if (Math.abs(tx - sp.x) < 0.01 && Math.abs(ty - sp.y) < 0.01) {
+            sp.path.shift();
+            if (!sp.path.length) this.arrive(id, sp);
+        }
+    }
+
+    // The real pipeline can finish before the sprites do; every move still queued makes them hurry.
+    hurry() { return 1 + this.queue.length * 2.5; }
+
+    at(s) { return [this.path[0][0] + s, this.BY]; }
+    status(id) { const w = this.app.workers[id]; return w ? w.status : 'idle'; }
+
+    update(dt) {
+        this.t += dt;
+        if (!this.crateBusy && this.dest == null && this.queue.length && !this.moving) {
+            this.dest = this.queue.shift();
+            this.target = this.cum[this.stops[this.dest]];
+            this.rework = this.target < this.s;
+        }
+        const d = this.target - this.s, step = 90 * dt * this.hurry();
+        this.s = Math.abs(d) <= step ? this.target : this.s + Math.sign(d) * step;
+        this.moving = Math.abs(this.target - this.s) > 0.5;
+        if (this.dest != null && !this.moving) {
+            const id = this.dest; this.dest = null;
+            if (this.sprites[id]) { this.crateBusy = true; this.go(id, 'fetch', this.routeOut(id)); }
+            else if (id === 'dock') this.shipped++;
+        }
+        for (const [id, sp] of Object.entries(this.sprites)) this.stepSprite(id, sp, dt);
+
+        const busy = Object.values(this.app.workers).some(w => w.status === 'running');
+        if (this.moving || busy) this.beltT += dt * 24 * (this.rework && this.moving ? -1 : 1);
+        this.anyBusy = busy;
+        this.motes.forEach(m => { m.y -= m.v * dt; m.x += Math.sin(this.t + m.p) * 3 * dt; if (m.y < 0) { m.y = this.H; m.x = Math.random() * this.W; } });
+        for (const m of this.machines) {
+            if (this.status(m.id) !== 'running') continue;
+            const cx = this.path[m.p][0];
+            if (Math.random() < dt * 5) this.puffs.push({ x: cx - 9, y: this.BY - 34, life: 1 });
+            if (m.id === 'builder' && Math.random() < dt * 25)
+                this.sparks.push({ x: cx + (Math.random() * 10 - 5), y: this.BY - 6, vx: Math.random() * 40 - 20, vy: -Math.random() * 30, life: 0.4 });
+        }
+        this.puffs.forEach(p => { p.y -= dt * 10; p.x += dt * 4; p.life -= dt * 0.7; });
+        this.sparks.forEach(p => { p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 120 * dt; p.life -= dt; });
+        this.puffs = this.puffs.filter(p => p.life > 0);
+        this.sparks = this.sparks.filter(p => p.life > 0);
+    }
+
+    // ---------- drawing ----------
+    px(x, y, w, h, c) { this.g.fillStyle = c; this.g.fillRect(Math.round(x), Math.round(y), w, h); }
+
+    text(str, x, y, col) {
+        this.textTo((a, b, w, h, c) => this.px(a, b, w, h, c), str, Math.round(x) + 1, y + 1, '#0d0b10');
+        this.textTo((a, b, w, h, c) => this.px(a, b, w, h, c), str, Math.round(x), y, col);
+    }
+
+    belt([x1, y1], [x2, y2]) {
+        const len = Math.abs(x2 - x1), x = Math.min(x1, x2), y = y1;
+        this.px(x, y + 8, len, 3, 'rgba(0,0,0,0.35)');
+        this.px(x, y - 8, len, 16, '#16131b');
+        this.px(x, y - 6, len, 12, '#2c2634');
+        for (let k = 4; k < len; k += 8) this.px(x + k, y - 6, 1, 12, '#25202c');
+        // chevrons ride the belt and point the way work is moving
+        const off = ((this.beltT % 12) + 12) % 12;
+        const chev = this.moving ? (this.rework ? '#8a3b3b' : '#5b4a7d') : '#3a3342';
+        for (let k = -12; k < len + 12; k += 12) {
+            const cx = x + k + off;
+            for (let i = -3; i <= 3; i++) {
+                const px = this.rework ? cx + Math.abs(i) : cx + 3 - Math.abs(i);
+                if (px >= x && px < x + len - 1) this.px(px, y + i, 2, 1, chev);
+            }
+        }
+        this.px(x, y - 8, len, 2, '#6b6275'); this.px(x, y - 8, len, 1, '#8a8094');
+        this.px(x, y + 6, len, 2, '#3a3342');
+        const lit = Math.floor(this.t * 12);
+        for (let k = 6, n = 0; k < len; k += 10, n++) {
+            const on = (this.moving || this.anyBusy) && (n + (this.rework ? lit : -lit)) % 6 === 0;
+            this.px(x + k, y + 7, 1, 1, on ? '#d8b4fe' : '#4a4252');
+            if (on) this.leds.push([x + k, y + 7]);
+        }
+    }
+
+    drawLight() {
+        const c = this.light, w = c.clientWidth, h = c.clientHeight, dpr = window.devicePixelRatio || 1;
+        if (!w) return;
+        if (c.width !== Math.round(w * dpr)) { c.width = Math.round(w * dpr); c.height = Math.round(h * dpr); }
+        const g = this.lg, s = c.width / this.W, t = this.t;
+        g.clearRect(0, 0, c.width, c.height);
+        const glow = (x, y, r, col, a) => {
+            const gr = g.createRadialGradient(x * s, y * s, 0, x * s, y * s, r * s);
+            gr.addColorStop(0, col + Math.round(Math.max(0, Math.min(1, a)) * 255).toString(16).padStart(2, '0'));
+            gr.addColorStop(1, col + '00');
+            g.fillStyle = gr; g.fillRect((x - r) * s, (y - r) * s, 2 * r * s, 2 * r * s);
+        };
+        [70, 150, 230, 310].forEach(x => glow(x, this.BY - 6, 62, '#ffb86b', 0.08));
+        glow(22, this.BY - 14, 24, '#22d3ee', 0.2);
+        glow(378, this.BY, 26, '#f59e0b', this.shipped ? 0.16 + 0.06 * Math.sin(t * 2) : 0.1);
+        for (const m of this.machines) {
+            if (!m.col) continue;
+            const cx = this.path[m.p][0], st = this.status(m.id), o = this.offices[m.id], sp = this.sprites[m.id];
+            if (st === 'running') glow(cx, this.BY - 12, 42, m.col, 0.34 + 0.1 * Math.sin(t * 6));
+            else if (st === 'error') glow(cx, this.BY - 12, 32, '#ef4444', 0.25 + 0.15 * Math.sin(t * 8));
+            else if (st === 'success') glow(cx, this.BY - 12, 22, '#10b981', 0.16);
+            else glow(cx, this.BY - 12, 16, m.col, 0.07);
+            glow(o.desk.x + 8, o.desk.y - 2, sp.state === 'work' ? 24 : 10, m.col, sp.state === 'work' ? 0.4 : 0.1);
+            glow(o.cx, o.doorY, 14, m.col, 0.1);
+        }
+        if (this.visible && !this.owner) { const [kx, ky] = this.at(this.s); glow(kx, ky, 16, this.rework ? '#ef4444' : '#fbbf24', this.moving ? 0.32 : 0.14); }
+        this.leds.forEach(([x, y]) => glow(x + 0.5, y + 0.5, 6, '#c084fc', 0.7));
+        this.sparks.forEach(p => glow(p.x, p.y, 4, '#ffb347', p.life * 1.5));
+        g.fillStyle = '#ffffff';
+        this.motes.forEach(m => { g.globalAlpha = 0.1 + 0.08 * Math.sin(t * 2 + m.p); g.fillRect(m.x * s, m.y * s, s * 0.6, s * 0.6); });
+        g.globalAlpha = 1;
+    }
+
+    machine(m) {
+        const [cx, cy] = this.path[m.p], st = this.status(m.id), run = st === 'running', t = this.t;
+        if (m.id === 'intake') {
+            this.px(cx - 13, cy - 26, 26, 5, '#0d0b10'); this.px(cx - 12, cy - 25, 24, 3, '#6b6275');
+            this.px(cx - 10, cy - 21, 20, 5, '#4a4252'); this.px(cx - 8, cy - 16, 16, 5, '#3a3342');
+            this.px(cx - 6, cy - 11, 12, 6, '#2a2430'); this.px(cx - 4, cy - 6, 8, 4, '#16131b');
+            this.text(m.label, cx - 12, cy - 35, '#94a3b8');
+            return;
+        }
+        if (m.id === 'dock') {
+            this.px(cx - 15, cy - 15, 30, 30, '#0d0b10');
+            for (let i = 0; i < 28; i += 4) {
+                const c = (i / 4) % 2 ? '#2a2430' : '#f59e0b';
+                this.px(cx - 14 + i, cy - 14, 4, 2, c); this.px(cx - 14 + i, cy + 12, 4, 2, c);
+                this.px(cx - 14, cy - 14 + i, 2, 4, c); this.px(cx + 12, cy - 14 + i, 2, 4, c);
+            }
+            this.px(cx - 12, cy - 12, 24, 24, '#1c1820');
+            for (let i = 0; i < Math.min(this.shipped, 4); i++) this.crateAt(cx - 6 + (i % 2) * 11, cy - 6 + Math.floor(i / 2) * 11, false);
+            const lbl = this.shipped ? `${m.label} ${this.shipped}` : m.label;
+            this.text(lbl, cx - lbl.length * 2, cy + 20, '#94a3b8');
+            return;
+        }
+        const col = m.col, bob = run && Math.floor(t * 6) % 2 ? -1 : 0;
+        const x = cx - 18, y = cy - 28 + bob;
+        this.px(x + 2, cy + 6, 36, 3, 'rgba(0,0,0,0.35)');
+        this.px(x + 5, y - 5, 6, 6, '#0d0b10'); this.px(x + 6, y - 4, 4, 5, '#3a3342'); this.px(x + 6, y - 4, 4, 1, '#5a5163');
+        const lc = st === 'running' ? (Math.floor(t * 4) % 2 ? '#00e5ff' : '#0a6c78') : st === 'success' ? '#10b981' : st === 'error' ? '#ef4444' : '#3a3342';
+        this.px(x + 27, y - 4, 6, 5, '#0d0b10'); this.px(x + 28, y - 3, 4, 3, lc);
+        if (st === 'running' || st === 'error') this.px(x + 29, y - 3, 1, 1, '#ffffff');
+        this.px(x, y, 36, 34, '#0d0b10');
+        this.px(x + 1, y + 1, 34, 32, '#4a4252');
+        this.px(x + 1, y + 1, 34, 2, '#6b6275'); this.px(x + 1, y + 1, 2, 30, '#5a5163');
+        this.px(x + 1, y + 31, 34, 2, '#2a2430'); this.px(x + 33, y + 1, 2, 32, '#2a2430');
+        this.px(x + 3, y + 4, 30, 5, col); this.px(x + 3, y + 4, 30, 1, shade(col, 0.4)); this.px(x + 3, y + 8, 30, 1, shade(col, -0.45));
+        this.px(x + 4, y + 22, 28, 10, '#0d0b10'); this.px(x + 5, y + 23, 26, 8, '#16131b');
+        this[m.id + 'Art'](x, y, run, t, col);
+    }
+
+    plannerArt(x, y, run, t) {
+        this.px(x + 6, y + 11, 24, 9, '#0d0b10');
+        const k = run ? Math.floor(t * 5) : 0;
+        for (let i = 0; i < 3; i++) this.px(x + 8, y + 12 + i * 2 + 1, 4 + ((i * 7 + k) % 16), 1, run ? '#c084fc' : '#5b3a7a');
+    }
+    builderArt(x, y, run, t) {
+        const h = run ? Math.round(Math.abs(Math.sin(t * 7)) * 6) : 0;
+        this.px(x + 16, y + 10, 4, 3 + h, '#2a2430');
+        this.px(x + 12, y + 13 + h, 12, 4, '#0d0b10'); this.px(x + 13, y + 13 + h, 10, 3, '#ff9d00'); this.px(x + 13, y + 13 + h, 10, 1, '#ffd08a');
+    }
+    testerArt(x, y, run, t) {
+        this.px(x + 15, y + 10, 6, 3, '#0d0b10');
+        this.px(x + 12, y + 13, 12, 8, '#0d0b10'); this.px(x + 13, y + 14, 10, 6, '#16131b');
+        this.px(x + 13, y + 16, 10, 4, run ? '#00e5ff' : '#0a6c78');
+        if (run) for (let i = 0; i < 3; i++) this.px(x + 15 + i * 3, y + 18 - ((t * 8 + i * 2) % 5), 1, 1, '#e0ffff');
+    }
+    reviewerArt(x, y, run, t) {
+        this.px(x + 6, y + 11, 24, 9, '#0d0b10');
+        const lx = run ? x + 8 + Math.round((Math.sin(t * 3) + 1) * 8) : x + 16;
+        this.px(lx, y + 12, 4, 7, '#10b981'); this.px(lx + 1, y + 14, 2, 3, '#d1fae5');
+        if (run) this.px(x + 7, y + 15, 22, 1, 'rgba(16,185,129,0.35)');
+    }
+
+    crateAt(x, y, bounce = true, size = 10) {
+        const c = this.rework && bounce ? ['#7a2018', '#c0453a', '#e87a6a'] : ['#4a2f0a', '#c98a2b', '#e8b060'];
+        const h = Math.floor(size / 2);
+        x = Math.round(x) - h; y = Math.round(y) - h - 1 - (bounce && this.moving && Math.floor(this.t * 8) % 2 ? 1 : 0);
+        this.px(x + 1, y + size, size, 2, 'rgba(0,0,0,0.35)');
+        this.px(x, y, size, size, c[0]); this.px(x + 1, y + 1, size - 2, size - 2, c[1]);
+        this.px(x + 1, y + 1, size - 2, 1, c[2]); this.px(x + 1, y + 1, 1, size - 2, c[2]);
+        this.px(x + 2, y + h - 1, size - 4, 1, c[0]); this.px(x + h - 1, y + 2, 1, size - 4, c[0]);
+    }
+
+    monitor(o) {
+        const d = o.desk, sp = this.sprites[o.m.id], t = this.t;
+        const on = sp.state === 'work';
+        this.px(d.x + 3, d.y - 5, 10, 6, on ? shade(o.m.col, -0.5) : '#1b2a33');
+        if (on) for (let i = 0; i < 2; i++) this.px(d.x + 4, d.y - 4 + i * 2, 2 + ((Math.floor(t * 6) + i * 3) % 7), 1, o.m.col);
+        else this.px(d.x + 4, d.y - 4, 2, 1, '#2f4a5a');
+    }
+
+    person(m, sp) {
+        const seated = sp.state === 'home' || sp.state === 'work';
+        const walking = sp.path.length > 0;
+        const f = walking ? Math.floor(this.t * 8) % 2 : 0;
+        const carry = sp.state === 'carryIn' || sp.state === 'carryOut';
+        const back = seated || sp.dy < 0;
+        const lx = Math.round(sp.x) - 3, ty = Math.round(sp.y) - 13;
+        const skin = '#f1c27d', pants = '#2a2430';
+        this.px(lx, ty + 12, 7, 2, 'rgba(0,0,0,0.35)');
+        if (!seated) { this.px(lx + 1, ty + 10, 2, f ? 2 : 3, pants); this.px(lx + 4, ty + 10, 2, f ? 3 : 2, pants); }
+        this.px(lx, ty + 5, 7, 5, m.shirt); this.px(lx, ty + 9, 7, 1, shade(m.shirt, -0.4));
+        if (m.id === 'tester') this.px(lx + 2, ty + 5, 3, 1, m.col);
+        if (m.id === 'builder') this.px(lx + 3, ty + 5, 1, 5, '#f5c518');
+        if (!carry) {
+            const typing = sp.state === 'work' ? Math.floor(this.t * 10) % 2 : 0;
+            const swing = walking ? f : 0;
+            this.px(lx - 1, ty + 6 - typing + swing, 1, 3, skin);
+            this.px(lx + 7, ty + 6 - (sp.state === 'work' ? 1 - typing : 0) + (walking ? 1 - f : 0), 1, 3, skin);
+        }
+        this.px(lx + 1, ty, 5, 5, skin);
+        if (back) this.px(lx + 1, ty, 5, 4, m.hair);
+        else {
+            this.px(lx + 1, ty, 5, 2, m.hair);
+            this.px(lx + 2, ty + 3, 1, 1, '#0d0b10'); this.px(lx + 4, ty + 3, 1, 1, '#0d0b10');
+            if (m.id === 'reviewer') this.px(lx + 1, ty + 2, 5, 1, '#0d0b10');
+        }
+        if (m.id === 'builder') this.px(lx, ty - 1, 7, 2, '#f5c518');
+        if (carry) this.crateAt(sp.x, ty + 9, false, 8);
+    }
+
+    draw() {
+        const g = this.g;
+        g.drawImage(this.bg, 0, 0);
+        this.leds = [];
+        this.belt(this.path[0], this.path[this.path.length - 1]);
+        Object.values(this.offices).forEach(o => this.monitor(o));
+        if (this.owner && this.sprites[this.owner].state === 'work') {
+            const d = this.offices[this.owner].desk;
+            this.crateAt(d.x + 18, d.y + 4, false, 8);
+        }
+        this.machines.forEach(m => this.machine(m));
+        if (this.visible && !this.owner) { const [kx, ky] = this.at(this.s); this.crateAt(kx, ky); }
+        this.machines.filter(m => m.col).map(m => [m, this.sprites[m.id]])
+            .sort((a, b) => a[1].y - b[1].y).forEach(([m, sp]) => this.person(m, sp));
+        this.puffs.forEach(p => {
+            g.globalAlpha = p.life * 0.6;
+            const r = p.life > 0.5 ? 3 : 2;
+            this.px(p.x, p.y, r, r, '#8a8494');
+        });
+        g.globalAlpha = 1;
+        this.sparks.forEach(p => this.px(p.x, p.y, 1, 1, p.life > 0.2 ? '#ffd08a' : '#ff9d00'));
+        if (this.hover) {
+            const o = this.offices[this.hover];
+            g.strokeStyle = 'rgba(255,255,255,0.5)'; g.lineWidth = 1;
+            g.strokeRect(o.x - 0.5, o.y - 0.5, o.w + 1, o.h + 1);
+            g.strokeRect(o.cx - 19.5, this.BY - 34.5, 39, 42);
+        }
+        this.drawLight();
+    }
+}
+
+class App {
+    constructor() {
+        this.taskQueue = [];
+        this.currentTask = null;
+        this.workers = {
+            planner: new Worker('planner', 'planner'),
+            builder: new Worker('builder', 'builder'),
+            tester: new Worker('tester', 'tester'),
+            reviewer: new Worker('reviewer', 'reviewer')
+        };
+        
+        // State for pending proposal (waiting for user approval)
+        this.pendingProposal = null;
+        this.lastDiff = null;
+        this.busy = false;
+        this.report = [];
+        try { this.report = JSON.parse(localStorage.getItem('ff-report')) || []; } catch {}
+        this.crateAt = null;
+        this.floor = new FactoryFloor(this, document.getElementById('floor-canvas'));
+
+        Object.values(this.workers).forEach(w => {
+            w.element.onclick = () => this.showDetail(w.role.toUpperCase(), w.output || 'No output yet.');
+        });
+
+        this.init();
+    }
+
+    showDetail(title, text, isDiff = false) {
+        document.getElementById('detail-title').textContent = title;
+        const view = document.getElementById('detail-view');
+        view.innerHTML = '';
+        if (!isDiff) { view.textContent = text; return; }
+        text.split('\n').forEach(line => {
+            const div = document.createElement('div');
+            if (line.startsWith('+')) div.className = 'diff-add';
+            else if (line.startsWith('-')) div.className = 'diff-del';
+            div.textContent = line || ' ';
+            view.appendChild(div);
+        });
+    }
+
+    // Move the crate on the canvas conveyor ('intake', a worker role, or 'dock').
+    moveCrate(target, instant = false) {
+        this.floor.moveTo(target, instant);
+        this.crateAt = target;
+    }
+
+    async loadSettings() {
+        try {
+            this.settings = await fetch('/api/settings').then(r => r.json());
+            document.getElementById('model-name').textContent = this.settings.model;
+            document.getElementById('root-path').textContent = this.settings.root;
+            document.getElementById('auto-apply').checked = !!this.settings.autoApply;
+        } catch {}
+        this.refreshLedger();
+    }
+
+    async refreshLedger() {
+        try {
+            const l = await fetch('/api/ledger').then(r => r.json());
+            document.getElementById('token-count').textContent = (l.prompt_tokens + l.completion_tokens).toLocaleString();
+        } catch {}
+    }
+
+    openModels() { this.showView('models'); }
+
+    showView(name) {
+        document.getElementById('view-factory').hidden = name !== 'factory';
+        ['models', 'skills', 'settings'].forEach(v => { document.getElementById('view-' + v).hidden = name !== v; });
+        document.querySelectorAll('.rail [data-view]').forEach(b => b.classList.toggle('active', b.dataset.view === name));
+        if (name === 'models') { document.getElementById('set-base').value = (this.settings && this.settings.baseUrl) || ''; this.refreshModels(); }
+        if (name === 'settings') this.fillSettings();
+        if (name === 'skills') this.refreshSkills();
+    }
+
+    useServer(url) { document.getElementById('set-base').value = url; this.refreshModels(); }
+
+    async postSettings(body) {
+        this.settings = await fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).then(r => r.json());
+        document.getElementById('model-name').textContent = this.settings.model;
+        return this.settings;
+    }
+
+    maxAttempts() { return (this.settings && this.settings.attempts) || 3; }
+
+    fillSettings() {
+        const s = this.settings || {};
+        document.getElementById('set-workspace').value = s.workspace || '';
+        document.getElementById('set-modelsdir').value = s.modelsDir || '';
+        document.getElementById('data-dir').textContent = s.dataDir || '';
+        document.getElementById('set-autoapply').checked = !!s.autoApply;
+        document.getElementById('set-attempts').value = s.attempts || 3;
+    }
+
+    async saveSettings() {
+        await this.postSettings({
+            workspace: document.getElementById('set-workspace').value,
+            modelsDir: document.getElementById('set-modelsdir').value,
+            autoApply: document.getElementById('set-autoapply').checked,
+            attempts: parseInt(document.getElementById('set-attempts').value, 10)
+        });
+        this.fillSettings();
+        this.logToConsole('Settings saved.', 'success');
+    }
+
+    clearReport() {
+        this.report = [];
+        try { localStorage.removeItem('ff-report'); } catch {}
+        this.logToConsole('Run report cleared.', 'info');
+    }
+
+    openFolder(which) {
+        fetch('/api/open-folder', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ which }) });
+    }
+
+    async startDownload(path = '/api/download', body = { url: document.getElementById('dl-url').value.trim() }) {
+        const r = await fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok) { document.getElementById('dl-list').textContent = d.error || 'Could not start the download.'; return; }
+        document.getElementById('dl-url').value = '';
+        document.getElementById('ollama-name').value = '';
+        this.refreshDownloads();
+    }
+
+    pullOllama() { this.startDownload('/api/ollama-pull', { name: document.getElementById('ollama-name').value.trim() }); }
+
+    async refreshDownloads() {
+        const d = await fetch('/api/downloads').then(r => r.json()).catch(() => null);
+        if (!d) return;
+        const gb = n => (n / 1e9).toFixed(2) + ' GB';
+        document.getElementById('models-dir').textContent = d.modelsDir;
+        document.getElementById('dl-list').textContent = d.downloads.length
+            ? d.downloads.map(x => `${x.name}  ${x.status}` + (x.total ? `  ${gb(x.received)} / ${gb(x.total)}` : x.received ? `  ${gb(x.received)}` : '') + (x.error ? `  (${x.error})` : '')).join('\n')
+            : 'No downloads yet.';
+        document.getElementById('local-models').textContent = d.local.length ? d.local.map(f => `${f.path}  ${gb(f.size)}`).join('\n') : 'None found yet.';
+        clearTimeout(this.dlTimer);
+        if (d.downloads.some(x => x.status === 'downloading') && !document.getElementById('view-models').hidden)
+            this.dlTimer = setTimeout(() => this.refreshDownloads(), 1500);
+    }
+
+    // ---------- Skills ----------
+    async refreshSkills() {
+        this.skills = await fetch('/api/skills').then(r => r.json()).catch(() => []);
+        const box = document.getElementById('skills-list');
+        box.innerHTML = this.skills.length ? '' : '<div class="empty">No skills yet. Create one, or drop a folder with a SKILL.md into the skills folder.</div>';
+        this.skills.forEach(k => {
+            const card = document.createElement('div');
+            card.className = 'card';
+            card.innerHTML = `<div class="row" style="justify-content: space-between;"><h2></h2><label class="check"><input type="checkbox"> Enabled</label></div>
+                <div class="hint desc"></div><div class="row meta"></div>
+                <div class="row"><button class="ghost" data-a="edit">Edit</button><button class="danger" data-a="del">Delete</button></div>`;
+            card.querySelector('h2').textContent = k.name;
+            card.querySelector('.desc').textContent = k.description;
+            const pill = t => { const sp = document.createElement('span'); sp.className = 'pill'; sp.textContent = t; return sp; };
+            card.querySelector('.meta').append(pill(k.triggers.length ? 'triggers: ' + k.triggers.join(', ') : 'always on'), pill('workers: ' + (k.roles.length ? k.roles.join(', ') : 'all')));
+            const cb = card.querySelector('input');
+            cb.checked = k.enabled;
+            cb.onchange = () => this.saveSkill({ ...k, enabled: cb.checked });
+            card.querySelector('[data-a=edit]').onclick = () => this.editSkill(k);
+            card.querySelector('[data-a=del]').onclick = () => this.deleteSkill(k);
+            box.appendChild(card);
+        });
+    }
+
+    editSkill(k = null) {
+        this.editingSkill = k;
+        document.getElementById('skill-editor').hidden = false;
+        document.getElementById('skill-editor-title').textContent = k ? 'Edit skill' : 'New skill';
+        document.getElementById('sk-name').value = k ? k.name : '';
+        document.getElementById('sk-triggers').value = k ? k.triggers.join(', ') : '';
+        document.getElementById('sk-desc').value = k ? k.description : '';
+        document.getElementById('sk-body').value = k ? k.body : '';
+        document.querySelectorAll('.sk-role').forEach(cb => { cb.checked = !!k && k.roles.includes(cb.value); });
+        document.getElementById('sk-msg').textContent = '';
+        document.getElementById('sk-name').focus();
+    }
+
+    async saveSkill(skill) {
+        const e = this.editingSkill;
+        const k = skill || {
+            id: e ? e.id : undefined,
+            name: document.getElementById('sk-name').value,
+            triggers: document.getElementById('sk-triggers').value,
+            description: document.getElementById('sk-desc').value,
+            body: document.getElementById('sk-body').value,
+            roles: [...document.querySelectorAll('.sk-role:checked')].map(cb => cb.value),
+            enabled: e ? e.enabled : true
+        };
+        const r = await fetch('/api/skills', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(k) });
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok) { document.getElementById('sk-msg').textContent = d.error || 'Could not save the skill.'; return; }
+        if (!skill) document.getElementById('skill-editor').hidden = true;
+        this.refreshSkills();
+    }
+
+    async deleteSkill(k) {
+        if (!confirm(`Delete the skill "${k.name}"?`)) return;
+        await fetch('/api/skills/delete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: k.id }) });
+        this.refreshSkills();
+    }
+
+    // ---------- First-run setup guide ----------
+    openSetup() { this.setupI = 0; document.getElementById('setup-modal').hidden = false; this.renderSetup(); }
+
+    async setupStep(dir) {
+        if (dir > 0 && this.setupI === 2) {
+            const sel = document.getElementById('setup-model');
+            if (sel && sel.value) await this.postSettings({ model: sel.value });
+        }
+        if (dir > 0 && this.setupI === 3) {
+            await this.postSettings({ setupDone: true });
+            document.getElementById('setup-modal').hidden = true;
+            this.checkApiConnection();
+            return;
+        }
+        this.setupI = Math.max(0, this.setupI + dir);
+        this.renderSetup();
+    }
+
+    async renderSetup() {
+        const i = this.setupI, body = document.getElementById('setup-body');
+        document.getElementById('setup-steps').textContent = `Setup guide · step ${i + 1} of 4`;
+        document.getElementById('setup-back').style.visibility = i ? 'visible' : 'hidden';
+        document.getElementById('setup-next').textContent = i === 3 ? 'Start building' : 'Next';
+        if (i === 0) body.innerHTML = `<h2>Welcome to Freeze Foundry</h2>
+            <p>A software factory that runs on your own computer. You type a goal; four AI workers plan it, write the code, test it and review it, and nothing is written to disk until it passes your approval.</p>
+            <p class="hint">This guide connects a local model in about two minutes. Your code and prompts never leave this machine.</p>`;
+        if (i === 1) {
+            body.innerHTML = '<h2>Connect a model server</h2><p class="hint">Looking for LM Studio and Ollama...</p>';
+            const d = await fetch('/api/detect').then(r => r.json()).catch(() => ({}));
+            if (this.setupI !== 1) return;
+            const base = this.settings && this.settings.baseUrl;
+            const row = (name, ok, url, site) => `<div class="row"><span class="pill ${ok ? 'ok' : 'bad'}">${ok ? 'Running' : 'Not found'}</span><b>${name}</b>` +
+                (ok ? `<button class="ghost" onclick="app.postSettings({ baseUrl: '${url}' }).then(() => app.renderSetup())">${base === url ? '✓ Selected' : 'Use this'}</button>`
+                    : `<a href="${site}" target="_blank">Get ${name}</a>`) + '</div>';
+            body.innerHTML = `<h2>Connect a model server</h2>
+                <p class="hint">Freeze Foundry runs models through LM Studio or Ollama. Both are free. Install one and start it: in LM Studio, open the Developer tab and turn on the local server. Then check again.</p>
+                ${row('LM Studio', d.lmstudio, 'http://127.0.0.1:1234/v1', 'https://lmstudio.ai')}
+                ${row('Ollama', d.ollama, 'http://127.0.0.1:11434/v1', 'https://ollama.com/download')}
+                <div class="row"><button class="ghost" onclick="app.renderSetup()">Check again</button></div>`;
+        }
+        if (i === 2) {
+            body.innerHTML = '<h2>Pick a model</h2><p class="hint">Loading your models...</p>';
+            const r = await fetch('/api/models');
+            const d = await r.json().catch(() => ({}));
+            if (this.setupI !== 2) return;
+            const models = d.models || [];
+            body.innerHTML = '<h2>Pick a model</h2>' + (models.length
+                ? `<label class="hint" style="display:flex;flex-direction:column;gap:5px">Model for all workers <select id="setup-model">${models.map(m => `<option ${m.id === this.settings.model ? 'selected' : ''}>${m.id}</option>`).join('')}</select></label>
+                   <p class="hint">You can give each worker its own model later on the Models page.</p>`
+                : `<p class="hint">${r.ok ? 'No models are installed yet.' : (d.error || 'The model server is not reachable.')} Download one in LM Studio's Discover tab, or from the Models page here once setup is done. A 7&ndash;9B coding model such as Qwen is a good start.</p>`);
+        }
+        if (i === 3) body.innerHTML = `<h2>You're ready</h2>
+            <p>Type a goal in the box under the factory floor, one goal per line, and press Submit. Watch the workers carry it down the line; click any office to read its output.</p>
+            <p class="hint">Turn on Auto-apply to let a queue run unattended: changes that pass tests and review are applied, everything else waits in the Report. Change folders and defaults in Settings.</p>`;
+    }
+
+    async refreshModels() {
+        const msg = document.getElementById('models-msg');
+        msg.textContent = 'Loading models...';
+        this.refreshDownloads();
+        const base = document.getElementById('set-base').value.trim();
+        if (base && this.settings && base !== this.settings.baseUrl) {
+            this.settings = await fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ baseUrl: base }) }).then(r => r.json());
+        }
+        const res = await fetch('/api/models');
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) { msg.textContent = data.error || 'Could not list models.'; return; }
+        const opts = data.models.map(m => ({ id: m.id, label: m.id + (m.state === 'loaded' ? '  (loaded)' : '') }));
+        const fill = (sel, value, withDefault) => {
+            sel.innerHTML = '';
+            if (withDefault) sel.add(new Option('(use default)', ''));
+            opts.forEach(o => sel.add(new Option(o.label, o.id)));
+            if (value && !opts.some(o => o.id === value)) sel.add(new Option(value + ' (not found)', value));
+            sel.value = value || '';
+        };
+        fill(document.getElementById('set-model'), this.settings.model, false);
+        document.querySelectorAll('.role-model').forEach(sel => fill(sel, (this.settings.roleModels || {})[sel.dataset.role], true));
+        msg.textContent = `${data.models.length} models found. In LM Studio, models that aren't loaded load on first use when just-in-time loading is on.`;
+    }
+
+    async saveModels() {
+        const roleModels = {};
+        document.querySelectorAll('.role-model').forEach(sel => { if (sel.value) roleModels[sel.dataset.role] = sel.value; });
+        const body = { baseUrl: document.getElementById('set-base').value.trim(), model: document.getElementById('set-model').value, roleModels };
+        this.settings = await fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).then(r => r.json());
+        document.getElementById('model-name').textContent = this.settings.model;
+        this.logToConsole('Model settings saved.', 'success');
+    }
+
+    record(task, outcome) {
+        this.report.push({ time: new Date().toLocaleString(), goal: task.goal, outcome });
+        try { localStorage.setItem('ff-report', JSON.stringify(this.report.slice(-200))); } catch {}
+    }
+
+    showReport() {
+        this.showDetail('Run report', this.report.length
+            ? this.report.map(r => `${r.time}  ${r.outcome.toUpperCase()}\n  ${r.goal}`).join('\n\n')
+            : 'No finished tasks yet.');
+    }
+
+    finishTask() {
+        this.taskQueue.shift();
+        this.currentTask = null;
+        this.pendingProposal = null;
+        this.renderTaskList();
+        this.refreshStaged();
+        this.refreshFiles();
+        if (!this.taskQueue.length) try { new Notification('Freeze Foundry', { body: 'All queued tasks are done. Open the Report to see results.' }); } catch {}
+    }
+
+    async refreshStaged() {
+        const list = await fetch('/api/proposals').then(r => r.json()).catch(() => []);
+        this.staged = list;
+        const box = document.getElementById('staged-list');
+        box.innerHTML = list.length ? '' : '<div class="empty">Nothing waiting. Changes that need your OK show up here.</div>';
+        list.forEach(p => {
+            const div = document.createElement('div');
+            div.className = 'staged-item';
+            const pill = (txt, ok) => txt ? `<span class="pill ${ok ? 'ok' : 'bad'}">${txt}</span>` : '';
+            div.innerHTML = `<div class="goal"></div><div class="meta"></div>
+                <div class="row">${pill(p.test && 'tests ' + p.test, p.test !== 'failed')}${pill(p.verdict && 'review ' + p.verdict, p.verdict === 'approve')}</div>
+                <div class="row"><button class="ghost" data-a="diff">Diff</button><button class="success" data-a="apply">Apply</button><button class="danger" data-a="reject">Reject</button></div>`;
+            div.querySelector('.goal').textContent = p.goal || '(no goal recorded)';
+            div.querySelector('.meta').textContent = p.file_path;
+            div.querySelector('[data-a=diff]').onclick = () => this.showDetail(`Diff: ${p.file_path}`, p.diff, true);
+            div.querySelector('[data-a=apply]').onclick = () => this.stagedAction(p, 'approve');
+            div.querySelector('[data-a=reject]').onclick = () => this.stagedAction(p, 'reject');
+            box.appendChild(div);
+        });
+    }
+
+    async stagedAction(p, action) {
+        // The task on the factory floor goes through its own buttons so the queue moves on.
+        if (this.currentTask && this.pendingProposal === p.proposal_id) return action === 'approve' ? this.applyChanges() : this.rejectChanges();
+        const r = await fetch(`/api/tasks/${p.task_id}/${action}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ proposal_id: p.proposal_id }) });
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok) this.logToConsole(`${action === 'approve' ? 'Apply' : 'Reject'} failed: ${d.error || r.status}`, 'error');
+        else {
+            this.logToConsole(action === 'approve' ? `Applied ${p.file_path}.` : `Discarded change to ${p.file_path}.`, action === 'approve' ? 'success' : 'warn');
+            this.record({ goal: p.goal }, action === 'approve' ? 'applied from staged' : 'rejected from staged');
+        }
+        this.refreshStaged();
+        this.refreshFiles();
+    }
+
+    async refreshFiles() {
+        const files = await fetch('/api/files').then(r => r.json()).catch(() => []);
+        if (this.pendingFile && !files.includes(this.pendingFile)) files.push(this.pendingFile);
+        this.updateFileBrowser(files.map(f => ({ name: f === this.pendingFile && this.pendingProposal ? f + '  (proposed)' : f, path: f })));
+    }
+
+    async openFile(p) {
+        if (this.lastDiff && this.pendingProposal && p === this.pendingFile) return this.showDetail('Diff (review before applying)', this.lastDiff, true);
+        const d = await fetch('/api/file?path=' + encodeURIComponent(p)).then(r => r.json()).catch(() => ({}));
+        this.showDetail(p, d.content != null ? d.content : (d.error || 'Could not open file.'));
+    }
+
+    init() {
+        this.logToConsole("Freeze Foundry initialized.");
+        this.checkApiConnection();
+        this.loadSettings().then(() => { if (this.settings && !this.settings.setupDone) this.openSetup(); });
+        
+        // Initial file listing
+        this.refreshFiles();
+        this.refreshStaged();
+        document.getElementById('goal-input').addEventListener('keydown', e => {
+            if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); this.submitTask(); }
+        });
+    }
+
+    logToConsole(msg, type='info') {
+        const out = document.getElementById('console-output');
+        const div = document.createElement('div');
+        div.className = `log-entry log-${type}`;
+        div.textContent = `> ${msg}`;
+        out.appendChild(div);
+        out.scrollTop = out.scrollHeight;
+    }
+
+    async checkApiConnection() {
+        try {
+            const r = await fetch(`${CONFIG.apiBase}/api/models`);
+            if (!r.ok) throw new Error('model server offline');
+            document.getElementById('api-status').innerHTML = '<span style="color:var(--success)">Connected</span>';
+        } catch (e) {
+            document.getElementById('api-status').innerHTML = '<span style="color:var(--error)">Offline</span>';
+            this.logToConsole("Model server unreachable. Click the model name at the top to set it up.", "warn");
+        }
+    }
+
+    async loadTasks() {
+        try {
+            const response = await fetch(`${CONFIG.apiBase}/api/tasks`);
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            return await response.json();
+        } catch (err) {
+            console.error("Failed to load tasks:", err);
+            this.logToConsole(`Error loading tasks: ${err.message}`, 'error');
+            return {};
+        }
+    }
+
+    async submitTask() {
+        const input = document.getElementById('goal-input');
+        const goals = (input ? input.value : '').split('\n').map(g => g.trim()).filter(Boolean);
+        if (!goals.length) return this.logToConsole("Enter a goal first.", "warn");
+        for (const goal of goals) {
+
+        this.logToConsole("Creating new task...", "info");
+        try {
+            const res = await fetch(`${CONFIG.apiBase}/api/tasks`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ goal: goal })
+            });
+            
+            const text = await res.text();
+            if (!res.ok) throw new Error(`HTTP ${res.status}: ${text}`);
+
+            const payload = JSON.parse(text);
+            const task = payload.task || payload;
+            
+            if (!task || !task.id) throw new Error("Invalid task format from server");
+
+            this.taskQueue.push(task);
+            this.renderTaskList();
+            this.logToConsole(`Task created: ${task.id}`, "success");
+        } catch (err) {
+            console.error(err);
+            this.logToConsole(`Failed to create task: ${err.message}`, "error");
+        }
+        }
+        if (input) input.value = "";
+        this.processNextTask();
+    }
+
+    async processNextTask() {
+        if (this.busy || this.currentTask || this.taskQueue.length === 0) return;
+        this.busy = true;
+        const task = this.taskQueue[0];
+        this.currentTask = task;
+        
+        Object.values(this.workers).forEach(w => w.reset());
+        this.crateAt = null;
+        this.moveCrate('intake', true);
+        this.renderTaskList();
+
+        try {
+            // 1. PLANNER
+            await this.runWorker('planner', async () => {
+                const res = await fetch(`/api/tasks/${task.id}/plan`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({}),
+                    body: JSON.stringify({ task: task.goal })
+                });
+                const data = await res.json().catch(()=>({}));
+                if (!res.ok) throw new Error(data.error || 'Plan failed');
+                this.logToConsole("Plan generated successfully.", "success");
+                if (data.skills && data.skills.length) this.logToConsole("Skills in use: " + data.skills.join(", "), "info");
+                this.workers.planner.show(data.plan);
+                return data;
+            });
+
+            // 2-4. BUILDER -> TESTER -> REVIEWER, looping back to Builder with feedback (max 3 attempts)
+            let feedback = '';
+            let test, review;
+            const max = this.maxAttempts();
+            for (let attempt = 1; attempt <= max; attempt++) {
+                await this.runWorker('builder', async () => {
+                    const res = await fetch(`/api/tasks/${task.id}/propose`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ feedback, previous_proposal_id: feedback ? this.pendingProposal : null })
+                    });
+                    const data = await res.json().catch(()=>({}));
+                    if (!res.ok) throw new Error(data.error || 'Propose failed');
+
+                    this.pendingProposal = data.proposal_id;
+                    this.workers.builder.show(`${data.file_path}\n\n${data.content || ''}`);
+
+                    if (data.file_path) {
+                        this.logToConsole("Proposed file: " + data.file_path, "info");
+                        this.pendingFile = data.file_path;
+                        this.refreshFiles();
+                    }
+                    return data;
+                });
+
+                test = await this.runWorker('tester', async () => {
+                    const res = await fetch(`/api/tasks/${task.id}/test`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ proposal_id: this.pendingProposal })
+                    });
+                    const data = await res.json().catch(()=>({}));
+                    if (!res.ok) throw new Error(data.error || 'Tests could not run');
+                    (data.checks || []).forEach(c => this.logToConsole(`$ ${c.command} -> exit ${c.exitCode}`, c.exitCode === 0 ? 'success' : 'error'));
+                    if (data.status === 'no_checks') this.logToConsole("No checks apply to this file type.", "warn");
+                    else this.logToConsole(`Tests ${data.status}.`, data.status === 'passed' ? 'success' : 'error');
+                    this.workers.tester.show(`${data.status.toUpperCase()}\n` + (data.checks || []).map(c => `$ ${c.command} -> exit ${c.exitCode}\n${c.output}`).join('\n'));
+                    return data;
+                });
+                if (test.status === 'failed') this.workers.tester.setStatus('error');
+
+                review = await this.runWorker('reviewer', async () => {
+                    const res = await fetch(`/api/tasks/${task.id}/review`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ proposal_id: this.pendingProposal })
+                    });
+                    const data = await res.json().catch(()=>({}));
+                    if (!res.ok) throw new Error(data.error || 'Review failed');
+                    this.logToConsole(`Reviewer verdict: ${data.verdict}`, data.verdict === 'approve' ? 'success' : 'warn');
+                    (data.issues || []).forEach(i => this.logToConsole(" - " + i, "warn"));
+                    (data.notes || []).forEach(n => this.logToConsole(" note: " + n, "info"));
+                    this.workers.reviewer.show(`${(data.verdict || '').toUpperCase()}\n` + [...(data.issues || []).map(i => '- ' + i), ...(data.notes || []).map(n => 'note: ' + n)].join('\n'));
+                    this.lastDiff = data.diff || '';
+                    this.showDetail('Diff (review before applying)', this.lastDiff, true);
+                    this.refreshStaged();
+                    return data;
+                });
+
+                if (review.verdict !== 'revise') break;
+                this.workers.reviewer.setStatus('error');
+                feedback = [
+                    ...(review.issues || []),
+                    ...(test.checks || []).filter(c => c.exitCode !== 0).map(c => `${c.command} failed:\n${c.output}`)
+                ].join('\n');
+                if (attempt < max) this.logToConsole(`Sending back to Builder (attempt ${attempt + 1} of ${max}).`, "warn");
+                else this.logToConsole(`Still failing after ${max} attempts. Review before applying.`, "error");
+            }
+
+            task.status = 'completed';
+            this.refreshLedger();
+            this.renderTaskList();
+            
+            if (document.getElementById('auto-apply').checked) {
+                if (review.verdict === 'approve' && test.status !== 'failed') {
+                    if (!(await this.applyChanges())) { this.record(task, 'apply failed, left staged'); this.finishTask(); }
+                } else {
+                    this.record(task, `left staged for review (${this.pendingProposal})`);
+                    this.finishTask();
+                }
+            } else {
+                const btnApply = document.getElementById('btn-apply');
+                const btnReject = document.getElementById('btn-reject');
+                if (btnApply) btnApply.disabled = false;
+                if (btnReject) btnReject.disabled = false;
+            }
+
+        } catch (err) {
+            console.error(err);
+            this.logToConsole("Pipeline error: " + err.message, "error");
+            this.record(task, 'error: ' + err.message);
+            this.finishTask();
+        } finally {
+            this.busy = false;
+        }
+        // Manual mode waits here for Apply/Reject, which start the next task.
+        this.processNextTask();
+    }
+
+    runWorker(role, action) {
+        return new Promise(async (resolve, reject) => {
+            const worker = this.workers[role];
+            
+            // UI Update
+            worker.setStatus('running');
+            this.moveCrate(role);
+            this.logToConsole(`Dispatching ${role.toUpperCase()}...`);
+
+            try {
+                const result = await action();
+                
+                if (result && result.action === 'building') {
+                    // Store diff for approval
+                    task.diffs.push(result.data);
+                    this.updateFileBrowser(task.files);
+                }
+
+                worker.setStatus('success');
+                this.logToConsole(`${role.toUpperCase()} completed successfully.`);
+                resolve(result);
+
+            } catch (err) {
+                worker.setStatus('error');
+                this.logToConsole(`${role.toUpperCase()} failed: ${err.message}`, 'error');
+                reject(err);
+            }
+        });
+    }
+
+    async callModel(prompt) {
+        // Call Backend API for Plan Generation
+        const response = await fetch(`${CONFIG.apiBase}/api/tasks/${this.currentTask.id}/plan`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ task: prompt })
+        });
+
+        if (!response.ok) throw new Error(`API Error: ${response.statusText}`);
+        
+        const data = await response.json();
+        return data.plan;
+    }
+
+    async callModelPropose(prompt) {
+        // Call Backend API for Proposal Generation
+        const response = await fetch(`${CONFIG.apiBase}/api/tasks/${this.currentTask.id}/propose`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ goal: this.currentTask.goal, file_path: prompt })
+        });
+
+        if (!response.ok) throw new Error(`API Error: ${response.statusText}`);
+        
+        const data = await response.json();
+        return data;
+    }
+
+    updateFileBrowser(files) {
+        const container = document.getElementById('file-browser');
+        container.innerHTML = '';
+        
+        if (files.length === 0) {
+            container.innerHTML = '<div style="color: var(--text-muted); padding: 4px;">No files loaded.</div>';
+            return;
+        }
+
+        // Sort by name
+        const sortedFiles = [...files].sort((a,b) => a.name.localeCompare(b.name));
+
+        sortedFiles.forEach(file => {
+            const div = document.createElement('div');
+            div.className = 'file-item';
+            div.textContent = '📄 ' + file.name;
+            div.onclick = () => this.openFile(file.path);
+            container.appendChild(div);
+        });
+    }
+
+    renderTaskList() {
+        const list = document.getElementById('task-list');
+        list.innerHTML = '';
+
+        this.taskQueue.forEach(task => {
+            const div = document.createElement('div');
+            div.className = `task-item ${task.status === 'running' ? 'active' : ''}`;
+            
+            let statusText = 'Pending';
+            let statusColor = '#333';
+            
+            if (task.status === 'running') { statusText = 'Running...'; statusColor = '#00e5ff'; }
+            else if (task.status === 'completed') { statusText = 'Completed'; statusColor = '#10b981'; }
+
+            div.innerHTML = `
+                <div class="task-header">
+                    <span class="task-id">#${String(task.id || task.task_id || task.taskId || 'NEW').slice(-4)}</span>
+                    <span class="task-status" style="background:${statusColor}; color:#000">${statusText}</span>
+                </div>
+                <div style="font-size: 0.85rem; color: #ccc;">${String(task.goal || task.title || 'Untitled task').substring(0, 40)}...</div>
+            `;
+            
+            div.onclick = () => {
+                if (task.status === 'completed') this.applyChanges();
+            };
+
+            list.appendChild(div);
+        });
+    }
+
+    applyChanges() {
+        if (!this.currentTask) return Promise.resolve(false);
+        const task = this.currentTask;
+        
+        const btnApply = document.getElementById('btn-apply');
+        btnApply.disabled = true;
+        btnApply.innerText = "Applying...";
+
+        // Call Backend API for Approval
+        return fetch(`${CONFIG.apiBase}/api/tasks/${this.currentTask.id}/approve`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ proposal_id: typeof this.pendingProposal === 'string' ? this.pendingProposal : this.pendingProposal.proposal_id })
+        })
+        .then(async res => { const data = await res.json().catch(()=>({})); if (!res.ok) throw new Error(data.error || 'Server rejected approval'); return data; })
+        .then(data => {
+            this.logToConsole("Changes applied to disk successfully.", 'success');
+            this.moveCrate('dock');
+            
+            this.record(task, 'applied');
+            this.finishTask();
+            btnApply.disabled = true;
+            document.getElementById('btn-reject').disabled = true;
+            btnApply.innerText = "Apply Changes";
+            this.processNextTask();
+            return true;
+        })
+        .catch(err => {
+            this.logToConsole(`Failed to apply changes: ${err.message}`, 'error');
+            btnApply.disabled = false;
+            btnApply.innerText = "Apply Changes";
+            return false;
+        });
+    }
+
+    rejectChanges() {
+        if (!this.currentTask) return;
+        
+        const btnReject = document.getElementById('btn-reject');
+        btnReject.disabled = true;
+        btnReject.innerText = "Rejected";
+
+        fetch(`${CONFIG.apiBase}/api/tasks/${this.currentTask.id}/reject`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ proposal_id: this.pendingProposal })
+        }).catch(() => {});
+        this.logToConsole("Changes rejected and discarded.", 'warn');
+        this.record(this.currentTask, 'rejected');
+
+        Object.values(this.workers).forEach(w => w.reset());
+        this.finishTask();
+
+        btnReject.disabled = true;
+        document.getElementById('btn-apply').disabled = true;
+        btnReject.innerText = "Reject";
+        this.processNextTask();
+    }
+
+    resetQueue() {
+        this.taskQueue = [];
+        this.currentTask = null;
+        Object.values(this.workers).forEach(w => w.reset());
+        this.renderTaskList();
+        document.getElementById('goal-input').value = '';
+    }
+}
+
+// Initialize App
+const app = new App();
+
+</script>
+</body>
+</html>

@@ -1,0 +1,8 @@
+node_modules/
+dist/
+data/
+workspace/
+skills/
+_to_delete/
+*.log
+.DS_Store
