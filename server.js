@@ -986,7 +986,7 @@ async function reviewProposal(task, proposal) {
     : 'Tests were not run.';
 
   const raw = await callLMStudio(withSkills([
-    { role: 'system', content: 'You are a code reviewer. Choose "revise" ONLY for blocking defects: wrong file, broken code or failed tests, the goal not met, invented or false content, or a real security problem. Style tweaks and nice-to-haves go in "notes" and must not block approval. Output ONLY JSON: {"verdict": "approve" or "revise", "issues": ["blocking problems only"], "notes": ["optional suggestions"]}' },
+    { role: 'system', content: 'You are a code reviewer. Choose "revise" ONLY for blocking defects: wrong file, broken code or failed tests, the goal not met, invented or false content, or a real security problem. Judge only this one file: the other files of a project are built by separate tasks, so never ask for files outside this goal. Style tweaks and nice-to-haves go in "notes" and must not block approval. Output ONLY JSON: {"verdict": "approve" or "revise", "issues": ["blocking problems only"], "notes": ["optional suggestions"]}' },
     { role: 'user', content: `Goal: ${task.goal}\n\n${workspaceContext('')}\n\nFile: ${proposal.file_path}\n\nNew file content (judge THIS):\n${String(proposal.content || '').slice(0, 12000)}\n\nDiff against the current file (context only; '-' removed, '+' added):\n${diff.slice(0, 8000)}\n\nTest results:\n${testSummary.slice(0, 4000)}` }
   ], skillsFor('reviewer', task.goal)), 'reviewer', task.id);
 
