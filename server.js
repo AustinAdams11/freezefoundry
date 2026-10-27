@@ -93,8 +93,21 @@ function backupFile(sourcePath, backupPath) {
 
 // Call the configured OpenAI-compatible model server (LM Studio or Ollama) and record usage in the ledger.
 async function callLMStudio(messages, role = 'default', taskId = null) {
-  const st = loadSettings();
-  const model = (st.roleModels && st.roleModels[role]) || st.model;
+  const st = { ...loadSettings() };
+  // Per-worker tuning: each worker can override provider, model, temperature, token limit, top-p and add instructions.
+  const rc = (st.roleConfig || {})[role] || {};
+  if (rc.provider && rc.provider !== st.provider) {
+    if (!rc.model) throw new Error(`The ${role} uses ${PROVIDERS[rc.provider].label}; type its model name in Models > Worker tuning.`);
+    st.provider = rc.provider;
+  }
+  const model = rc.model || (rc.provider ? '' : (st.roleModels && st.roleModels[role])) || st.model;
+  if (rc.temperature != null) st.temperature = rc.temperature;
+  if (rc.maxTokens) st.maxTokens = rc.maxTokens;
+  if (rc.instructions) {
+    const i = messages.findIndex(m => m.role === 'system');
+    messages = [...messages];
+    messages.splice(i + 1, 0, { role: 'system', content: `Extra instructions from the user for the ${role}:\n${rc.instructions}` });
+  }
   const started = Date.now();
   try {
     const key = st.provider === 'local' ? (process.env.LM_STUDIO_API_KEY || '') : getKey(st.provider);
@@ -113,7 +126,7 @@ async function callLMStudio(messages, role = 'default', taskId = null) {
       usage = { prompt_tokens: (d.usage || {}).input_tokens || 0, completion_tokens: (d.usage || {}).output_tokens || 0 };
     } else {
       // OpenAI's newer models only take max_completion_tokens and their default temperature.
-      const body = st.provider === 'openai' ? { model, messages, max_completion_tokens: st.maxTokens } : { model, messages, temperature: st.temperature, max_tokens: st.maxTokens };
+      const body = st.provider === 'openai' ? { model, messages, max_completion_tokens: st.maxTokens } : { model, messages, temperature: st.temperature, max_tokens: st.maxTokens, ...(rc.topP != null ? { top_p: rc.topP } : {}) };
       const r = await fetch(providerBase(st) + '/chat/completions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...(key ? { Authorization: `Bearer ${key}` } : {}) },
@@ -555,11 +568,12 @@ if (pathname.startsWith('/api/tasks/') && pathname.endsWith('/approve')) {
         if (typeof b.autoApply === 'boolean') st.autoApply = b.autoApply;
         if (typeof b.setupDone === 'boolean') st.setupDone = b.setupDone;
         if (Number.isInteger(b.attempts) && b.attempts >= 1 && b.attempts <= 10) st.attempts = b.attempts;
+        if (typeof b.pythonPath === 'string' && b.pythonPath.length <= 300 && !/[\r\n]/.test(b.pythonPath)) st.pythonPath = b.pythonPath.trim();
         if (typeof b.temperature === 'number' && b.temperature >= 0 && b.temperature <= 2) st.temperature = b.temperature;
         if (Number.isInteger(b.maxTokens) && b.maxTokens >= 256 && b.maxTokens <= 32768) st.maxTokens = b.maxTokens;
         if (b.permissions && typeof b.permissions === 'object') {
           const pm = { ...st.permissions };
-          for (const k of ['readFiles', 'runTests', 'sources', 'internet']) if (typeof b.permissions[k] === 'boolean') pm[k] = b.permissions[k];
+          for (const k of ['readFiles', 'runTests', 'sources', 'internet', 'runScripts']) if (typeof b.permissions[k] === 'boolean') pm[k] = b.permissions[k];
           st.permissions = pm;
         }
         if (b.ui && typeof b.ui === 'object') {
@@ -569,6 +583,22 @@ if (pathname.startsWith('/api/tasks/') && pathname.endsWith('/approve')) {
           if (typeof u.scale === 'number' && u.scale >= 0.8 && u.scale <= 1.5) ui.scale = u.scale;
           if (['relaxed', 'normal', 'fast', 'off'].includes(u.pace)) ui.pace = u.pace;
           st.ui = ui;
+        }
+        if (b.roleConfig && typeof b.roleConfig === 'object') {
+          const num = (v, lo, hi) => (typeof v === 'number' && v >= lo && v <= hi ? v : undefined);
+          st.roleConfig = {};
+          for (const r of ['planner', 'builder', 'reviewer']) {
+            const c = b.roleConfig[r] || {};
+            const clean = {
+              provider: PROVIDERS[c.provider] ? c.provider : undefined,
+              model: typeof c.model === 'string' && c.model.trim() ? c.model.trim().slice(0, 200) : undefined,
+              temperature: num(c.temperature, 0, 2),
+              topP: num(c.topP, 0, 1),
+              maxTokens: Number.isInteger(c.maxTokens) ? num(c.maxTokens, 256, 200000) : undefined,
+              instructions: typeof c.instructions === 'string' && c.instructions.trim() ? c.instructions.trim().slice(0, 4000) : undefined
+            };
+            st.roleConfig[r] = JSON.parse(JSON.stringify(clean)); // drops undefined
+          }
         }
         if (b.roleModels && typeof b.roleModels === 'object')
           st.roleModels = Object.fromEntries(Object.entries(b.roleModels).filter(([k, v]) => ['planner', 'builder', 'reviewer'].includes(k) && typeof v === 'string' && v));
@@ -705,6 +735,49 @@ if (pathname.startsWith('/api/tasks/') && pathname.endsWith('/approve')) {
       if (!fs.realpathSync(full).startsWith(fs.realpathSync(WORKSPACE_DIR) + path.sep) || !fs.statSync(full).isFile()) throw new Error();
       res.writeHead(200); return res.end(JSON.stringify({ path: parsedUrl.query.path, content: fs.readFileSync(full, 'utf8').slice(0, 262144) }));
     } catch { res.writeHead(404); return res.end(JSON.stringify({ error: 'File not found in workspace' })); }
+  }
+
+  // WATCHERS: poll devices and APIs the user sets up (miners, services, prices) and alert on rules
+  if (pathname === '/api/watchers' && method === 'GET') {
+    res.writeHead(200); return res.end(JSON.stringify({ watchers: watchers.list(), alerts: watchers.alerts() }));
+  }
+  if (pathname.startsWith('/api/watchers') && method === 'POST') {
+    try {
+      const b = await readJsonBody(req);
+      let out;
+      if (pathname === '/api/watchers') out = watchers.upsert(b);
+      else if (pathname === '/api/watchers/delete') { watchers.remove(String(b.id || '')); out = { ok: true }; }
+      else if (pathname === '/api/watchers/test') out = await watchers.test(b);
+      else { res.writeHead(404); return res.end(JSON.stringify({ error: 'Not found' })); }
+      res.writeHead(200); return res.end(JSON.stringify(out));
+    } catch (e) { res.writeHead(400); return res.end(JSON.stringify({ error: e.message })); }
+  }
+
+  // TRAINING BAY: run an approved .py file from the workspace (only when the user clicks Run)
+  if (pathname === '/api/run' && method === 'GET') {
+    res.writeHead(200); return res.end(JSON.stringify(scriptRun ? { ...scriptRun, output: scriptRun.output.slice(-20000), child: undefined } : null));
+  }
+  if (pathname === '/api/run' && method === 'POST') {
+    try {
+      if (!perms().runScripts) throw new Error('Turn on "Run Python scripts" in Settings > Permissions first.');
+      if (scriptRun && scriptRun.status === 'running') throw new Error('A script is already running. Stop it first.');
+      const b = await readJsonBody(req);
+      const full = path.resolve(WORKSPACE_DIR, String(b.path || ''));
+      if (path.extname(full).toLowerCase() !== '.py' || !fs.existsSync(full) || !fs.realpathSync(full).startsWith(fs.realpathSync(WORKSPACE_DIR) + path.sep)) throw new Error('Only .py files in the workspace can be run.');
+      const run = { path: b.path, status: 'running', output: '', exitCode: null, startedAt: new Date().toISOString() };
+      const child = spawn(pythonCmd(), ['-u', path.basename(full)], { cwd: path.dirname(full), windowsHide: true, env: { ...process.env, PYTHONUNBUFFERED: '1' } });
+      const add = d => { run.output = (run.output + d).slice(-200000); };
+      child.stdout.on('data', add); child.stderr.on('data', add);
+      child.on('error', e => { add(`\n${e.code === 'ENOENT' ? `Python was not found (${pythonCmd()}). Install Python, or set its path in Settings.` : e.message}\n`); run.status = 'failed'; });
+      child.on('close', code => { run.exitCode = code; if (run.status === 'running') run.status = code === 0 ? 'done' : (run.stopped ? 'stopped' : 'failed'); });
+      Object.defineProperty(run, 'child', { value: child, enumerable: false });
+      scriptRun = run;
+      res.writeHead(200); return res.end(JSON.stringify({ ok: true }));
+    } catch (e) { res.writeHead(400); return res.end(JSON.stringify({ error: e.message })); }
+  }
+  if (pathname === '/api/run/stop' && method === 'POST') {
+    if (scriptRun && scriptRun.status === 'running') { scriptRun.stopped = true; scriptRun.child.kill(); }
+    res.writeHead(200); return res.end(JSON.stringify({ ok: true }));
   }
 
   // SKILLS
@@ -863,6 +936,17 @@ server.on('error', err => {
   else console.error('Server error:', err.message);
 });
 
+const watchers = require('./watchers').createWatchers(path.join(DATA_DIR, 'watchers.json'), {
+  // Optional: ask the model to explain an alert, using the latest reading.
+  onAlert(alert, w, st) {
+    if (!w.aiPrompt) return;
+    callLMStudio([
+      { role: 'system', content: 'You monitor devices and services for the user. Answer in 2-4 short sentences: what is happening and what to check first. Do not invent numbers.' },
+      { role: 'user', content: `${w.aiPrompt}\n\nAlert: ${alert.message}\nLatest reading (JSON): ${String(st.raw || '').slice(0, 3000)}` }
+    ], 'default').then(t => { alert.ai = t.replace(/<think>[\s\S]*?<\/think>/g, '').trim().slice(0, 1500); }).catch(e => { alert.ai = `AI check failed: ${e.message}`; });
+  }
+});
+
 server.listen(PORT, HOST, () => {
   console.log(`Freeze Foundry server running at http://${HOST}:${PORT}`);
   console.log(`LM Studio model: ${MODEL_NAME}`);
@@ -957,6 +1041,9 @@ async function testProposal(proposal, task) {
     const ext = path.extname(target).toLowerCase();
     if (['.js', '.cjs', '.mjs'].includes(ext)) {
       checks.push(await runCheck(process.execPath, ['--check', path.relative(runDir, target)], runDir, false));
+    } else if (ext === '.py') {
+      const c = await runCheck(pythonCmd(), ['-m', 'py_compile', path.relative(runDir, target)], runDir, false);
+      if (!/ENOENT/.test(c.output)) checks.push(c); // no Python installed: skip rather than fail the work
     } else if (ext === '.json') {
       try { JSON.parse(proposal.content); checks.push({ command: 'JSON.parse', exitCode: 0, output: 'valid JSON' }); }
       catch (e) { checks.push({ command: 'JSON.parse', exitCode: 1, output: e.message }); }
@@ -1037,9 +1124,9 @@ function workspaceContext(goal) {
 const SETTINGS_FILE = path.join(DATA_DIR, 'settings.json');
 const LEDGER_FILE = path.join(DATA_DIR, 'ledger.jsonl');
 const DEFAULT_SETTINGS = {
-  provider: 'local', baseUrl: 'http://127.0.0.1:1234/v1', model: MODEL_NAME, roleModels: {},
+  provider: 'local', baseUrl: 'http://127.0.0.1:1234/v1', model: MODEL_NAME, roleModels: {}, roleConfig: {},
   modelsDir: path.join(os.homedir(), '.lmstudio', 'models'), attempts: 3, autoApply: true, setupDone: false,
-  temperature: 0.7, maxTokens: 4096, permissions: { readFiles: true, runTests: true, sources: true, internet: false }, ui: { accent: '#a855f7', pace: 'normal', sounds: true, notifications: true, reduceMotion: false, scale: 1 }
+  temperature: 0.7, maxTokens: 4096, permissions: { readFiles: true, runTests: true, sources: true, internet: false, runScripts: false }, ui: { accent: '#a855f7', pace: 'normal', sounds: true, notifications: true, reduceMotion: false, scale: 1 }
 };
 
 function publicSettings(st) {
@@ -1124,14 +1211,23 @@ function listGguf(dir, base = dir, out = [], depth = 0) {
 // Agent Skills format: skills/<id>/SKILL.md with a YAML-style header. `triggers` (keywords) and `roles`
 // are optional: no triggers means always on, no roles means every worker.
 const SKILLS_DIR = path.join(ROOT_DIR, 'skills');
-if (!fs.existsSync(SKILLS_DIR)) {
-  // First run: copy the starter skills (read file by file so it also works from inside the packaged app).
-  const src = path.join(__dirname, 'starter-skills');
-  for (const id of fs.existsSync(src) ? fs.readdirSync(src) : []) {
-    fs.mkdirSync(path.join(SKILLS_DIR, id), { recursive: true });
-    fs.writeFileSync(path.join(SKILLS_DIR, id, 'SKILL.md'), fs.readFileSync(path.join(src, id, 'SKILL.md')));
-  }
+{
+  // Copy each starter skill once (file by file so it works inside the packaged app). .starters remembers
+  // which were offered, so a starter added in an update arrives but one the user deleted stays deleted.
   fs.mkdirSync(SKILLS_DIR, { recursive: true });
+  const src = path.join(__dirname, 'starter-skills');
+  const seenFile = path.join(SKILLS_DIR, '.starters');
+  let seen = [];
+  try { seen = JSON.parse(fs.readFileSync(seenFile, 'utf8')); } catch {}
+  for (const id of fs.existsSync(src) ? fs.readdirSync(src) : []) {
+    if (seen.includes(id)) continue;
+    if (!fs.existsSync(path.join(SKILLS_DIR, id))) {
+      fs.mkdirSync(path.join(SKILLS_DIR, id), { recursive: true });
+      fs.writeFileSync(path.join(SKILLS_DIR, id, 'SKILL.md'), fs.readFileSync(path.join(src, id, 'SKILL.md')));
+    }
+    seen.push(id);
+  }
+  fs.writeFileSync(seenFile, JSON.stringify(seen));
 }
 
 function parseSkill(id, text) {
@@ -1213,6 +1309,13 @@ function setKey(provider, key) {
 
 // ---------- Permissions, sources, web pages ----------
 function perms() { return loadSettings().permissions; }
+
+let scriptRun = null;
+// shortcut: uses Python from PATH (or the pythonPath setting); no virtualenv picker yet.
+function pythonCmd() {
+  const p = loadSettings().pythonPath;
+  return typeof p === 'string' && p.trim() ? p.trim() : (process.platform === 'win32' ? 'python' : 'python3');
+}
 
 const SOURCES_DIR = path.join(DATA_DIR, 'sources');
 const SOURCES_FILE = path.join(SOURCES_DIR, 'sources.json');
