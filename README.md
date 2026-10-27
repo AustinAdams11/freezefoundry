@@ -19,6 +19,8 @@ Runs on your own local model through [LM Studio](https://lmstudio.ai) or [Ollama
 - **Worker tuning**: give the Planner, Builder and Reviewer each their own provider, model, temperature, top-p, token limit and standing instructions, e.g. plan with Claude and build on your local GPU.
 - **Watch**: poll miners (Antminer/cgminer API on port 4028, Bitaxe/AxeOS), servers or any JSON API on a timer. Chart a value, alert when a rule trips or a device goes offline, and optionally have the model explain the alert.
 - **Ship to Apify**: build a complete Apify Actor from a blueprint and publish it to your Apify account in one click.
+- **Guide and changelog**: a built-in manual for every page of the app and a What's new log ([CHANGELOG.md](CHANGELOG.md)), with a dot on the Guide button after updates.
+- **Light and dark themes**: Frost and Forge, switched from the top bar or set to follow your system.
 - **Desktop app** for Windows and macOS, with a first-run setup guide.
 
 ## Install
