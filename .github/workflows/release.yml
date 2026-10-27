@@ -6,7 +6,16 @@ on:
 permissions:
   contents: write
 jobs:
+  # Create the release once; both build jobs upload into it (two jobs creating it in parallel made duplicate releases)
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          gh release create "$GITHUB_REF_NAME" --draft --repo "$GITHUB_REPOSITORY" --title "Freeze Foundry ${GITHUB_REF_NAME#v}" --notes "Windows: run the Setup .exe. Mac: open the .dmg (arm64 = Apple Silicon, the other = Intel). The Mac app is not signed yet; if macOS says it is damaged, run: xattr -cr \"/Applications/Freeze Foundry.app\""
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   build:
+    needs: release
     strategy:
       matrix:
         include:
@@ -24,5 +33,12 @@ jobs:
       - run: npm ci
       - run: npm test
       - run: npx electron-builder ${{ matrix.target }} --publish always
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - run: gh release edit "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --draft=false --latest
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
