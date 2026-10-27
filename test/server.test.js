@@ -115,3 +115,30 @@ test('training bay: off by default, then runs an approved .py file', async () =>
   assert.equal(run.status, 'done', run.output);
   assert.match(run.output, /epoch 2 loss 0\.333/);
 });
+
+test('watchers read HTTP and cgminer-style TCP APIs and raise alerts', async () => {
+  const http = require('node:http'), net = require('node:net');
+  const web = http.createServer((q, r) => r.end(JSON.stringify({ temp: 91, hashRate: 480 }))).listen(0);
+  const miner = net.createServer(sock => sock.on('data', d => {
+    assert.match(String(d), /"command":"summary"/);
+    sock.end(JSON.stringify({ SUMMARY: [{ 'MHS 5s': 9300.5 }] }) + '\0');
+  })).listen(0);
+  await new Promise(r => setTimeout(r, 100));
+  try {
+    const t = await (await post('/api/watchers/test', { kind: 'tcp', host: '127.0.0.1', port: miner.address().port, fields: 'SUMMARY.0.MHS 5s' })).json();
+    assert.equal(t.values['SUMMARY.0.MHS 5s'], 9300.5);
+
+    assert.equal((await post('/api/watchers', { kind: 'http', url: 'file:///etc/passwd' })).status, 400);
+    const w = await (await post('/api/watchers', { name: 'Rig', kind: 'http', url: `http://127.0.0.1:${web.address().port}/`, fields: 'temp,hashRate', rule: { op: '>', path: 'temp', value: 85 } })).json();
+    let list;
+    for (let i = 0; i < 25; i++) {
+      list = await (await fetch(BASE + '/api/watchers')).json();
+      if (list.alerts.length) break;
+      await new Promise(r => setTimeout(r, 100));
+    }
+    assert.equal(list.watchers[0].state.values.temp, 91);
+    assert.match(list.alerts[0].message, /temp is 91/);
+    await post('/api/watchers/delete', { id: w.id });
+    assert.equal((await (await fetch(BASE + '/api/watchers')).json()).watchers.length, 0);
+  } finally { web.close(); miner.close(); }
+});
