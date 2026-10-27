@@ -343,6 +343,18 @@
         .card input:not([type=checkbox]), .card select, .card textarea, .modal-box select { background: var(--bg-input); color: var(--text-main); border: 1px solid var(--border-color); border-radius: 9px; padding: 9px 11px; font: inherit; }
         .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; } .row > input { flex: 1; min-width: 220px; }
         .check { flex-direction: row !important; align-items: center; color: var(--text-main) !important; font-size: 13px !important; }
+        .tune { border-top: 1px solid var(--border-color); padding-top: 12px; display: grid; gap: 8px; }
+        .tune h3 { margin: 0; font-size: 14px; display: flex; gap: 8px; align-items: center; justify-content: space-between; }
+        .tune .grid4 { display: grid; grid-template-columns: 1.2fr 1.6fr .7fr .7fr .8fr; gap: 8px; }
+        .tune .grid4 > *, .tune textarea { min-width: 0; width: 100%; box-sizing: border-box; }
+        .tune textarea { min-height: 54px; resize: vertical; }
+        .presets button { padding: 3px 10px; font-size: 11px; }
+        .watch { display: grid; grid-template-columns: 14px 1fr 160px auto; gap: 12px; align-items: center; padding: 10px 0; border-top: 1px solid var(--border-color); }
+        .watch .dot { width: 10px; height: 10px; border-radius: 50%; background: #64748b; }
+        .watch .dot.ok { background: #10b981; } .watch .dot.error { background: #f43f5e; } .watch .dot.firing { background: #f59e0b; box-shadow: 0 0 10px #f59e0b; }
+        .watch .vals { font-family: var(--mono); font-size: 12px; color: var(--text-muted); word-break: break-word; }
+        .watch canvas { width: 160px; height: 36px; }
+        @media (max-width: 900px) { .tune .grid4 { grid-template-columns: 1fr 1fr; } .watch { grid-template-columns: 14px 1fr; } .watch canvas, .watch .row { grid-column: 2; } }
         .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
         .list { font-family: var(--mono); font-size: 12px; color: var(--text-muted); background: var(--bg-input); border-radius: 9px; padding: 10px 12px; max-height: 200px; overflow: auto; white-space: pre-wrap; }
         .hint { font-size: 12px; color: var(--text-muted); line-height: 1.5; }
@@ -441,6 +453,7 @@
     <button data-view="models" onclick="app.showView('models')"><span>&#129504;</span>Models</button>
     <button data-view="skills" onclick="app.showView('skills')"><span>&#129513;</span>Skills</button>
     <button data-view="sources" onclick="app.showView('sources')"><span>&#128218;</span>Sources</button>
+    <button data-view="watch" onclick="app.showView('watch')"><span>&#128225;</span>Watch</button>
     <button data-view="ship" onclick="app.showView('ship')"><span>&#128640;</span>Ship</button>
     <button data-view="settings" onclick="app.showView('settings')"><span>&#9881;&#65039;</span>Settings</button>
     <div class="spacer"></div>
@@ -534,6 +547,12 @@
         <div class="row"><button onclick="app.saveModels()">Save models</button></div>
     </div>
     <div class="card">
+        <h2>Worker tuning</h2>
+        <div class="hint">Give each worker its own provider, model, temperature and instructions. Leave a field blank to use the defaults (Settings &gt; Generation). Example: plan with Claude at 0.3, build locally at 0.2, review with a second local model.</div>
+        <div id="tuning"></div>
+        <div class="row"><button onclick="app.saveTuning()">Save tuning</button><span id="tuning-msg" class="hint"></span></div>
+    </div>
+    <div class="card">
         <h2>Download a model for LM Studio</h2>
         <div class="hint">Paste the link to a .gguf file on Hugging Face (<a href="https://huggingface.co/models?library=gguf&sort=trending" target="_blank">browse GGUF models</a>). It's saved in your LM Studio models folder, where LM Studio picks it up. A 7&ndash;9B model in Q4_K_M is a good fit for most GPUs. You can also download inside LM Studio's Discover tab.</div>
         <div class="row"><input id="dl-url" placeholder="https://huggingface.co/owner/repo/blob/main/model-Q4_K_M.gguf"><button onclick="app.startDownload()">Download</button></div>
@@ -583,6 +602,52 @@
         <div id="src-msg" class="hint"></div>
     </div>
     <div id="sources-list"></div>
+</section>
+
+<section class="view" id="view-watch" hidden>
+    <h1>Watch</h1>
+    <p class="sub">Keep an eye on miners, servers and APIs. Freeze Foundry polls them while the app is open, charts a value and alerts you when a rule trips. It can also ask your model what's wrong.</p>
+    <div class="card">
+        <h2>Watching</h2>
+        <div id="watch-list" class="hint">Nothing watched yet. Add a watcher below.</div>
+    </div>
+    <div class="card">
+        <h2 id="wf-title">Add a watcher</h2>
+        <div class="grid2">
+            <label>Start from
+                <select id="wf-preset" onchange="app.watchPreset()">
+                    <option value="">Custom JSON API</option>
+                    <option value="cgminer">Antminer / cgminer API (port 4028)</option>
+                    <option value="axeos">Bitaxe / AxeOS (web API)</option>
+                    <option value="ollama">Ollama: loaded models</option>
+                    <option value="price">Crypto price (CoinGecko)</option>
+                </select></label>
+            <label>Name <input id="wf-name" placeholder="L7 in the garage"></label>
+            <label>Connect by
+                <select id="wf-kind" onchange="app.watchKind()"><option value="http">Web address (HTTP JSON)</option><option value="tcp">Device API (TCP JSON)</option></select></label>
+            <label>Check every (seconds) <input id="wf-interval" type="number" min="15" value="60"></label>
+        </div>
+        <label id="wf-url-wrap">Address <input id="wf-url" placeholder="http://192.168.1.50/api/system/info"></label>
+        <div class="grid2" id="wf-tcp-wrap" hidden>
+            <label>Host <input id="wf-host" placeholder="192.168.1.50"></label>
+            <label>Port <input id="wf-port" type="number" placeholder="4028"></label>
+            <label>Command <input id="wf-command" placeholder="summary"></label>
+        </div>
+        <label>Values to track, comma separated (the first one is charted) <input id="wf-fields" placeholder="temp, hashRate  or  SUMMARY.0.MHS 5s"></label>
+        <div class="grid2">
+            <label>Alert when
+                <select id="wf-op"><option value="">never</option><option value="<">value is below</option><option value=">">value is above</option><option value="==">value equals</option><option value="changed">value changes</option><option value="offline">it stops responding</option></select></label>
+            <label>Which value, and the limit <div style="display:grid;grid-template-columns:1fr 110px;gap:8px"><input id="wf-path" placeholder="temp" style="min-width:0"><input id="wf-value" type="number" placeholder="85" style="min-width:0"></div></label>
+        </div>
+        <label>When it alerts, ask the model (optional) <input id="wf-ai" placeholder="This is my Scrypt miner. Explain the likely cause and what to check."></label>
+        <div class="row"><button class="ghost" onclick="app.testWatcher()">Test connection</button><button onclick="app.saveWatcher()">Save watcher</button><button class="ghost" id="wf-cancel" hidden onclick="app.resetWatchForm()">Cancel edit</button><span id="wf-msg" class="hint"></span></div>
+        <pre id="wf-out" class="list" hidden></pre>
+        <div class="hint">Value paths use dots: <code>temp</code>, <code>bitcoin.usd</code>, <code>SUMMARY.0.MHS 5s</code>. Test the connection first to see the data and pick paths. Antminers need the API enabled (most have read-only access on port 4028).</div>
+    </div>
+    <div class="card">
+        <h2>Alerts</h2>
+        <div id="alert-list" class="list">No alerts.</div>
+    </div>
 </section>
 
 <section class="view" id="view-ship" hidden>
@@ -1269,7 +1334,7 @@ class App {
 
     showView(name) {
         document.getElementById('view-factory').hidden = name !== 'factory';
-        ['models', 'skills', 'sources', 'ship', 'settings'].forEach(v => { document.getElementById('view-' + v).hidden = name !== v; });
+        ['models', 'skills', 'sources', 'watch', 'ship', 'settings'].forEach(v => { document.getElementById('view-' + v).hidden = name !== v; });
         document.querySelectorAll('.rail [data-view]').forEach(b => b.classList.toggle('active', b.dataset.view === name));
         if (name === 'models') {
             document.getElementById('set-base').value = (this.settings && this.settings.baseUrl) || '';
@@ -1281,6 +1346,173 @@ class App {
         if (name === 'skills') this.refreshSkills();
         if (name === 'sources') this.refreshSources();
         if (name === 'ship') this.refreshShip();
+        if (name === 'watch') this.refreshWatch();
+        if (name === 'models') this.renderTuning();
+    }
+
+    // ---------- Worker tuning ----------
+    renderTuning() {
+        const rc = (this.settings && this.settings.roleConfig) || {};
+        const provs = [['', '(default provider)'], ['local', 'Local (LM Studio / Ollama)'], ['anthropic', 'Claude'], ['openai', 'OpenAI'], ['gemini', 'Gemini'], ['openrouter', 'OpenRouter'], ['custom', 'Custom server']];
+        const box = document.getElementById('tuning');
+        box.innerHTML = '';
+        ['planner', 'builder', 'reviewer'].forEach(role => {
+            const c = rc[role] || {};
+            const d = document.createElement('div');
+            d.className = 'tune';
+            d.dataset.role = role;
+            d.innerHTML = `<h3>${role[0].toUpperCase() + role.slice(1)}<span class="presets"><button class="ghost" data-t="0.2">Precise</button> <button class="ghost" data-t="0.7">Balanced</button> <button class="ghost" data-t="1.0">Creative</button></span></h3>
+              <div class="grid4">
+                <select data-k="provider">${provs.map(([v, l]) => `<option value="${v}">${l}</option>`).join('')}</select>
+                <input data-k="model" placeholder="Model (blank = Worker models above)">
+                <input data-k="temperature" type="number" step="0.05" min="0" max="2" placeholder="Temp">
+                <input data-k="topP" type="number" step="0.05" min="0" max="1" placeholder="Top-p">
+                <input data-k="maxTokens" type="number" step="256" min="256" placeholder="Max tokens">
+              </div>
+              <textarea data-k="instructions" placeholder="Extra instructions for the ${role}, e.g. 'Prefer small functions and explain trade-offs in comments.'"></textarea>`;
+            d.querySelectorAll('[data-k]').forEach(el => { if (c[el.dataset.k] != null) el.value = c[el.dataset.k]; });
+            d.querySelectorAll('.presets button').forEach(b => b.onclick = () => { d.querySelector('[data-k="temperature"]').value = b.dataset.t; });
+            box.appendChild(d);
+        });
+    }
+
+    async saveTuning() {
+        const roleConfig = {};
+        document.querySelectorAll('#tuning .tune').forEach(d => {
+            const v = k => d.querySelector(`[data-k="${k}"]`).value.trim();
+            const n = k => (v(k) === '' ? undefined : Number(v(k)));
+            roleConfig[d.dataset.role] = { provider: v('provider') || undefined, model: v('model') || undefined, temperature: n('temperature'), topP: n('topP'), maxTokens: n('maxTokens'), instructions: v('instructions') || undefined };
+        });
+        const bad = Object.entries(roleConfig).find(([, c]) => c.provider && c.provider !== this.settings.provider && !c.model);
+        const msg = document.getElementById('tuning-msg');
+        if (bad) { msg.textContent = `The ${bad[0]} uses a different provider, so type its model name.`; return; }
+        this.settings = await fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ roleConfig }) }).then(r => r.json());
+        msg.textContent = 'Saved.';
+        this.toast('Worker tuning saved');
+    }
+
+    // ---------- Watch ----------
+    async refreshWatch() {
+        const d = await fetch('/api/watchers').then(r => r.json()).catch(() => null);
+        if (!d) return;
+        this.watchData = d;
+        const seen = this.seenAlerts || (this.seenAlerts = new Set(d.alerts.map(a => a.id)));
+        d.alerts.filter(a => !seen.has(a.id)).forEach(a => {
+            seen.add(a.id);
+            this.toast(a.message);
+            this.logToConsole('Watch: ' + a.message, 'warn');
+            if (this.ui().notifications !== false) try { new Notification('Freeze Foundry watch', { body: a.message }); } catch {}
+        });
+        if (document.getElementById('view-watch').hidden) return;
+        const list = document.getElementById('watch-list');
+        list.innerHTML = d.watchers.length ? '' : 'Nothing watched yet. Add a watcher below.';
+        d.watchers.forEach(w => {
+            const st = w.state || {};
+            const row = document.createElement('div');
+            row.className = 'watch';
+            const vals = st.values ? Object.entries(st.values).map(([k, v]) => `${k}: ${typeof v === 'number' ? v.toLocaleString(undefined, { maximumFractionDigits: 2 }) : typeof v === 'object' ? JSON.stringify(v) : v}`).join('  ·  ') : '';
+            row.innerHTML = `<span class="dot ${!w.enabled ? '' : st.firing ? 'firing' : st.status || ''}"></span>
+              <div><b></b><div class="vals"></div></div><canvas width="320" height="72"></canvas>
+              <div class="row"><button class="ghost" data-a="edit">Edit</button><button class="ghost" data-a="pause">${w.enabled ? 'Pause' : 'Resume'}</button><button class="ghost" data-a="del">Delete</button></div>`;
+            row.querySelector('b').textContent = w.name;
+            row.querySelector('.vals').textContent = st.error ? `Error: ${st.error}` : (vals || (w.enabled ? 'Waiting for the first reading...' : 'Paused')) + (st.lastAt ? `  ·  ${new Date(st.lastAt).toLocaleTimeString()}` : '');
+            this.sparkline(row.querySelector('canvas'), st.history || []);
+            row.querySelector('[data-a="edit"]').onclick = () => this.editWatcher(w);
+            row.querySelector('[data-a="pause"]').onclick = () => this.postWatcher({ ...w, state: undefined, enabled: !w.enabled });
+            row.querySelector('[data-a="del"]').onclick = async () => { await fetch('/api/watchers/delete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: w.id }) }); this.refreshWatch(); };
+            list.appendChild(row);
+        });
+        document.getElementById('alert-list').textContent = d.alerts.length
+            ? d.alerts.map(a => `${new Date(a.at).toLocaleString()}  ${a.message}${a.ai ? '\n   AI: ' + a.ai : ''}`).join('\n')
+            : 'No alerts.';
+    }
+
+    sparkline(c, vals) {
+        const g = c.getContext('2d'), W = c.width, H = c.height;
+        g.clearRect(0, 0, W, H);
+        if (vals.length < 2) return;
+        const lo = Math.min(...vals), hi = Math.max(...vals), span = hi - lo || 1;
+        g.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#a855f7';
+        g.lineWidth = 3; g.beginPath();
+        vals.forEach((v, i) => { const x = 4 + i * (W - 8) / (vals.length - 1), y = H - 6 - (v - lo) / span * (H - 12); i ? g.lineTo(x, y) : g.moveTo(x, y); });
+        g.stroke();
+    }
+
+    watchForm() {
+        const v = id => document.getElementById(id).value.trim();
+        const op = v('wf-op');
+        return {
+            id: this.editingWatch || undefined, name: v('wf-name'), kind: v('wf-kind'), url: v('wf-url'), host: v('wf-host'), port: v('wf-port'), command: v('wf-command'),
+            intervalSec: v('wf-interval'), fields: v('wf-fields'), aiPrompt: v('wf-ai'),
+            rule: op ? { op, path: v('wf-path'), value: v('wf-value') } : undefined
+        };
+    }
+
+    watchPreset() {
+        const p = {
+            cgminer: { name: 'Antminer', kind: 'tcp', port: 4028, command: 'summary', fields: 'SUMMARY.0.MHS 5s, SUMMARY.0.Hardware Errors', op: 'offline', ai: 'This is my miner. Explain the likely cause and what to check.' },
+            axeos: { name: 'Bitaxe', kind: 'http', url: 'http://192.168.1.50/api/system/info', fields: 'hashRate, temp, power', op: '>', path: 'temp', value: 70 },
+            ollama: { name: 'Ollama', kind: 'http', url: 'http://127.0.0.1:11434/api/ps', fields: 'models.0.name', op: 'offline' },
+            price: { name: 'Bitcoin price', kind: 'http', url: 'https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,litecoin,dogecoin&vs_currencies=usd', fields: 'bitcoin.usd, litecoin.usd, dogecoin.usd', interval: 300 }
+        }[document.getElementById('wf-preset').value];
+        if (!p) return;
+        const set = (id, val) => { document.getElementById(id).value = val == null ? '' : val; };
+        set('wf-name', p.name); set('wf-kind', p.kind); set('wf-url', p.url); set('wf-port', p.port); set('wf-command', p.command);
+        set('wf-fields', p.fields); set('wf-op', p.op); set('wf-path', p.path); set('wf-value', p.value); set('wf-ai', p.ai); set('wf-interval', p.interval || 60);
+        this.watchKind();
+    }
+
+    watchKind() {
+        const tcp = document.getElementById('wf-kind').value === 'tcp';
+        document.getElementById('wf-url-wrap').hidden = tcp;
+        document.getElementById('wf-tcp-wrap').hidden = !tcp;
+    }
+
+    async testWatcher() {
+        const out = document.getElementById('wf-out'), msg = document.getElementById('wf-msg');
+        msg.textContent = 'Connecting...';
+        const r = await fetch('/api/watchers/test', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(this.watchForm()) });
+        const d = await r.json().catch(() => ({}));
+        out.hidden = false;
+        if (!r.ok) { msg.textContent = ''; out.textContent = 'Could not connect: ' + (d.error || r.status); return; }
+        msg.textContent = 'Connected.';
+        out.textContent = 'Tracked values: ' + JSON.stringify(d.values) + '\n\n' + (typeof d.data === 'string' ? d.data : JSON.stringify(d.data, null, 2)).slice(0, 6000);
+    }
+
+    async postWatcher(w) {
+        const r = await fetch('/api/watchers', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(w) });
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok) { document.getElementById('wf-msg').textContent = d.error || 'Could not save'; return false; }
+        setTimeout(() => this.refreshWatch(), 1500);
+        this.refreshWatch();
+        return true;
+    }
+
+    async saveWatcher() {
+        if (await this.postWatcher(this.watchForm())) { this.toast('Watcher saved'); this.resetWatchForm(); }
+    }
+
+    editWatcher(w) {
+        this.editingWatch = w.id;
+        const set = (id, val) => { document.getElementById(id).value = val == null ? '' : val; };
+        set('wf-preset', ''); set('wf-name', w.name); set('wf-kind', w.kind); set('wf-url', w.url); set('wf-host', w.host); set('wf-port', w.port); set('wf-command', w.command);
+        set('wf-interval', w.intervalSec); set('wf-fields', (w.fields || []).join(', ')); set('wf-ai', w.aiPrompt);
+        set('wf-op', w.rule ? w.rule.op : ''); set('wf-path', w.rule ? w.rule.path : ''); set('wf-value', w.rule ? w.rule.value : '');
+        document.getElementById('wf-title').textContent = 'Edit ' + w.name;
+        document.getElementById('wf-cancel').hidden = false;
+        this.watchKind();
+        document.getElementById('wf-title').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    resetWatchForm() {
+        this.editingWatch = null;
+        ['wf-name', 'wf-url', 'wf-host', 'wf-port', 'wf-command', 'wf-fields', 'wf-ai', 'wf-path', 'wf-value'].forEach(id => { document.getElementById(id).value = ''; });
+        document.getElementById('wf-op').value = ''; document.getElementById('wf-preset').value = ''; document.getElementById('wf-interval').value = 60;
+        document.getElementById('wf-title').textContent = 'Add a watcher';
+        document.getElementById('wf-cancel').hidden = true;
+        document.getElementById('wf-out').hidden = true;
+        document.getElementById('wf-msg').textContent = '';
+        this.watchKind();
     }
 
     providerChanged() {
@@ -1475,7 +1707,7 @@ class App {
                 'Create my-actor/.actor/input_schema.json describing every input field my-actor/src/main.js reads, with titles, descriptions and defaults.'
             ].join('\n'),
             'PyTorch model': [
-                'Create model/train.py, a PyTorch script that DESCRIBE WHAT THE NETWORK LEARNS. Use cuda if available, else mps, else cpu. Set a seed, keep the dataset small or synthetic, print one line per epoch exactly like "epoch 3 loss 0.4123", and save the weights to model.pt next to the script.',
+                'Create model/train.py, a PyTorch script that DESCRIBE WHAT THE NETWORK LEARNS. Use cuda if available (NVIDIA or AMD ROCm), else mps, else torch_directml if installed, else cpu. Set a seed, keep the dataset small or synthetic, print one line per epoch exactly like "epoch 3 loss 0.4123", and save the weights to model.pt next to the script.',
                 'Create model/requirements.txt listing torch and every other package model/train.py imports.',
                 'Create model/README.md explaining how to install the requirements and run train.py, and what it trains.'
             ].join('\n'),
@@ -1892,6 +2124,8 @@ class App {
         this.refreshFiles();
         this.refreshStaged();
         this.renderBlueprints();
+        this.refreshWatch();
+        setInterval(() => this.refreshWatch(), 10000);
         const drop = document.getElementById('drop');
         drop.addEventListener('dragover', e => { e.preventDefault(); drop.style.borderColor = 'var(--accent)'; });
         drop.addEventListener('dragleave', () => { drop.style.borderColor = ''; });

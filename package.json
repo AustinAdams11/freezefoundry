@@ -20,6 +20,7 @@
     "productName": "Freeze Foundry",
     "files": [
       "server.js",
+      "watchers.js",
       "public/**",
       "app/**",
       "starter-skills/**",
