@@ -555,11 +555,12 @@ if (pathname.startsWith('/api/tasks/') && pathname.endsWith('/approve')) {
         if (typeof b.autoApply === 'boolean') st.autoApply = b.autoApply;
         if (typeof b.setupDone === 'boolean') st.setupDone = b.setupDone;
         if (Number.isInteger(b.attempts) && b.attempts >= 1 && b.attempts <= 10) st.attempts = b.attempts;
+        if (typeof b.pythonPath === 'string' && b.pythonPath.length <= 300 && !/[\r\n]/.test(b.pythonPath)) st.pythonPath = b.pythonPath.trim();
         if (typeof b.temperature === 'number' && b.temperature >= 0 && b.temperature <= 2) st.temperature = b.temperature;
         if (Number.isInteger(b.maxTokens) && b.maxTokens >= 256 && b.maxTokens <= 32768) st.maxTokens = b.maxTokens;
         if (b.permissions && typeof b.permissions === 'object') {
           const pm = { ...st.permissions };
-          for (const k of ['readFiles', 'runTests', 'sources', 'internet']) if (typeof b.permissions[k] === 'boolean') pm[k] = b.permissions[k];
+          for (const k of ['readFiles', 'runTests', 'sources', 'internet', 'runScripts']) if (typeof b.permissions[k] === 'boolean') pm[k] = b.permissions[k];
           st.permissions = pm;
         }
         if (b.ui && typeof b.ui === 'object') {
@@ -705,6 +706,33 @@ if (pathname.startsWith('/api/tasks/') && pathname.endsWith('/approve')) {
       if (!fs.realpathSync(full).startsWith(fs.realpathSync(WORKSPACE_DIR) + path.sep) || !fs.statSync(full).isFile()) throw new Error();
       res.writeHead(200); return res.end(JSON.stringify({ path: parsedUrl.query.path, content: fs.readFileSync(full, 'utf8').slice(0, 262144) }));
     } catch { res.writeHead(404); return res.end(JSON.stringify({ error: 'File not found in workspace' })); }
+  }
+
+  // TRAINING BAY: run an approved .py file from the workspace (only when the user clicks Run)
+  if (pathname === '/api/run' && method === 'GET') {
+    res.writeHead(200); return res.end(JSON.stringify(scriptRun ? { ...scriptRun, output: scriptRun.output.slice(-20000), child: undefined } : null));
+  }
+  if (pathname === '/api/run' && method === 'POST') {
+    try {
+      if (!perms().runScripts) throw new Error('Turn on "Run Python scripts" in Settings > Permissions first.');
+      if (scriptRun && scriptRun.status === 'running') throw new Error('A script is already running. Stop it first.');
+      const b = await readJsonBody(req);
+      const full = path.resolve(WORKSPACE_DIR, String(b.path || ''));
+      if (path.extname(full).toLowerCase() !== '.py' || !fs.existsSync(full) || !fs.realpathSync(full).startsWith(fs.realpathSync(WORKSPACE_DIR) + path.sep)) throw new Error('Only .py files in the workspace can be run.');
+      const run = { path: b.path, status: 'running', output: '', exitCode: null, startedAt: new Date().toISOString() };
+      const child = spawn(pythonCmd(), ['-u', path.basename(full)], { cwd: path.dirname(full), windowsHide: true, env: { ...process.env, PYTHONUNBUFFERED: '1' } });
+      const add = d => { run.output = (run.output + d).slice(-200000); };
+      child.stdout.on('data', add); child.stderr.on('data', add);
+      child.on('error', e => { add(`\n${e.code === 'ENOENT' ? `Python was not found (${pythonCmd()}). Install Python, or set its path in Settings.` : e.message}\n`); run.status = 'failed'; });
+      child.on('close', code => { run.exitCode = code; if (run.status === 'running') run.status = code === 0 ? 'done' : (run.stopped ? 'stopped' : 'failed'); });
+      Object.defineProperty(run, 'child', { value: child, enumerable: false });
+      scriptRun = run;
+      res.writeHead(200); return res.end(JSON.stringify({ ok: true }));
+    } catch (e) { res.writeHead(400); return res.end(JSON.stringify({ error: e.message })); }
+  }
+  if (pathname === '/api/run/stop' && method === 'POST') {
+    if (scriptRun && scriptRun.status === 'running') { scriptRun.stopped = true; scriptRun.child.kill(); }
+    res.writeHead(200); return res.end(JSON.stringify({ ok: true }));
   }
 
   // SKILLS
@@ -957,6 +985,9 @@ async function testProposal(proposal, task) {
     const ext = path.extname(target).toLowerCase();
     if (['.js', '.cjs', '.mjs'].includes(ext)) {
       checks.push(await runCheck(process.execPath, ['--check', path.relative(runDir, target)], runDir, false));
+    } else if (ext === '.py') {
+      const c = await runCheck(pythonCmd(), ['-m', 'py_compile', path.relative(runDir, target)], runDir, false);
+      if (!/ENOENT/.test(c.output)) checks.push(c); // no Python installed: skip rather than fail the work
     } else if (ext === '.json') {
       try { JSON.parse(proposal.content); checks.push({ command: 'JSON.parse', exitCode: 0, output: 'valid JSON' }); }
       catch (e) { checks.push({ command: 'JSON.parse', exitCode: 1, output: e.message }); }
@@ -1039,7 +1070,7 @@ const LEDGER_FILE = path.join(DATA_DIR, 'ledger.jsonl');
 const DEFAULT_SETTINGS = {
   provider: 'local', baseUrl: 'http://127.0.0.1:1234/v1', model: MODEL_NAME, roleModels: {},
   modelsDir: path.join(os.homedir(), '.lmstudio', 'models'), attempts: 3, autoApply: true, setupDone: false,
-  temperature: 0.7, maxTokens: 4096, permissions: { readFiles: true, runTests: true, sources: true, internet: false }, ui: { accent: '#a855f7', pace: 'normal', sounds: true, notifications: true, reduceMotion: false, scale: 1 }
+  temperature: 0.7, maxTokens: 4096, permissions: { readFiles: true, runTests: true, sources: true, internet: false, runScripts: false }, ui: { accent: '#a855f7', pace: 'normal', sounds: true, notifications: true, reduceMotion: false, scale: 1 }
 };
 
 function publicSettings(st) {
@@ -1124,14 +1155,23 @@ function listGguf(dir, base = dir, out = [], depth = 0) {
 // Agent Skills format: skills/<id>/SKILL.md with a YAML-style header. `triggers` (keywords) and `roles`
 // are optional: no triggers means always on, no roles means every worker.
 const SKILLS_DIR = path.join(ROOT_DIR, 'skills');
-if (!fs.existsSync(SKILLS_DIR)) {
-  // First run: copy the starter skills (read file by file so it also works from inside the packaged app).
-  const src = path.join(__dirname, 'starter-skills');
-  for (const id of fs.existsSync(src) ? fs.readdirSync(src) : []) {
-    fs.mkdirSync(path.join(SKILLS_DIR, id), { recursive: true });
-    fs.writeFileSync(path.join(SKILLS_DIR, id, 'SKILL.md'), fs.readFileSync(path.join(src, id, 'SKILL.md')));
-  }
+{
+  // Copy each starter skill once (file by file so it works inside the packaged app). .starters remembers
+  // which were offered, so a starter added in an update arrives but one the user deleted stays deleted.
   fs.mkdirSync(SKILLS_DIR, { recursive: true });
+  const src = path.join(__dirname, 'starter-skills');
+  const seenFile = path.join(SKILLS_DIR, '.starters');
+  let seen = [];
+  try { seen = JSON.parse(fs.readFileSync(seenFile, 'utf8')); } catch {}
+  for (const id of fs.existsSync(src) ? fs.readdirSync(src) : []) {
+    if (seen.includes(id)) continue;
+    if (!fs.existsSync(path.join(SKILLS_DIR, id))) {
+      fs.mkdirSync(path.join(SKILLS_DIR, id), { recursive: true });
+      fs.writeFileSync(path.join(SKILLS_DIR, id, 'SKILL.md'), fs.readFileSync(path.join(src, id, 'SKILL.md')));
+    }
+    seen.push(id);
+  }
+  fs.writeFileSync(seenFile, JSON.stringify(seen));
 }
 
 function parseSkill(id, text) {
@@ -1213,6 +1253,13 @@ function setKey(provider, key) {
 
 // ---------- Permissions, sources, web pages ----------
 function perms() { return loadSettings().permissions; }
+
+let scriptRun = null;
+// shortcut: uses Python from PATH (or the pythonPath setting); no virtualenv picker yet.
+function pythonCmd() {
+  const p = loadSettings().pythonPath;
+  return typeof p === 'string' && p.trim() ? p.trim() : (process.platform === 'win32' ? 'python' : 'python3');
+}
 
 const SOURCES_DIR = path.join(DATA_DIR, 'sources');
 const SOURCES_FILE = path.join(SOURCES_DIR, 'sources.json');

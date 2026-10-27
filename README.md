@@ -15,6 +15,7 @@ Runs on your own local model through [LM Studio](https://lmstudio.ai) or [Ollama
 - **Local or cloud AI**: LM Studio and Ollama, or Claude, OpenAI, Gemini, OpenRouter and any OpenAI-compatible server. API keys are encrypted with the OS keychain.
 - **Sources**: upload reference files or add web pages; workers read them while planning and building.
 - **Permissions**: choose whether the AI may read workspace files, run tests, use sources and reach the internet.
+- **Training bay (PyTorch)**: the PyTorch blueprint has the workers write a training script; approve it, click **Run** on the `.py` file and watch its output and loss curve live. Off until you allow "Run Python scripts" in Permissions; uses your own Python with torch installed.
 - **Ship to Apify**: build a complete Apify Actor from a blueprint and publish it to your Apify account in one click.
 - **Desktop app** for Windows and macOS, with a first-run setup guide.
 
@@ -22,8 +23,8 @@ Runs on your own local model through [LM Studio](https://lmstudio.ai) or [Ollama
 
 Download the latest installer from the [Releases](../../releases) page:
 
-- **Windows**: `Freeze Foundry Setup x.y.z.exe`. The app isn't code-signed yet, so choose *More info → Run anyway* on the SmartScreen prompt.
-- **macOS**: the `.dmg` for your Mac (`arm64` for Apple Silicon, `x64` for Intel). It isn't notarized yet; after dragging it to Applications run
+- **Windows**: `Freeze-Foundry-Setup.exe`. The app isn't code-signed yet, so choose *More info → Run anyway* on the SmartScreen prompt.
+- **macOS**: `Freeze-Foundry-arm64.dmg` for Apple Silicon or `Freeze-Foundry-x64.dmg` for Intel. It isn't notarized yet; after dragging it to Applications run
   `xattr -cr "/Applications/Freeze Foundry.app"` once.
 
 Installed copies keep tasks, settings, skills and the workspace in `Documents/Freeze Foundry`.
