@@ -1,0 +1,59 @@
+{
+  "name": "freeze-foundry",
+  "version": "0.7.0",
+  "private": true,
+  "description": "Local-first AI software factory: four local-model workers plan, build, test and review code on a pixel-art factory floor.",
+  "scripts": {
+    "start": "node --watch server.js",
+    "app": "electron .",
+    "dist:win": "electron-builder --win",
+    "dist:mac": "electron-builder --mac",
+    "test": "node --test"
+  },
+  "main": "app/main.js",
+  "devDependencies": {
+    "electron": "^45.0.0",
+    "electron-builder": "^26.18.0"
+  },
+  "build": {
+    "appId": "com.freezefoundry.app",
+    "productName": "Freeze Foundry",
+    "files": [
+      "server.js",
+      "public/**",
+      "app/**",
+      "starter-skills/**",
+      "package.json"
+    ],
+    "directories": {
+      "output": "dist"
+    },
+    "win": {
+      "target": "nsis",
+      "icon": "public/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    },
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        }
+      ],
+      "category": "public.app-category.developer-tools",
+      "icon": "public/icon.png"
+    },
+    "publish": {
+      "provider": "github",
+      "releaseType": "release"
+    }
+  },
+  "productName": "Freeze Foundry",
+  "license": "MIT"
+}

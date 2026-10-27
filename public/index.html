@@ -1,0 +1,2215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Freeze Foundry — AI Software Factory</title>
+    <link rel="icon" href="logo.svg">
+    <style>
+        :root {
+            --bg-dark: #1a1520;
+            --bg-panel: #241f2b;
+            --bg-input: #121014;
+            --primary-orange: #ff9d00;
+            --primary-teal: #00e5ff;
+            --primary-purple: #a855f7;
+            --text-main: #e2e8f0;
+            --text-muted: #94a3b8;
+            --border-color: #333;
+            --success: #10b981;
+            --error: #ef4444;
+            --warning: #f59e0b;
+            --font-stack: 'Courier New', Courier, monospace;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            font-family: var(--font-stack);
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* --- Header & Status Bar --- */
+        header {
+            background: #0f0e12;
+            border-bottom: 2px solid var(--primary-purple);
+            padding: 0.5rem 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            height: 48px;
+            flex-shrink: 0;
+        }
+
+        .brand {
+            font-weight: bold;
+            font-size: 1.2rem;
+            color: var(--primary-orange);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .status-bar {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            display: flex;
+            gap: 20px;
+        }
+
+        .status-item span { color: var(--primary-teal); }
+
+        /* --- Main Layout --- */
+        main {
+            flex: 1;
+            display: grid;
+            grid-template-columns: 350px 1fr 400px;
+            grid-template-rows: 1fr;
+            gap: 1rem;
+            padding: 1rem;
+            overflow: hidden;
+        }
+
+        /* --- Panels --- */
+        .panel {
+            background: var(--bg-panel);
+            border: 2px solid var(--border-color);
+            border-radius: 4px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+
+        .panel-header {
+            background: #1e1b25;
+            padding: 0.5rem 0.8rem;
+            border-bottom: 1px solid var(--border-color);
+            font-weight: bold;
+            color: var(--primary-teal);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .panel-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 0.8rem;
+            font-size: 0.9rem;
+        }
+
+        /* --- Left: Task Queue --- */
+        #task-queue-panel {
+            grid-row: 1 / -1;
+            border-right: 2px solid var(--primary-purple);
+        }
+
+        .task-item {
+            background: var(--bg-input);
+            border: 1px solid var(--border-color);
+            padding: 0.8rem;
+            margin-bottom: 0.6rem;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s;
+            position: relative;
+        }
+
+        .task-item:hover { border-color: var(--primary-teal); }
+        .task-item.active { border-color: var(--primary-orange); background: #2a2530; }
+        
+        .task-header { display: flex; justify-content: space-between; margin-bottom: 4px; }
+        .task-id { color: var(--primary-purple); font-weight: bold; }
+        .task-status { font-size: 0.75rem; padding: 2px 6px; border-radius: 3px; background: #333; }
+
+        /* --- Center: Factory Floor --- */
+
+        .worker-station {
+            background: #25212b;
+            border: 3px solid var(--border-color);
+            border-radius: 8px;
+            padding: 1rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            position: relative;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .worker-station.running { border-color: var(--primary-teal); box-shadow: 0 0 15px rgba(0, 229, 255, 0.3); }
+        .worker-station.success { border-color: var(--success); background: #1a2e24; }
+        .worker-station.error { border-color: var(--error); background: #2e1a1a; }
+
+        .station-icon {
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+            color: var(--text-muted);
+        }
+
+        .station-name { font-weight: bold; color: var(--text-main); margin-bottom: 0.5rem; text-align: center;}
+        
+        .station-log {
+            width: 100%;
+            height: 80px;
+            background: #121014;
+            border: 1px solid #333;
+            font-family: monospace;
+            font-size: 0.75rem;
+            padding: 4px;
+            overflow-y: auto;
+            color: var(--text-muted);
+        }
+
+        .station-status-light {
+            width: 12px; height: 12px; border-radius: 50%;
+            margin-bottom: 8px; background: #333;
+            box-shadow: inset 0 0 2px rgba(0,0,0,0.5);
+        }
+
+        /* --- Right: System Inspector & Console --- */
+        #system-inspector-panel {
+            border-left: 2px solid var(--primary-orange);
+        }
+
+        .file-browser {
+            height: 150px;
+            border-bottom: 1px solid var(--border-color);
+            padding: 0.5rem;
+            font-size: 0.8rem;
+            overflow-y: auto;
+        }
+
+        .file-item {
+            display: flex; align-items: center; gap: 6px;
+            padding: 2px 4px; cursor: pointer; color: var(--text-muted);
+        }
+        .file-item:hover { color: var(--primary-teal); background: rgba(255,255,255,0.05); }
+
+        #console-output {
+            flex: 1;
+            padding: 0.5rem;
+            font-family: monospace;
+            font-size: 0.8rem;
+            overflow-y: auto;
+            color: var(--text-main);
+        }
+
+        .log-entry { margin-bottom: 4px; border-left: 2px solid transparent; padding-left: 6px; }
+        .log-info { border-color: var(--primary-teal); color: #a5f3fc; }
+        .log-success { border-color: var(--success); color: #86efac; }
+        .log-error { border-color: var(--error); color: #fca5a5; background: rgba(239, 68, 68, 0.1); }
+        .log-warn { border-color: var(--warning); color: #fcd34d; }
+
+        /* --- Controls --- */
+        .controls {
+            padding: 1rem;
+            background: var(--bg-panel);
+            border-top: 2px solid var(--border-color);
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        input[type="text"], #goal-input {
+            flex: 1;
+            background: var(--bg-input);
+            border: 1px solid var(--border-color);
+            color: var(--text-main);
+            padding: 8px;
+            font-family: var(--font-stack);
+        }
+
+        button {
+            background: var(--primary-purple);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            cursor: pointer;
+            font-family: var(--font-stack);
+            font-weight: bold;
+            text-transform: uppercase;
+            transition: background 0.2s;
+        }
+
+        button:hover { background: #9333ea; }
+        button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        /* --- Pixel factory floor --- */
+        .floor-wrap { width: 100%; max-width: 960px; border: 2px solid #0d0b10; box-shadow: 0 0 0 2px #3a3342, 0 6px 0 2px #0d0b10; }
+        #floor-canvas { display: block; width: 100%; height: auto; image-rendering: pixelated; image-rendering: crisp-edges; }
+        .readouts { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; width: 100%; max-width: 960px; }
+        .readouts .worker-station { padding: 6px; cursor: pointer; align-items: stretch; }
+        .readout-head { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
+        .readouts .station-status-light { margin: 0; }
+        .readouts .station-name { margin: 0; font-size: 0.75rem; }
+        .readouts .station-log { height: 70px; font-size: 0.65rem; white-space: pre-wrap; word-break: break-word; }
+        #detail-view {
+            max-height: 40vh; overflow: auto; margin: 0 0 0.5rem; padding: 6px;
+            background: #121014; border: 1px solid #333; font-size: 0.72rem; white-space: pre-wrap; word-break: break-word;
+        }
+        .diff-add { color: var(--success); }
+        .diff-del { color: var(--error); }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #1a1520; }
+        ::-webkit-scrollbar-thumb { background: #444; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #555; }
+
+        /* Responsive */
+        @media (max-width: 1024px) {
+            main { grid-template-columns: 300px 1fr; }
+            #system-inspector-panel { display: none; }
+        }
+
+        @media (max-width: 768px) {
+            main { grid-template-columns: 1fr; }
+            #task-queue-panel { height: auto; overflow-y: auto; border-right: none; border-bottom: 2px solid var(--primary-purple); }
+            .readouts { grid-template-columns: repeat(2, 1fr); }
+        }
+            /* --- Models dialog --- */
+        .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; z-index: 50; }
+        .modal[hidden] { display: none; }
+        .modal-box { background: var(--bg-panel); border: 2px solid #0d0b10; box-shadow: 0 0 0 2px var(--primary-purple); padding: 12px; width: min(460px, 92vw); display: flex; flex-direction: column; gap: 8px; }
+        .modal-box label { display: flex; flex-direction: column; gap: 3px; font-size: 0.75rem; color: var(--text-muted); }
+        .modal-box select, .modal-box input { background: var(--bg-input); color: var(--text-main); border: 1px solid #333; padding: 6px; font-family: inherit; }
+        .hint { font-size: 0.7rem; color: var(--text-muted); }
+        .modal-actions { display: flex; gap: 8px; justify-content: flex-end; }
+        .link-btn, .link-btn:hover { background: none; border: none; box-shadow: none; color: var(--primary-teal); padding: 0; font: inherit; text-transform: none; cursor: pointer; }
+        .link-btn:hover { text-decoration: underline; }
+        /* ===== Modern shell (overrides the older styles above) ===== */
+        :root {
+            --bg-dark: #0e0c12; --bg-panel: #16131c; --bg-input: #0e0c12; --bg-raise: #1e1a26;
+            --border-color: #2a2533; --text-main: #ece9f2; --text-muted: #8e879e;
+            --ui-font: 'Segoe UI Variable Text', 'Segoe UI', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+            --mono: 'Cascadia Code', 'SF Mono', Consolas, monospace;
+            --radius: 12px;
+        }
+        body { font-family: var(--ui-font); font-size: 14px; }
+        header { height: 52px; background: var(--bg-panel); border-bottom: 1px solid var(--border-color); padding: 0 16px; }
+        .brand { font-size: 15px; letter-spacing: 0.3px; font-weight: 700; }
+        .status-bar { font-size: 12px; gap: 8px; align-items: center; }
+        .status-item { background: var(--bg-raise); border: 1px solid var(--border-color); border-radius: 999px; padding: 4px 10px; white-space: nowrap; }
+        .app-shell { flex: 1; display: flex; min-height: 0; }
+        .rail { width: 72px; flex: none; background: var(--bg-panel); border-right: 1px solid var(--border-color); display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 12px 0; }
+        .rail button { width: 56px; height: 56px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; font-size: 11px; font-weight: 500; background: transparent; color: var(--text-muted); border-radius: 12px; padding: 0; }
+        .rail button span { font-size: 19px; line-height: 1; }
+        .rail button:hover { background: var(--bg-raise); color: var(--text-main); }
+        .rail button.active { background: rgba(168, 85, 247, 0.16); color: #d8b4fe; }
+        .rail .spacer { flex: 1; }
+        main { flex: 1; min-width: 0; grid-template-columns: 280px 1fr 360px; grid-template-rows: 1fr auto; gap: 12px; padding: 12px; }
+        main[hidden], .view[hidden], [hidden] { display: none !important; }
+        .controls { grid-column: 1 / -1; border: 1px solid var(--border-color); border-radius: var(--radius); padding: 10px; }
+        #goal-input { min-height: 46px; max-height: 40vh; border-radius: 10px; font-family: var(--ui-font); font-size: 14px; padding: 12px 14px; }
+        .panel { border: 1px solid var(--border-color); border-radius: var(--radius); box-shadow: none; }
+        #task-queue-panel, #system-inspector-panel { border: 1px solid var(--border-color); }
+        .panel-header { background: transparent; color: var(--text-muted); font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; padding: 12px 14px; }
+        button { font-family: var(--ui-font); text-transform: none; font-weight: 600; font-size: 13px; border-radius: 9px; padding: 9px 14px; border: 1px solid transparent; }
+        button.ghost { background: var(--bg-raise); border-color: var(--border-color); color: var(--text-main); }
+        button.ghost:hover { background: #29232f; }
+        button.success { background: var(--success); } button.success:hover { background: #059669; }
+        button.danger { background: var(--error); } button.danger:hover { background: #dc2626; }
+        .task-item { border-radius: 10px; background: var(--bg-raise); }
+        .worker-station, .station-log, #detail-view { border-radius: 10px; }
+        #console-output, .station-log, #detail-view, code { font-family: var(--mono); }
+        .floor-wrap { position: relative; border: none; border-radius: 14px; overflow: hidden; box-shadow: 0 0 0 1px var(--border-color), 0 18px 50px rgba(0,0,0,0.45); }
+        .floor-wrap, .readouts { max-width: 1200px; }
+        .floor-wrap::after { content: ''; position: absolute; inset: 0; pointer-events: none; box-shadow: inset 0 0 90px rgba(0,0,0,0.6); }
+        #floor-light { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; mix-blend-mode: screen; }
+        .staged-item { background: var(--bg-raise); border: 1px solid var(--border-color); border-radius: 10px; padding: 10px; margin-bottom: 8px; display: flex; flex-direction: column; gap: 6px; font-size: 12px; }
+        .staged-item .goal { color: var(--text-main); }
+        .staged-item .meta { color: var(--text-muted); font-family: var(--mono); font-size: 11px; }
+        .staged-item button { padding: 5px 10px; font-size: 12px; }
+        .empty { color: var(--text-muted); font-size: 12px; padding: 4px; }
+        .view { flex: 1; overflow-y: auto; padding: 28px 32px; }
+        .view h1 { font-size: 24px; margin: 0 0 4px; } .view .sub { color: var(--text-muted); margin: 0 0 22px; }
+        .card { background: var(--bg-panel); border: 1px solid var(--border-color); border-radius: 14px; padding: 18px; margin-bottom: 16px; max-width: 860px; display: flex; flex-direction: column; gap: 12px; }
+        .card h2, .modal-box h2 { font-size: 16px; margin: 0; }
+        .card label { display: flex; flex-direction: column; gap: 5px; font-size: 12px; color: var(--text-muted); }
+        .card textarea { font-family: var(--mono); font-size: 12px; resize: vertical; }
+        .card input:not([type=checkbox]), .card select, .card textarea, .modal-box select { background: var(--bg-input); color: var(--text-main); border: 1px solid var(--border-color); border-radius: 9px; padding: 9px 11px; font: inherit; }
+        .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; } .row > input { flex: 1; min-width: 220px; }
+        .check { flex-direction: row !important; align-items: center; color: var(--text-main) !important; font-size: 13px !important; }
+        .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        .list { font-family: var(--mono); font-size: 12px; color: var(--text-muted); background: var(--bg-input); border-radius: 9px; padding: 10px 12px; max-height: 200px; overflow: auto; white-space: pre-wrap; }
+        .hint { font-size: 12px; color: var(--text-muted); line-height: 1.5; }
+        .pill { display: inline-block; padding: 3px 9px; border-radius: 999px; font-size: 11px; border: 1px solid var(--border-color); }
+        .pill.ok { color: #6ee7b7; border-color: #065f46; } .pill.bad { color: #fca5a5; border-color: #7f1d1d; }
+        a { color: var(--primary-teal); }
+        .modal-box { border: 1px solid var(--border-color); border-radius: 16px; box-shadow: 0 24px 70px rgba(0,0,0,0.6); width: min(560px, 92vw); padding: 24px; gap: 14px; }
+        .modal-box p { margin: 0; line-height: 1.55; }
+        .steps { color: var(--text-muted); font-size: 12px; }
+        /* ===== v5: the factory is the app ===== */
+        :root { --accent: #a855f7; --glass: rgba(20, 16, 28, 0.72); }
+        header { background: linear-gradient(180deg, #15101c, #0f0c14); }
+        .brand { text-transform: none; color: var(--text-main); gap: 10px; }
+        .brand .logo { display: inline-grid; place-items: center; width: 30px; height: 30px; border-radius: 9px; font-size: 16px;
+            background: radial-gradient(circle at 30% 30%, #3b2a5c, #15111c); box-shadow: 0 0 0 1px #3a2f4f, 0 0 18px color-mix(in srgb, var(--accent) 40%, transparent); }
+        .brand b { color: var(--primary-orange); }
+        button.mini { padding: 4px 9px; font-size: 11px; }
+        button:not(.ghost):not(.success):not(.danger):not(.link-btn):not(.send):hover { background: var(--accent); filter: brightness(1.15); }
+        .rail button.active { background: color-mix(in srgb, var(--accent) 18%, transparent); color: var(--accent); }
+        #view-factory { display: block; position: relative; padding: 0; overflow: hidden;
+            background: radial-gradient(ellipse at 50% 38%, #251a35 0%, #120e18 55%, #09070c 100%); }
+        #view-factory[hidden] { display: none; }
+        #view-factory::before { content: ''; position: absolute; inset: 0; pointer-events: none;
+            background-image: linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
+            background-size: 32px 32px; -webkit-mask-image: radial-gradient(ellipse at center, #000 35%, transparent 80%); }
+        .floor-area { position: absolute; top: 16px; bottom: 200px; left: var(--l, 332px); right: var(--r, 392px); display: flex; align-items: center; justify-content: center; container-type: size; transition: left 0.25s, right 0.25s; }
+        #view-factory.hide-left { --l: 16px; } #view-factory.hide-right { --r: 16px; }
+        .floor-wrap { width: min(100cqw, 100cqh * 32 / 15); aspect-ratio: 32 / 15; max-width: none; }
+        #floor-canvas { height: 100%; }
+        .drawer { position: absolute; top: 16px; bottom: 16px; width: 300px; display: flex; flex-direction: column; z-index: 2; overflow: hidden;
+            background: var(--glass); backdrop-filter: blur(14px) saturate(1.2); border: 1px solid rgba(255,255,255,0.07) !important; border-radius: 16px;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.45); transition: transform 0.25s ease, opacity 0.25s; }
+        .drawer-left { left: 16px; } .drawer-right { right: 16px; width: 360px; overflow-y: auto; }
+        #view-factory.hide-left .drawer-left { transform: translateX(-110%); opacity: 0; pointer-events: none; }
+        #view-factory.hide-right .drawer-right { transform: translateX(110%); opacity: 0; pointer-events: none; }
+        .drawer .panel-header { padding: 12px 14px 6px; }
+        .drawer-right #file-browser { padding: 0 10px; max-height: 150px; overflow: auto; flex: none; }
+        .drawer-right #detail-view { margin: 0 12px; max-height: 30vh; flex: none; }
+        .drawer-right #console-output { flex: none; min-height: 110px; padding: 0 14px 12px; }
+        .drawer-right .readouts { grid-template-columns: 1fr 1fr; padding: 0 12px; gap: 8px; max-width: none; }
+        .readouts .worker-station { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); }
+        .readouts .station-log { height: 52px; background: rgba(0,0,0,0.25); border: none; }
+        .ticket-wrap { position: absolute; left: var(--l, 332px); right: var(--r, 392px); bottom: 18px; z-index: 3; display: flex; flex-direction: column; align-items: center; gap: 10px; transition: left 0.25s, right 0.25s; pointer-events: none; }
+        .ticket-wrap > * { pointer-events: auto; }
+        .blueprints { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
+        .blueprints button { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); color: var(--text-main); border-radius: 999px; padding: 5px 12px; font-size: 12px; font-weight: 500; }
+        .blueprints button:hover { background: rgba(255,255,255,0.14) !important; filter: none !important; }
+        .ticket { width: min(760px, 100%); position: relative; padding: 12px 16px 12px 28px; border-radius: 10px; transform: rotate(-0.4deg);
+            background: linear-gradient(180deg, #f7f0de, #eee3c8); color: #2b2418; box-shadow: 0 18px 40px rgba(0,0,0,0.5), inset 0 0 0 1px rgba(0,0,0,0.08); transition: box-shadow 0.3s; }
+        .ticket::before { content: ''; position: absolute; left: 9px; top: 12px; bottom: 12px; width: 8px; background: radial-gradient(circle, #120e18 3px, transparent 3.5px) 0 0 / 8px 14px repeat-y; }
+        .ticket-head { display: flex; align-items: center; gap: 10px; font-family: var(--mono); font-size: 11px; letter-spacing: 0.12em; color: #7a6a4a; }
+        .stamp { color: #b4232a; border: 2px solid #b4232a; border-radius: 4px; padding: 1px 6px; font-weight: 700; transform: rotate(-3deg); }
+        .ticket-date { margin-left: auto; }
+        .ticket #goal-input { width: 100%; min-height: 56px; max-height: 30vh; margin: 6px 0 0; padding: 4px 2px; resize: none; outline: none; border: none; border-radius: 0;
+            background: repeating-linear-gradient(transparent 0 23px, rgba(43,36,24,0.13) 23px 24px); color: #2b2418; font-family: var(--mono); font-size: 14px; line-height: 24px; }
+        .ticket #goal-input::placeholder { color: rgba(43,36,24,0.45); }
+        .ticket-foot { display: flex; align-items: center; gap: 8px; margin-top: 8px; padding-top: 10px; border-top: 1px dashed rgba(43,36,24,0.3); }
+        .ticket-foot .spacer { flex: 1; }
+        .ticket-foot .ghost { background: transparent; border-color: rgba(43,36,24,0.25); color: #2b2418; }
+        .ticket-foot .ghost:hover { background: rgba(43,36,24,0.08); }
+        .ticket-foot .toggle { font-size: 12px; color: #5a4b30; display: flex; gap: 6px; align-items: center; }
+        .ticket .send { background: #2b2418; color: #f7f0de; }
+        .ticket .send:hover { background: #000; }
+        #btn-apply:disabled, #btn-reject:disabled { display: none; }
+        .ticket.sent { animation: ticket-send 0.55s ease; }
+        @keyframes ticket-send { 40% { transform: translateY(-16px) rotate(-1.5deg) scale(0.98); opacity: 0.55; } 100% { transform: rotate(-0.4deg); } }
+        .ticket.awaiting { box-shadow: 0 0 0 3px var(--success), 0 0 30px rgba(16,185,129,0.35), 0 18px 40px rgba(0,0,0,0.5); }
+        .toasts { position: fixed; top: 64px; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 6px; z-index: 60; pointer-events: none; }
+        .toast { background: var(--glass); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.12); border-radius: 999px; padding: 8px 16px; font-size: 13px; animation: toast 3.2s ease forwards; }
+        @keyframes toast { 0% { opacity: 0; transform: translateY(-8px); } 10%, 85% { opacity: 1; transform: none; } 100% { opacity: 0; } }
+        .swatches { display: flex; gap: 8px; } .swatches button { width: 28px; height: 28px; border-radius: 50%; padding: 0; border: 2px solid transparent; }
+        .swatches button.on { border-color: #fff; }
+        body.reduce-motion *, body.reduce-motion *::before { animation: none !important; transition: none !important; }
+        @media (max-width: 1100px) { #view-factory { --r: 16px; } .drawer-right { display: none; } }
+        @media (max-width: 900px) { #view-factory { --l: 16px; } .drawer-left { display: none; } .blueprints { display: none; } }
+    </style>
+</head>
+<body>
+
+<header>
+    <div class="brand"><img class="logo" src="logo.svg" alt=""><span>Freeze <b>Foundry</b></span></div>
+    <div class="status-bar">
+        <div class="status-item" title="Model server"><span id="api-status">Connecting...</span></div>
+        <div class="status-item" title="Model">&#129504; <button class="link-btn" onclick="app.openModels()"><span id="model-name">...</span> &#9662;</button></div>
+        <div class="status-item" title="Tokens used">&#9889; <span id="token-count">0</span></div>
+        <div class="status-item" title="Changes waiting for you">&#129534; <span id="staged-count">0</span></div>
+        <div class="status-item" title="Changes shipped this session">&#128230; <span id="shipped-count">0</span></div>
+        <button class="ghost mini" onclick="app.toggleDrawer('left')" title="Show or hide the queue">&#9703;</button>
+        <button class="ghost mini" onclick="app.toggleDrawer('right')" title="Show or hide the inspector">&#9704;</button>
+    </div>
+</header>
+
+<div class="app-shell">
+<nav class="rail">
+    <button class="active" data-view="factory" onclick="app.showView('factory')"><span>&#127981;</span>Factory</button>
+    <button data-view="models" onclick="app.showView('models')"><span>&#129504;</span>Models</button>
+    <button data-view="skills" onclick="app.showView('skills')"><span>&#129513;</span>Skills</button>
+    <button data-view="sources" onclick="app.showView('sources')"><span>&#128218;</span>Sources</button>
+    <button data-view="ship" onclick="app.showView('ship')"><span>&#128640;</span>Ship</button>
+    <button data-view="settings" onclick="app.showView('settings')"><span>&#9881;&#65039;</span>Settings</button>
+    <div class="spacer"></div>
+    <button onclick="app.openSetup()" title="Setup guide"><span>&#10067;</span>Guide</button>
+</nav>
+<main id="view-factory">
+    <div class="floor-area"><div class="floor-wrap"><canvas id="floor-canvas" width="640" height="300"></canvas><canvas id="floor-light"></canvas></div></div>
+
+    <section class="drawer drawer-left" id="task-queue-panel">
+        <div class="panel-header"><span>Queue</span><button class="ghost mini" onclick="app.resetQueue()">Clear</button></div>
+        <div class="panel-content" id="task-list" style="flex: 0 1 auto; max-height: 35%;"></div>
+        <div class="panel-header"><span>Staged changes</span><span class="row" style="gap: 4px;"><button class="ghost mini" onclick="app.refreshStaged()">Refresh</button><button class="ghost mini" onclick="app.discardAllStaged()">Discard all</button></span></div>
+        <div class="panel-content" id="staged-list"></div>
+    </section>
+
+    <section class="drawer drawer-right" id="system-inspector-panel">
+        <div class="panel-header">Workers</div>
+        <div class="readouts">
+            <div class="worker-station" id="station-planner" data-role="planner">
+                <div class="readout-head"><div class="station-status-light" id="light-planner"></div><div class="station-name">Planner</div></div>
+                <div class="station-log" id="log-planner">Waiting for a work order.</div>
+            </div>
+            <div class="worker-station" id="station-builder" data-role="builder">
+                <div class="readout-head"><div class="station-status-light" id="light-builder"></div><div class="station-name">Builder</div></div>
+                <div class="station-log" id="log-builder">Ready to build.</div>
+            </div>
+            <div class="worker-station" id="station-tester" data-role="tester">
+                <div class="readout-head"><div class="station-status-light" id="light-tester"></div><div class="station-name">Tester</div></div>
+                <div class="station-log" id="log-tester">Ready to test.</div>
+            </div>
+            <div class="worker-station" id="station-reviewer" data-role="reviewer">
+                <div class="readout-head"><div class="station-status-light" id="light-reviewer"></div><div class="station-name">Reviewer</div></div>
+                <div class="station-log" id="log-reviewer">Ready to review.</div>
+            </div>
+        </div>
+        <div class="panel-header">Workspace files</div>
+        <div class="file-browser" id="file-browser"></div>
+        <div class="panel-header" id="detail-title">Detail</div>
+        <pre id="detail-view">Click an office, a worker or a file to see it here.</pre>
+        <div class="panel-header">Console</div>
+        <div id="console-output"></div>
+    </section>
+
+    <div class="ticket-wrap">
+        <div class="blueprints" id="blueprints"></div>
+        <div class="ticket" id="ticket">
+            <div class="ticket-head"><span class="stamp">WORK ORDER</span><span id="ticket-no">#0001</span><span class="ticket-date" id="ticket-date"></span></div>
+            <textarea id="goal-input" rows="2" placeholder="What should the factory build? One goal per line. Ctrl+Enter to send."></textarea>
+            <div class="ticket-foot">
+                <label class="toggle" title="Apply a change by itself when tests pass and the Reviewer approves; anything else stays staged and the queue keeps going."><input type="checkbox" id="auto-apply"> Auto-apply</label>
+                <button class="ghost" onclick="app.showReport()">Report</button>
+                <span class="spacer"></span>
+                <button onclick="app.rejectChanges()" id="btn-reject" class="danger" disabled>Reject</button>
+                <button onclick="app.applyChanges()" id="btn-apply" class="success" disabled>Apply change</button>
+                <button class="send" onclick="app.submitTask()">Send to intake &#10140;</button>
+            </div>
+        </div>
+    </div>
+</main>
+
+<section class="view" id="view-models" hidden>
+    <h1>Models</h1>
+    <p class="sub">Connect a local model server, choose a model for each worker, and download new ones.</p>
+    <div class="card">
+        <h2>Model provider</h2>
+        <label>Where your workers think
+            <select id="set-provider" onchange="app.providerChanged()">
+                <option value="local">Local model (LM Studio / Ollama): free and private</option>
+                <option value="anthropic">Claude (Anthropic)</option>
+                <option value="openai">OpenAI (GPT and Codex models)</option>
+                <option value="gemini">Gemini (Google)</option>
+                <option value="openrouter">OpenRouter (hundreds of models, one key)</option>
+                <option value="custom">Custom OpenAI-compatible server</option>
+            </select></label>
+        <div class="row" id="prov-url"><input id="set-base" placeholder="http://127.0.0.1:1234/v1"><button class="ghost" onclick="app.useServer('http://127.0.0.1:1234/v1')">LM Studio</button><button class="ghost" onclick="app.useServer('http://127.0.0.1:11434/v1')">Ollama</button></div>
+        <div class="row" id="prov-key"><input id="set-key" type="password" autocomplete="off" spellcheck="false" placeholder="Paste your API key"><button class="ghost" onclick="app.saveKey()">Save key</button><a id="key-link" target="_blank">Get a key</a></div>
+        <div id="prov-note" class="hint"></div>
+        <div class="row"><button onclick="app.refreshModels()">Connect and list models</button></div>
+        <div id="models-msg" class="hint"></div>
+    </div>
+    <div class="card">
+        <h2>Worker models</h2>
+        <div class="grid2">
+            <label>Default (all workers) <select id="set-model"></select></label>
+            <label>Planner <select class="role-model" data-role="planner"></select></label>
+            <label>Builder <select class="role-model" data-role="builder"></select></label>
+            <label>Reviewer <select class="role-model" data-role="reviewer"></select></label>
+        </div>
+        <div class="row"><button onclick="app.saveModels()">Save models</button></div>
+    </div>
+    <div class="card">
+        <h2>Download a model for LM Studio</h2>
+        <div class="hint">Paste the link to a .gguf file on Hugging Face (<a href="https://huggingface.co/models?library=gguf&sort=trending" target="_blank">browse GGUF models</a>). It's saved in your LM Studio models folder, where LM Studio picks it up. A 7&ndash;9B model in Q4_K_M is a good fit for most GPUs. You can also download inside LM Studio's Discover tab.</div>
+        <div class="row"><input id="dl-url" placeholder="https://huggingface.co/owner/repo/blob/main/model-Q4_K_M.gguf"><button onclick="app.startDownload()">Download</button></div>
+        <div class="row hint">Saving to <code id="models-dir"></code><button class="ghost" onclick="app.openFolder('models')">Open folder</button></div>
+        <div id="dl-list" class="list">No downloads yet.</div>
+        <div class="hint">Model files in that folder</div>
+        <div id="local-models" class="list"></div>
+    </div>
+    <div class="card">
+        <h2>Pull a model for Ollama</h2>
+        <div class="hint">Enter a name from the <a href="https://ollama.com/library" target="_blank">Ollama library</a>, like qwen2.5-coder:7b. Ollama must be running. Progress shows in the download list above.</div>
+        <div class="row"><input id="ollama-name" placeholder="qwen2.5-coder:7b"><button onclick="app.pullOllama()">Pull</button></div>
+    </div>
+</section>
+
+<section class="view" id="view-skills" hidden>
+    <h1>Skills</h1>
+    <p class="sub">Reusable instructions your workers follow. A skill turns on when one of its trigger words appears in a goal, or on every task if it has none. Skills use the open Agent Skills format (one SKILL.md per folder), so you can drop in skills from other tools.</p>
+    <div class="row" style="max-width: 860px; margin-bottom: 16px;"><button onclick="app.editSkill()">New skill</button><button class="ghost" onclick="app.openFolder('skills')">Open skills folder</button><button class="ghost" onclick="app.refreshSkills()">Reload</button></div>
+    <div class="card" id="skill-editor" hidden>
+        <h2 id="skill-editor-title">New skill</h2>
+        <div class="grid2">
+            <label>Name <input id="sk-name"></label>
+            <label>Trigger words, comma-separated (empty = always on) <input id="sk-triggers" placeholder="apify, scraper"></label>
+        </div>
+        <label>Description <input id="sk-desc"></label>
+        <div class="row hint">Workers:
+            <label class="check"><input type="checkbox" class="sk-role" value="planner"> Planner</label>
+            <label class="check"><input type="checkbox" class="sk-role" value="builder"> Builder</label>
+            <label class="check"><input type="checkbox" class="sk-role" value="reviewer"> Reviewer</label>
+            (none ticked = all)</div>
+        <label>Instructions <textarea id="sk-body" rows="10"></textarea></label>
+        <div class="row"><button onclick="app.saveSkill()">Save skill</button><button class="ghost" onclick="document.getElementById('skill-editor').hidden = true">Cancel</button><span id="sk-msg" class="hint"></span></div>
+    </div>
+    <div id="skills-list"></div>
+</section>
+
+<section class="view" id="view-sources" hidden>
+    <h1>Sources</h1>
+    <p class="sub">Reference material your workers read before planning and building: product specs, API docs, example data, notes, style guides. Turned-on sources go into every task (about the first 8,000 characters of each).</p>
+    <div class="card">
+        <h2>Add sources</h2>
+        <label id="drop" class="list" style="text-align: center; padding: 24px; cursor: pointer; font-family: var(--ui-font);">Drop text files here, or click to choose (txt, md, csv, json, html, code, up to 2 MB each)
+            <input type="file" id="src-files" multiple hidden onchange="app.uploadSources(this.files)"></label>
+        <div class="row"><input id="src-url" placeholder="https://docs.example.com/page"><button class="ghost" onclick="app.addUrlSource()">Add web page</button></div>
+        <div class="hint">Adding web pages needs internet access (Settings → Permissions).</div>
+        <div id="src-msg" class="hint"></div>
+    </div>
+    <div id="sources-list"></div>
+</section>
+
+<section class="view" id="view-ship" hidden>
+    <h1>Ship</h1>
+    <p class="sub">Turn what the factory builds into something people pay for.</p>
+    <div class="card">
+        <h2>1. Build an Apify Actor</h2>
+        <div class="hint">Apify Actors are small automation tools (scrapers, data tools) that people rent on the Apify Store; Apify bills them and pays you a share. Click <b>Apify Actor project</b> above the work order on the Factory page, replace the description with what your Actor should do, and send it. The factory builds the four files an Actor needs in its own folder. Check the <a href="https://apify.com/ideas" target="_blank">Actor ideas page</a> for things people are asking for.</div>
+    </div>
+    <div class="card">
+        <h2>2. Publish it to your Apify account</h2>
+        <div class="row"><input id="apify-key" type="password" autocomplete="off" spellcheck="false" placeholder="Apify API token"><button class="ghost" onclick="app.saveApifyKey()">Save token</button><a href="https://console.apify.com/settings/integrations" target="_blank">Get your token</a></div>
+        <div class="grid2">
+            <label>Project folder <select id="ship-folder"></select></label>
+            <label>Actor name <input id="ship-name" placeholder="my-scraper"></label>
+        </div>
+        <div class="row"><button onclick="app.publishApify()">Publish to Apify</button><span id="ship-msg" class="hint"></span></div>
+        <div class="hint">This creates (or updates) a private Actor and starts a build. Nothing is public until you choose to publish it in Apify.</div>
+    </div>
+    <div class="card">
+        <h2>3. Turn on earnings</h2>
+        <div class="hint">In the Apify Console, open your Actor → Publication: write a clear README, set it public, then add monetization (pay per result or per event; Apify pays out about 80% of revenue minus platform costs). Test it on a few real inputs first; reviews and reliability drive sales. Expect small amounts at first. Most income comes from a few Actors that solve a specific, common problem well.</div>
+    </div>
+</section>
+
+<section class="view" id="view-settings" hidden>
+    <h1>Settings</h1>
+    <p class="sub">Folders, queue behaviour and help.</p>
+    <div class="card">
+        <h2>Folders</h2>
+        <label>Workspace: where approved code is written (takes effect after restarting the app)
+            <div class="row"><input id="set-workspace"><button class="ghost" onclick="app.openFolder('workspace')">Open</button></div></label>
+        <label>LM Studio models folder
+            <div class="row"><input id="set-modelsdir"><button class="ghost" onclick="app.openFolder('models')">Open</button></div></label>
+        <div class="row hint">App data (tasks, proposals, usage): <code id="data-dir"></code><button class="ghost" onclick="app.openFolder('data')">Open</button></div>
+    </div>
+    <div class="card">
+        <h2>Queue</h2>
+        <label class="check"><input type="checkbox" id="set-autoapply"> Auto-apply changes that pass tests and review (others wait in Staged changes)</label>
+        <label>Builder attempts before a task gives up <input id="set-attempts" type="number" min="1" max="10" style="max-width: 120px"></label>
+    </div>
+    <div class="card">
+        <h2>Appearance and sound</h2>
+        <label>Accent colour <div class="swatches" id="swatches"></div></label>
+        <label>Interface size <select id="set-scale" style="max-width: 160px"><option value="0.9">Compact</option><option value="1">Normal</option><option value="1.1">Large</option><option value="1.25">Extra large</option></select></label>
+        <label class="check"><input type="checkbox" id="set-sounds"> Sound effects</label>
+        <label class="check"><input type="checkbox" id="set-notify"> Desktop notification when the queue finishes</label>
+        <label class="check"><input type="checkbox" id="set-motion"> Reduce motion (fewer animations and particles)</label>
+        <label>Animation pace: how long work takes to travel the line <select id="set-pace" style="max-width: 200px"><option value="relaxed">Relaxed</option><option value="normal">Normal</option><option value="fast">Fast</option><option value="off">Off (no waiting)</option></select></label>
+    </div>
+    <div class="card">
+        <h2>Permissions: what the AI may access</h2>
+        <label class="check"><input type="checkbox" id="perm-files"> Read the contents of workspace files a goal mentions</label>
+        <label class="check"><input type="checkbox" id="perm-tests"> Run the workspace's own tests (npm test) on proposed changes</label>
+        <label class="check"><input type="checkbox" id="perm-sources"> Use the reference material on the Sources page</label>
+        <label class="check"><input type="checkbox" id="perm-net"> Internet: fetch web pages linked in a goal or added as sources</label>
+        <div class="hint">Workers can only ever write inside the workspace folder. With a cloud provider, whatever the workers can read is sent to that provider.</div>
+    </div>
+    <div class="card">
+        <h2>Model behaviour</h2>
+        <label>Creativity (temperature): <span id="temp-val"></span> <input type="range" id="set-temp" min="0" max="1.5" step="0.1" oninput="document.getElementById('temp-val').textContent = this.value"></label>
+        <div class="hint">Lower is steadier and better for code; higher is more inventive.</div>
+        <label>Longest answer a worker may write (tokens) <input type="number" id="set-maxtok" min="256" max="32768" step="256" style="max-width: 160px"></label>
+    </div>
+    <div class="row" style="max-width: 860px; margin-bottom: 16px;"><button onclick="app.saveSettings()">Save settings</button></div>
+    <div class="card">
+        <h2>Help</h2>
+        <div class="row"><button class="ghost" onclick="app.openSetup()">Run the setup guide</button><button class="ghost" onclick="app.clearReport()">Clear run report</button></div>
+    </div>
+</section>
+</div>
+
+<div class="toasts" id="toasts"></div>
+
+<div id="setup-modal" class="modal" hidden>
+    <div class="modal-box">
+        <div class="steps" id="setup-steps"></div>
+        <div id="setup-body" style="display: flex; flex-direction: column; gap: 12px;"></div>
+        <div class="modal-actions"><button class="ghost" id="setup-back" onclick="app.setupStep(-1)">Back</button><button id="setup-next" onclick="app.setupStep(1)">Next</button></div>
+    </div>
+</div>
+
+<script>
+/**
+ * Freeze Foundry - Core Application Logic
+ * Implements the 4-worker pipeline with real file system interaction.
+ */
+
+const CONFIG = {
+    apiBase: '', // Relative path for same-origin requests
+};
+
+class Worker {
+    constructor(id, role) {
+        this.id = id;
+        this.role = role;
+        this.element = document.getElementById(`station-${role}`);
+        this.logElement = document.getElementById(`log-${role}`);
+        this.lightElement = document.getElementById(`light-${role}`);
+        this.status = 'idle'; // idle, running, success, error
+    }
+
+    log(msg, type = 'info') {
+        const div = document.createElement('div');
+        div.className = `log-entry log-${type}`;
+        div.textContent = `[${this.role}] ${msg}`;
+        this.logElement.appendChild(div);
+        this.logElement.scrollTop = this.logElement.scrollHeight;
+    }
+
+    setStatus(state) {
+        this.status = state;
+        this.element.classList.remove('running', 'success', 'error');
+        
+        if (state === 'running') this.element.classList.add('running');
+        else if (state === 'success') this.element.classList.add('success');
+        else if (state === 'error') this.element.classList.add('error');
+
+        // Light animation
+        this.lightElement.style.animation = 'none';
+        this.lightElement.offsetHeight; /* trigger reflow */
+        this.lightElement.style.background = state === 'running' ? '#00e5ff' : 
+                                            state === 'success' ? '#10b981' : 
+                                            state === 'error' ? '#ef4444' : '#333';
+    }
+
+    // Short summary in the station, full text kept for the inspector.
+    show(text) {
+        this.output = String(text || '');
+        this.logElement.textContent = this.output.slice(0, 600);
+    }
+
+    reset() {
+        this.output = '';
+        this.logElement.innerHTML = '';
+        this.setStatus('idle');
+    }
+}
+
+// ---------- Pixel-art factory floor (canvas, 320x180 logical pixels) ----------
+function shade(hex, f) {
+    const n = parseInt(hex.slice(1), 16);
+    const ch = v => Math.max(0, Math.min(255, Math.round(f < 0 ? v * (1 + f) : v + (255 - v) * f)));
+    return `rgb(${ch(n >> 16)},${ch((n >> 8) & 255)},${ch(n & 255)})`;
+}
+
+const PIXEL_FONT = {
+    'A': '.#.#.#####.##.#',
+    'B': '##.#.###.#.###.',
+    'D': '##.#.##.##.###.',
+    'E': '####..##.#..###',
+    'H': '#.##.#####.##.#',
+    'I': '###.#..#..#.###',
+    'K': '#.##.###.#.##.#',
+    'L': '#..#..#..#..###',
+    'N': '##.#.##.##.##.#',
+    'P': '##.#.###.#..#..',
+    'R': '##.#.###.#.##.#',
+    'S': '.###...#...###.',
+    'T': '###.#..#..#..#.',
+    'U': '#.##.##.##.####',
+    'V': '#.##.##.##.#.#.',
+    'W': '#.##.##.#####.#',
+    'X': '#.##.#.#.#.##.#',
+    ' ': '...............',
+    '0': '####.##.##.####',
+    '1': '.#.##..#..#.###',
+    '2': '##...#.#.#..###',
+    '3': '##...#.#...###.',
+    '4': '#.##.####..#..#',
+    '5': '####..##...###.',
+    '6': '.###..####.####',
+    '7': '###..#.#..#..#.',
+    '8': '####.#####.####',
+    '9': '####.####..###.'
+};
+
+class FactoryFloor {
+    // A serpentine line: top belt left to right, a drop at the far end, bottom belt back to the cold vault.
+    constructor(app, canvas) {
+        this.app = app; this.c = canvas; this.g = canvas.getContext('2d');
+        this.W = 640; this.H = 300; this.WALL = 64; this.R1 = 140; this.R2 = 262; this.LY = this.R1;
+        this.path = [[24, this.R1], [612, this.R1], [612, this.R2], [90, this.R2]];
+        this.cum = [0];
+        for (let i = 1; i < this.path.length; i++) this.cum.push(this.cum[i - 1] + Math.abs(this.path[i][0] - this.path[i - 1][0]) + Math.abs(this.path[i][1] - this.path[i - 1][1]));
+        const at = (x, y) => ({ x, y, s: y === this.R1 ? x - 24 : this.cum[2] + (612 - x) });
+        this.st = { intake: at(24, this.R1), planner: at(170, this.R1), builder: at(440, this.R1), tester: at(520, this.R2), reviewer: at(330, this.R2), dock: at(90, this.R2) };
+        this.S = Object.fromEntries(Object.entries(this.st).map(([k, v]) => [k, v.x]));
+        this.machines = [
+            { id: 'planner', label: 'PLANNER', col: '#a855f7' },
+            { id: 'builder', label: 'BUILDER', col: '#ff9d00' },
+            { id: 'tester', label: 'TESTER', col: '#7dd3fc' },
+            { id: 'reviewer', label: 'REVIEWER', col: '#10b981' }
+        ];
+        this.s = 0; this.target = 0; this.queue = []; this.dest = null; this.dwell = 0;
+        this.visible = false; this.rework = false; this.moving = false;
+        this.shipped = 0; this.t = 0; this.beltT = 0; this.parts = []; this.leds = []; this.hover = null;
+        this.pressPhase = 0.6; this.flash = 0;
+        this.windows = [96, 214, 400, 488, 576];
+        this.bg = this.makeBackground();
+        this.light = document.getElementById('floor-light'); this.lg = this.light.getContext('2d');
+        this.motes = Array.from({ length: 48 }, () => ({ x: Math.random() * 640, y: Math.random() * 300, v: 2 + Math.random() * 4, p: Math.random() * 6 }));
+        canvas.addEventListener('mousemove', e => { this.hover = this.hit(e); canvas.style.cursor = this.hover ? 'pointer' : 'default'; });
+        canvas.addEventListener('mouseleave', () => { this.hover = null; });
+        canvas.addEventListener('click', e => {
+            const id = this.hit(e), w = this.app.workers[id];
+            if (w) this.app.showDetail(id.toUpperCase(), w.output || 'No output yet.');
+        });
+        let last = performance.now();
+        const loop = now => { this.update(Math.min(0.25, (now - last) / 1000)); last = now; this.draw(); requestAnimationFrame(loop); };
+        requestAnimationFrame(loop);
+    }
+
+    px(x, y, w, h, c) { this.g.fillStyle = c; this.g.fillRect(Math.round(x), Math.round(y), w, h); }
+
+    text(str, x, y, col, ctx = this) {
+        let cx = Math.round(x);
+        for (const ch of str) {
+            const gl = PIXEL_FONT[ch] || PIXEL_FONT[' '];
+            for (let i = 0; i < 15; i++) if (gl[i] === '#') {
+                ctx.px(cx + i % 3 + 1, y + Math.floor(i / 3) + 1, 1, 1, '#0b090d');
+                ctx.px(cx + i % 3, y + Math.floor(i / 3), 1, 1, col);
+            }
+            cx += 4;
+        }
+    }
+
+    makeBackground() {
+        const bg = document.createElement('canvas'); bg.width = this.W; bg.height = this.H;
+        const b = bg.getContext('2d'), WALL = this.WALL;
+        const px = (x, y, w, h, c) => { b.fillStyle = c; b.fillRect(x, y, w, h); };
+        for (let y = 0; y < WALL; y += 5) for (let x = -((y / 5) % 2) * 6; x < this.W; x += 12) {
+            const n = (x * 7 + y * 13) % 11;
+            px(x, y, 12, 5, '#120d10');
+            px(x + 1, y + 1, 10, 3, n < 2 ? '#2a1d22' : n < 5 ? '#211619' : '#1c1316');
+        }
+        for (let y = 0; y < WALL; y++) px(0, y, this.W, 1, `rgba(0,0,0,${0.4 - y * 0.005})`);
+        this.windows.forEach(wx => {
+            px(wx - 13, 4, 26, 46, '#0b090d');
+            px(wx - 11, 8, 22, 40, '#0e1f3a');
+            for (let gy = 9; gy < 46; gy += 9) for (let gx = wx - 10; gx < wx + 11; gx += 7) {
+                px(gx, gy, 5, 7, (gx + gy) % 3 ? '#12284a' : '#163358');
+                px(gx, gy + 6, 5, 1, '#cfe8ff'); px(gx, gy + 5, 1, 1, '#cfe8ff'); px(gx + 4, gy + 5, 1, 1, '#cfe8ff');
+            }
+            px(wx - 13, 48, 26, 3, '#e0f2fe');
+        });
+        px(0, 53, this.W, 4, '#2f2a35'); px(0, 53, this.W, 1, '#4a4352');
+        for (let x = 10; x < this.W; x += 44) { px(x, 51, 4, 8, '#3d3646'); px(x, 51, 4, 1, '#5a5163'); }
+        px(0, WALL - 4, this.W, 4, '#0b090d'); px(0, WALL - 2, this.W, 2, '#2a2430');
+        for (let y = WALL; y < this.H; y += 16) for (let x = 0; x < this.W; x += 16) {
+            px(x, y, 16, 16, ((x + y) / 16) % 2 ? '#1c1820' : '#19161d');
+            px(x, y, 16, 1, '#26212c'); px(x + 2, y + 2, 1, 1, '#302a36'); px(x + 13, y + 13, 1, 1, '#121016');
+        }
+        for (let x = 0; x < this.W; x += 10) { px(x, this.R1 + 34, 6, 1, '#4a3a12'); px(x, this.H - 4, 5, 4, '#f59e0b'); px(x + 5, this.H - 4, 5, 4, '#2a2430'); }
+        return bg;
+    }
+
+    // ---------- motion: the pipeline waits for the item, so every step is visible ----------
+    pace() { return { relaxed: 38, normal: 62, fast: 120, off: 0 }[this.app.ui().pace || 'normal']; }
+
+    moveTo(id, instant) {
+        this.visible = true;
+        if (instant || !this.pace()) {
+            this.queue.forEach(q => q.done()); this.queue = []; this.dest = null; this.dwell = 0;
+            this.s = this.target = this.st[id].s; this.rework = false;
+            if (id === 'dock' && !instant) { this.shipped++; this.visible = false; }
+            return Promise.resolve();
+        }
+        return new Promise(done => this.queue.push({ id, done }));
+    }
+
+    idle() { return new Promise(r => { const check = () => (!this.queue.length && !this.dest) ? r() : setTimeout(check, 100); check(); }); }
+    status(id) { const w = this.app.workers[id]; return w ? w.status : 'idle'; }
+    spawn(rate, dt, make) { if (Math.random() < rate * dt) this.parts.push(make()); }
+
+    at(s) {
+        for (let i = 1; i < this.path.length; i++) {
+            if (s <= this.cum[i] || i === this.path.length - 1) {
+                const [a, b] = this.path[i - 1], [c, d] = this.path[i];
+                const f = Math.max(0, Math.min(1, (s - this.cum[i - 1]) / ((this.cum[i] - this.cum[i - 1]) || 1)));
+                return [a + (c - a) * f, b + (d - b) * f];
+            }
+        }
+    }
+
+    update(dt) {
+        this.t += dt;
+        if (!this.dest && this.queue.length) { this.dest = this.queue.shift(); this.target = this.st[this.dest.id].s; this.rework = this.target < this.s; }
+        const d = this.target - this.s, step = (this.pace() || 999) * (this.rework ? 2 : 1) * dt;
+        this.s = Math.abs(d) <= step ? this.target : this.s + Math.sign(d) * step;
+        const was = this.moving;
+        this.moving = Math.abs(this.target - this.s) > 0.5;
+        if (this.dest && !this.moving) {
+            if (was) this.dwell = 0.4;
+            this.dwell -= dt;
+            if (this.dwell <= 0) {
+                if (this.dest.id === 'dock') { this.shipped++; this.visible = false; }
+                this.dest.done(); this.dest = null; this.rework = false;
+            }
+        }
+        if (this.moving) this.beltT += dt * 30 * (this.rework ? -1 : 1);
+
+        const st = this.st, run = id => this.status(id) === 'running';
+        const B = st.builder, T = st.tester, D = st.dock, P = st.planner;
+        this.spawn(run('builder') ? 10 : 2, dt, () => ({ x: B.x + 16 + Math.random() * 4, y: 10, vx: 3 + Math.random() * 4, vy: -6 - Math.random() * 5, life: 1, max: 3, kind: 'smoke' }));
+        this.spawn(run('builder') ? 22 : 1.5, dt, () => ({ x: B.x - 6 + Math.random() * 12, y: B.y - 36, vx: Math.random() * 16 - 8, vy: -14 - Math.random() * 20, g: 6, life: 1, max: 1.4, kind: 'ember' }));
+        this.spawn(run('tester') ? 18 : 3, dt, () => ({ x: T.x - 24 + Math.random() * 48, y: T.y - 14, vx: Math.random() * 12 - 6, vy: 4 + Math.random() * 6, life: 1, max: 2.2, kind: 'mist' }));
+        this.spawn(4, dt, () => ({ x: D.x - 26 + Math.random() * 52, y: D.y - 10, vx: Math.random() * 10 - 5, vy: 3 + Math.random() * 4, life: 1, max: 2.6, kind: 'mist' }));
+        if (run('planner')) this.spawn(4, dt, () => ({ x: P.x - 8 + Math.random() * 16, y: P.y - 74, vx: 0, vy: 12, life: 1, max: 0.7, kind: 'ore' }));
+        if (run('reviewer')) {
+            const prev = this.pressPhase;
+            this.pressPhase = (this.pressPhase + dt / 0.9) % 1;
+            if (prev < 0.15 && this.pressPhase >= 0.15) {
+                this.flash = 1;
+                for (let i = 0; i < 12; i++) this.parts.push({ x: st.reviewer.x, y: st.reviewer.y - 10, vx: Math.random() * 70 - 35, vy: -Math.random() * 45, g: 140, life: 1, max: 0.45, kind: 'spark' });
+            }
+        } else this.pressPhase = 0.6;
+        this.flash = Math.max(0, this.flash - dt * 4);
+        for (const p of this.parts) { p.x += p.vx * dt; p.y += p.vy * dt; p.vy += (p.g || 0) * dt; p.life -= dt / p.max; }
+        this.parts = this.parts.filter(p => p.life > 0).slice(-500);
+        this.motes.forEach(m => { m.y -= m.v * dt; m.x += Math.sin(this.t + m.p) * 3 * dt; if (m.y < 0) { m.y = this.H; m.x = Math.random() * this.W; } });
+    }
+
+    hit(e) {
+        const r = this.c.getBoundingClientRect();
+        const x = (e.clientX - r.left) * this.W / r.width, y = (e.clientY - r.top) * this.H / r.height;
+        const m = this.machines.find(m => Math.abs(x - this.st[m.id].x) <= 28 && y >= this.st[m.id].y - 92 && y <= this.st[m.id].y + 26);
+        return m ? m.id : null;
+    }
+
+    // ---------- machines ----------
+    frame(cx, top, bot, base, light, dark) {
+        const x = cx - 26, w = 52, h = bot - top;
+        this.px(x, top, w, h, '#0b090d');
+        this.px(x + 1, top + 1, w - 2, h - 2, base);
+        this.px(x + 1, top + 1, w - 2, 2, light); this.px(x + 1, top + 1, 2, h - 2, light);
+        this.px(x + 1, bot - 3, w - 2, 2, dark); this.px(x + w - 3, top + 1, 2, h - 2, dark);
+        for (const rx of [x + 4, x + w - 6]) for (const ry of [top + 5, bot - 7]) this.px(rx, ry, 2, 2, dark);
+    }
+
+    lamp(cx, y, st) {
+        const on = st === 'running' ? (Math.floor(this.t * 4) % 2 ? '#38bdf8' : '#0c4a6e') : st === 'success' ? '#10b981' : st === 'error' ? '#ef4444' : '#3a3342';
+        this.px(cx - 4, y, 8, 5, '#0b090d'); this.px(cx - 3, y + 1, 6, 3, on);
+        if (st !== 'idle') this.px(cx - 2, y + 1, 1, 1, '#ffffff');
+    }
+
+    band(cx, y, col) { this.px(cx - 24, y, 48, 3, col); this.px(cx - 24, y, 48, 1, shade(col, 0.35)); }
+
+    planner(cx, run) {
+        const LY = this.LY, t = this.t, sh = run ? Math.round(Math.sin(t * 40)) : 0;
+        for (let i = 0; i < 18; i++) {
+            const w = 40 - Math.round(i * 22 / 18);
+            this.px(cx - w / 2 + sh, LY - 80 + i, w, 1, i === 0 ? '#6a7090' : '#4a4f66');
+            this.px(cx - w / 2 + sh, LY - 80 + i, 1, 1, '#0b090d'); this.px(cx + w / 2 - 1 + sh, LY - 80 + i, 1, 1, '#0b090d');
+        }
+        [[-12, -82, '#7a6a58'], [-6, -83, '#9c8a72'], [0, -82, '#5a4d40'], [6, -83, '#7a6a58'], [11, -82, '#c9a227'], [-3, -84, '#6b5a48']]
+            .forEach(([dx, dy, c]) => this.px(cx + dx + sh, LY + dy, 4, 3, c));
+        this.frame(cx, LY - 62, LY - 10, '#353a4d', '#545a74', '#22263a');
+        this.px(cx - 18, LY - 56, 36, 18, '#0b090d'); this.px(cx - 17, LY - 55, 34, 16, '#0d1712');
+        for (let i = 0; i < 4; i++) {
+            const w = run ? 4 + ((i * 7 + Math.floor(t * 8)) % 26) : 6 + i * 4;
+            this.px(cx - 15, LY - 53 + i * 4, w, 2, run ? '#4ade80' : '#1f3a2a');
+        }
+        this.band(cx, LY - 33, '#a855f7');
+        this.px(cx - 8, LY - 26, 16, 10, '#22263a'); this.px(cx - 6, LY - 24, 12, 2, '#545a74');
+    }
+
+    builder(cx, run) {
+        const LY = this.LY, t = this.t;
+        this.px(cx + 9, 10, 15, LY - 72, '#0b090d'); this.px(cx + 10, 12, 13, LY - 74, '#3a2e33'); this.px(cx + 10, 12, 3, LY - 74, '#4d3f45');
+        for (let y = 24; y < LY - 62; y += 14) this.px(cx + 10, y, 13, 2, '#261d21');
+        this.px(cx + 7, 8, 19, 4, '#2a2126');
+        const top = LY - 64, bot = LY - 10;
+        this.px(cx - 27, top, 54, bot - top, '#0b090d');
+        for (let y = top + 1, r = 0; y < bot - 1; y += 4, r++) for (let x = cx - 26 - (r % 2) * 4; x < cx + 26; x += 8) {
+            const xs = Math.max(x, cx - 26), xe = Math.min(x + 8, cx + 26);
+            if (xe > xs) { this.px(xs, y, xe - xs, 4, '#3a1a12'); if (xe - xs > 1) this.px(xs + 1, y + 1, xe - xs - 1, 3, (x + y) % 5 ? '#6b2e1f' : '#7c3725'); }
+        }
+        this.px(cx - 26, top, 52, 3, '#2a1a16');
+        const flick = run ? (Math.sin(t * 23) + Math.sin(t * 37)) * 0.5 : 0;
+        this.px(cx - 12, LY - 44, 24, 26, '#0b090d');
+        this.px(cx - 8, LY - 47, 16, 3, '#0b090d');
+        this.px(cx - 10, LY - 43, 20, 22, run ? (flick > 0 ? '#ff8a00' : '#ff6a00') : '#5a1f08');
+        this.px(cx - 8, LY - 45, 16, 2, run ? '#ff8a00' : '#5a1f08');
+        if (run) for (let i = 0; i < 5; i++) {
+            const h = 6 + Math.round((Math.sin(t * 15 + i * 1.7) + 1) * 5);
+            this.px(cx - 8 + i * 4, LY - 21 - h, 2, h, i % 2 ? '#ffd08a' : '#ffb020');
+        } else this.px(cx - 8, LY - 24, 16, 3, '#8a2e0a');
+        this.px(cx - 12, LY - 20, 24, 3, '#2a1a16');
+        this.band(cx, LY - 16, '#ff9d00');
+        if (run) this.px(cx - 1, LY - 13, 2, 3 + Math.round(Math.abs(flick) * 2), '#ffb020');
+    }
+
+    tester(cx, run) {
+        const LY = this.LY, t = this.t;
+        this.px(cx - 16, LY - 72, 32, 10, '#0b090d'); this.px(cx - 15, LY - 71, 30, 8, '#4b6a8a'); this.px(cx - 15, LY - 71, 30, 2, '#9cc3e6');
+        this.frame(cx, LY - 62, LY - 10, '#2b3d52', '#4b6a8a', '#1b2838');
+        for (let i = 0; i < 12; i++) this.px(cx - 25 + i * 4, LY - 62, 2, 2 + (i * 5) % 3, '#e0f2fe');
+        this.px(cx - 18, LY - 57, 36, 34, '#0b090d');
+        this.px(cx - 17, LY - 56, 34, 32, run ? '#1d4e7a' : '#13304d');
+        for (let i = 0; i < 6; i++) {
+            const fx = cx - 15 + i * 6, fy = LY - 52 + ((i * 11) % 22);
+            this.px(fx, fy, 3, 1, '#bfe3ff'); this.px(fx + 1, fy - 1, 1, 3, '#bfe3ff');
+        }
+        if (run) for (let i = 0; i < 6; i++) this.px(cx - 14 + i * 5, LY - 26 - ((t * 14 + i * 6) % 28), 1, 1, '#ffffff');
+        this.px(cx - 17, LY - 56, 34, 3, 'rgba(255,255,255,0.18)');
+        this.px(cx - 18, LY - 24, 36, 2, '#e0f2fe');
+        this.band(cx, LY - 19, '#7dd3fc');
+        [cx - 20, cx + 16].forEach((gx, i) => { this.px(gx, LY - 60, 5, 5, '#0b090d'); this.px(gx + 1, LY - 59, 3, 3, '#e2e8f0'); this.px(gx + 2, LY - 58, 1, run ? 1 + i : 1, '#3b82f6'); });
+    }
+
+    reviewer(cx, run) {
+        const LY = this.LY, ph = this.pressPhase;
+        this.px(cx - 26, LY - 92, 52, 7, '#0b090d'); this.px(cx - 25, LY - 91, 50, 5, '#4a4252'); this.px(cx - 25, LY - 91, 50, 1, '#6b6275');
+        this.px(cx - 26, LY - 86, 7, 24, '#0b090d'); this.px(cx - 25, LY - 86, 5, 24, '#3d3646');
+        this.px(cx + 19, LY - 86, 7, 24, '#0b090d'); this.px(cx + 20, LY - 86, 5, 24, '#3d3646');
+        this.frame(cx, LY - 62, LY - 40, '#2e3a33', '#46594d', '#1d2620');
+        this.band(cx, LY - 47, '#10b981');
+        const drop = ph < 0.15 ? ph / 0.15 : 1 - (ph - 0.15) / 0.85;
+        const hy = LY - 40 + Math.round(drop * 18);
+        this.px(cx - 3, LY - 40, 6, hy - (LY - 40), '#8a8094'); this.px(cx - 3, LY - 40, 1, hy - (LY - 40), '#c9c2d4');
+        this.px(cx - 13, hy, 26, 8, '#0b090d'); this.px(cx - 12, hy + 1, 24, 6, '#6b6275'); this.px(cx - 12, hy + 1, 24, 1, '#a49cb0');
+        if (run) { const sy = LY - 16 + Math.round(Math.sin(this.t * 6) * 4); this.px(cx - 20, sy, 40, 1, 'rgba(74,222,128,0.85)'); }
+    }
+
+    pillars(m) {
+        const cx = this.S[m.id], LY = this.LY;
+        const c = { planner: '#353a4d', builder: '#3a1a12', tester: '#2b3d52', reviewer: '#2e3a33' }[m.id];
+        for (const x of [cx - 27, cx + 21]) {
+            this.px(x, LY - 12, 6, 26, '#0b090d'); this.px(x + 1, LY - 11, 4, 24, c); this.px(x + 1, LY - 11, 1, 24, shade(c, 0.25));
+            this.px(x - 2, LY + 13, 10, 3, '#0b090d');
+        }
+        this.lamp(cx - 18, m.id === 'reviewer' ? LY - 98 : LY - 69, this.status(m.id));
+    }
+
+    intake() {
+        const cx = this.S.intake, LY = this.LY;
+        this.px(cx - 18, this.WALL - 26, 36, 24, '#0b090d'); this.px(cx - 16, this.WALL - 24, 32, 20, '#05040a');
+        this.px(cx - 4, this.WALL - 2, 8, LY - 48 - this.WALL + 2, '#3d3646'); this.px(cx - 4, this.WALL - 2, 1, LY - 48 - this.WALL + 2, '#5a5163');
+        for (let i = 0; i < 26; i++) { const w = 34 - i; this.px(cx - w / 2, LY - 48 + i, w, 1, i < 2 ? '#6b6275' : '#4a4252'); }
+        this.px(cx - 17, LY - 49, 34, 1, '#0b090d');
+        [[-10, -50, '#7a6a58'], [-4, -51, '#9c8a72'], [3, -50, '#5a4d40'], [9, -51, '#7a6a58']].forEach(([dx, dy, c]) => this.px(cx + dx, LY + dy, 5, 3, c));
+        this.px(cx - 5, LY - 22, 10, 10, '#2a2430');
+    }
+
+    dock() {
+        const cx = this.S.dock, LY = this.LY;
+        this.px(cx - 28, LY - 80, 58, 72, '#0b090d');
+        this.px(cx - 27, LY - 79, 56, 70, '#2b3d52'); this.px(cx - 27, LY - 79, 56, 2, '#9cc3e6'); this.px(cx - 27, LY - 79, 2, 70, '#4b6a8a');
+        for (let i = 0; i < 14; i++) this.px(cx - 27 + i * 4, LY - 79, 3, 2 + (i * 7) % 4, '#f0f9ff');
+        this.px(cx - 19, LY - 70, 38, 56, '#0b090d'); this.px(cx - 18, LY - 69, 36, 54, '#3b5878'); this.px(cx - 18, LY - 69, 36, 1, '#9cc3e6');
+        this.px(cx - 13, LY - 64, 26, 12, '#0b090d'); this.px(cx - 12, LY - 63, 24, 10, '#0e1f3a');
+        this.px(cx - 12, LY - 54, 24, 1, '#cfe8ff'); this.px(cx - 12, LY - 55, 2, 1, '#cfe8ff'); this.px(cx + 10, LY - 55, 2, 1, '#cfe8ff');
+        const sx = cx, sy = LY - 36;
+        this.px(sx - 6, sy, 13, 1, '#e0f2fe'); this.px(sx, sy - 6, 1, 13, '#e0f2fe');
+        for (let k = 1; k < 5; k++) { this.px(sx - k, sy - k, 1, 1, '#e0f2fe'); this.px(sx + k, sy + k, 1, 1, '#e0f2fe'); this.px(sx + k, sy - k, 1, 1, '#e0f2fe'); this.px(sx - k, sy + k, 1, 1, '#e0f2fe'); }
+        this.px(cx + 12, LY - 46, 3, 10, '#0b090d'); this.px(cx + 13, LY - 45, 1, 8, '#cbd5e1');
+        this.px(cx - 36, LY + 12, 72, 3, 'rgba(224,242,254,0.18)');
+        this.px(cx - 18, LY + 4, 36, 5, '#0b090d');
+        for (let x = cx - 17; x < cx + 17; x += 7) this.px(x, LY + 5, 5, 3, '#6a8ba8');
+        const n = Math.min(this.shipped, 10), spots = [[-12, 0], [0, 0], [12, 0], [-6, -5], [6, -5], [0, -10], [-12, -15], [12, -15], [-6, -20], [6, -20]];
+        for (let i = 0; i < n; i++) this.ingot(cx + spots[i][0], LY + 1 + spots[i][1], 'frozen');
+        const lbl = this.shipped ? `SHIPPED ${this.shipped}` : 'SHIPPED';
+        this.text(lbl, cx - lbl.length * 2, LY + 19, '#bfe3ff');
+    }
+
+    ingot(x, y, kind) {
+        const c = { hot: ['#7a2a08', '#ff7a00', '#ffd08a'], frozen: ['#1e3a5f', '#93c5fd', '#f0f9ff'], rework: ['#5a1010', '#c0453a', '#ff9a8a'] }[kind];
+        x = Math.round(x); y = Math.round(y);
+        this.px(x - 6, y - 1, 12, 4, c[0]); this.px(x - 5, y - 4, 10, 4, c[0]);
+        this.px(x - 4, y - 3, 8, 3, c[1]); this.px(x - 5, y, 10, 2, c[1]); this.px(x - 4, y - 3, 8, 1, c[2]);
+        if (kind === 'frozen') { this.px(x - 3, y - 2, 1, 1, '#ffffff'); this.px(x + 2, y, 1, 1, '#ffffff'); }
+    }
+
+    item() {
+        const [px, py] = this.at(this.s), x = Math.round(px), y = Math.round(py) - 3 - (this.moving && Math.floor(this.t * 10) % 2 ? 1 : 0);
+        if (this.rework && this.moving) return this.ingot(x, y, 'rework');
+        if (this.s < this.st.builder.s - 2) {
+            this.px(x - 5, y - 4, 10, 7, '#0b090d'); this.px(x - 4, y - 5, 8, 7, '#6b5a48');
+            this.px(x - 3, y - 5, 4, 2, '#9c8a72'); this.px(x + 1, y - 2, 2, 2, '#4a3d30'); this.px(x - 2, y, 2, 1, '#c9a227');
+        } else this.ingot(x, y, this.s < this.st.tester.s - 2 ? 'hot' : 'frozen');
+    }
+
+    // One straight run of roller conveyor; dir is +1 or -1 along x (horizontal) or y (vertical).
+    beltRun(x0, y0, x1, y1) {
+        const horiz = y0 === y1, dir = Math.sign(horiz ? x1 - x0 : y1 - y0), ph = Math.floor((((this.beltT * dir % 6) + 6) % 6) / 2);
+        if (horiz) {
+            const x = Math.min(x0, x1), len = Math.abs(x1 - x0), y = y0;
+            for (let k = x + 10; k < x + len; k += 36) { this.px(k, y + 8, 3, 14, '#1d1922'); this.px(k - 1, y + 21, 5, 2, '#0b090d'); }
+            this.px(x, y + 22, len, 3, 'rgba(0,0,0,0.35)');
+            this.px(x, y - 8, len, 16, '#0b090d');
+            for (let k = x + 1; k < x + len - 4; k += 6) { this.px(k, y - 6, 5, 12, '#2a2530'); this.px(k + 1, y - 6, 3, 12, '#3d3646'); this.px(k + 1 + ph, y - 6, 1, 12, '#6b6275'); }
+            this.px(x, y - 9, len, 3, '#57505f'); this.px(x, y - 9, len, 1, '#8a8094'); this.px(x, y + 6, len, 3, '#2f2935');
+        } else {
+            const y = Math.min(y0, y1), len = Math.abs(y1 - y0), x = x0;
+            this.px(x - 8, y, 16, len, '#0b090d');
+            for (let k = y + 1; k < y + len - 4; k += 6) { this.px(x - 6, k, 12, 5, '#2a2530'); this.px(x - 6, k + 1, 12, 3, '#3d3646'); this.px(x - 6, k + 1 + ph, 12, 1, '#6b6275'); }
+            this.px(x - 9, y, 3, len, '#57505f'); this.px(x - 9, y, 1, len, '#8a8094'); this.px(x + 6, y, 3, len, '#2f2935');
+        }
+    }
+
+    belts() {
+        const [a, b, c, d] = this.path;
+        this.beltRun(a[0] - 10, a[1], b[0], b[1]);
+        this.beltRun(b[0], b[1], c[0], c[1]);
+        this.beltRun(c[0], c[1], d[0] + 24, d[1]);
+        [b, c].forEach(([x, y]) => {
+            this.px(x - 10, y - 10, 20, 20, '#0b090d'); this.px(x - 9, y - 9, 18, 18, '#4a4252'); this.px(x - 9, y - 9, 18, 1, '#8a8094');
+            this.px(x - 5, y - 5, 10, 10, '#2a2530'); this.px(x - 1, y - 1, 2, 2, '#fbbf24');
+        });
+        const lit = Math.floor(this.t * 12), total = this.cum[this.cum.length - 1];
+        for (let k = 6, n = 0; k < total - 20; k += 12, n++) {
+            const [x, y] = this.at(k), horiz = y === this.R1 || y === this.R2;
+            const on = this.moving && (n + (this.rework ? lit : -lit)) % 6 === 0;
+            const lx = horiz ? x : x + 7, ly = horiz ? y + 7 : y;
+            this.px(lx, ly, 1, 1, on ? '#fbbf24' : '#4a4252');
+            if (on) this.leds.push([lx, ly]);
+        }
+    }
+
+    // Machine art reads this.LY as its line height; point it at the row each machine stands on.
+    on(id, fn) { this.LY = this.st[id].y; fn(); this.LY = this.R1; }
+
+    draw() {
+        const g = this.g;
+        g.drawImage(this.bg, 0, 0);
+        this.leds = [];
+        this.windows.forEach((wx, wi) => {
+            for (let k = 0; k < 7; k++) {
+                const fx = wx - 10 + ((k * 7 + wi * 3) % 21), fy = 8 + ((this.t * (8 + k % 3 * 3) + k * 9 + wi * 5) % 38);
+                this.px(fx + Math.round(Math.sin(this.t + k) * 1.5), fy, 1, 1, '#e0f2fe');
+            }
+        });
+        this.parts.filter(p => p.kind === 'smoke').forEach(p => {
+            g.globalAlpha = p.life * 0.35;
+            const r = Math.round(2 + (1 - p.life) * 4);
+            this.px(p.x - r / 2, p.y - r / 2, r, r, '#6b6275');
+        });
+        g.globalAlpha = 1;
+        this.on('intake', () => this.intake());
+        this.machines.forEach(m => this.on(m.id, () => this[m.id](this.st[m.id].x, this.status(m.id) === 'running')));
+        this.on('dock', () => this.dock());
+        this.belts();
+        if (this.visible) this.item();
+        this.machines.forEach(m => this.on(m.id, () => this.pillars(m)));
+        this.parts.filter(p => p.kind === 'mist').forEach(p => {
+            g.globalAlpha = p.life * 0.28;
+            const r = Math.round(3 + (1 - p.life) * 6);
+            this.px(p.x - r / 2, p.y - r / 2, r, Math.ceil(r / 2), '#dbeafe');
+        });
+        g.globalAlpha = 1;
+        this.parts.forEach(p => {
+            if (p.kind === 'ember') this.px(p.x, p.y, 1, 1, p.life > 0.5 ? '#ffd08a' : '#ff6a00');
+            if (p.kind === 'spark') this.px(p.x, p.y, 1, 1, p.life > 0.4 ? '#fff7d6' : '#ffb347');
+            if (p.kind === 'ore') this.px(p.x, p.y, 2, 2, '#9c8a72');
+        });
+        this.text('INTAKE', this.st.intake.x - 12, this.R1 + 19, '#94a3b8');
+        this.machines.forEach(m => {
+            const s = this.status(m.id), { x, y } = this.st[m.id], w = m.label.length * 4;
+            this.px(x - w / 2 - 3, y + 17, w + 5, 9, '#0b090d');
+            this.text(m.label, x - w / 2, y + 19, s === 'error' ? '#ef4444' : s === 'running' ? '#38bdf8' : s === 'success' ? '#6ee7b7' : '#cbd5e1');
+        });
+        if (this.hover) {
+            const { x, y } = this.st[this.hover];
+            g.strokeStyle = 'rgba(255,255,255,0.45)'; g.lineWidth = 1;
+            g.strokeRect(x - 29.5, y - 100.5, 59, 128);
+        }
+        this.drawLight();
+    }
+
+    // Smooth glow on a second, full-resolution canvas blended over the pixel art.
+    drawLight() {
+        const c = this.light, w = c.clientWidth, h = c.clientHeight, dpr = window.devicePixelRatio || 1;
+        if (!w) return;
+        if (c.width !== Math.round(w * dpr)) { c.width = Math.round(w * dpr); c.height = Math.round(h * dpr); }
+        const g = this.lg, s = c.width / this.W, t = this.t, st = this.st;
+        g.clearRect(0, 0, c.width, c.height);
+        const glow = (x, y, r, col, a) => {
+            const gr = g.createRadialGradient(x * s, y * s, 0, x * s, y * s, r * s);
+            gr.addColorStop(0, col + Math.round(Math.max(0, Math.min(1, a)) * 255).toString(16).padStart(2, '0'));
+            gr.addColorStop(1, col + '00');
+            g.fillStyle = gr; g.fillRect((x - r) * s, (y - r) * s, 2 * r * s, 2 * r * s);
+        };
+        const run = id => this.status(id) === 'running';
+        this.windows.forEach(x => glow(x, 28, 30, '#7dd3fc', 0.09));
+        const fl = (Math.sin(t * 23) + Math.sin(t * 37)) * 0.05;
+        glow(st.builder.x, st.builder.y - 32, run('builder') ? 70 : 40, '#ff6a00', run('builder') ? 0.5 + fl : 0.16);
+        glow(st.tester.x, st.tester.y - 40, run('tester') ? 56 : 36, '#7dd3fc', run('tester') ? 0.42 : 0.1);
+        glow(st.dock.x, st.dock.y - 40, 80, '#60a5fa', 0.14);
+        glow(st.planner.x, st.planner.y - 47, 26, '#4ade80', run('planner') ? 0.3 : 0.06);
+        glow(st.planner.x, st.planner.y - 32, 30, '#a855f7', run('planner') ? 0.2 : 0.05);
+        glow(st.reviewer.x, st.reviewer.y - 16, 30, '#4ade80', run('reviewer') ? 0.22 : 0.04);
+        if (this.flash) glow(st.reviewer.x, st.reviewer.y - 10, 34, '#fff3c4', this.flash * 0.6);
+        this.machines.forEach(m => {
+            const ms = this.status(m.id), { x, y } = st[m.id];
+            if (ms !== 'idle') glow(x - 18, m.id === 'reviewer' ? y - 96 : y - 67, 10, ms === 'error' ? '#ef4444' : ms === 'success' ? '#10b981' : '#38bdf8', 0.6);
+        });
+        if (this.visible) {
+            const [x, y] = this.at(this.s);
+            if (this.rework && this.moving) glow(x, y - 3, 16, '#ef4444', 0.4);
+            else if (this.s >= st.builder.s - 2 && this.s < st.tester.s - 2) glow(x, y - 3, 20, '#ff8a00', 0.45);
+            else if (this.s >= st.tester.s - 2) glow(x, y - 3, 14, '#7dd3fc', 0.3);
+        }
+        this.leds.forEach(([x, y]) => glow(x + 0.5, y + 0.5, 6, '#fbbf24', 0.7));
+        this.parts.forEach(p => { if (p.kind === 'ember' || p.kind === 'spark') glow(p.x, p.y, 4, '#ffb347', p.life); });
+        if (!document.body.classList.contains('reduce-motion')) {
+            g.fillStyle = '#ffffff';
+            this.motes.forEach(m => { g.globalAlpha = 0.08 + 0.07 * Math.sin(t * 2 + m.p); g.fillRect(m.x * s, m.y * s, s * 0.6, s * 0.6); });
+            g.globalAlpha = 1;
+        }
+    }
+}
+
+class App {
+    constructor() {
+        this.taskQueue = [];
+        this.currentTask = null;
+        this.workers = {
+            planner: new Worker('planner', 'planner'),
+            builder: new Worker('builder', 'builder'),
+            tester: new Worker('tester', 'tester'),
+            reviewer: new Worker('reviewer', 'reviewer')
+        };
+        
+        // State for pending proposal (waiting for user approval)
+        this.pendingProposal = null;
+        this.lastDiff = null;
+        this.busy = false;
+        this.report = [];
+        try { this.report = JSON.parse(localStorage.getItem('ff-report')) || []; } catch {}
+        this.crateAt = null;
+        this.floor = new FactoryFloor(this, document.getElementById('floor-canvas'));
+
+        Object.values(this.workers).forEach(w => {
+            w.element.onclick = () => this.showDetail(w.role.toUpperCase(), w.output || 'No output yet.');
+        });
+
+        this.init();
+    }
+
+    showDetail(title, text, isDiff = false) {
+        document.getElementById('detail-title').textContent = title;
+        const view = document.getElementById('detail-view');
+        view.innerHTML = '';
+        if (!isDiff) { view.textContent = text; return; }
+        text.split('\n').forEach(line => {
+            const div = document.createElement('div');
+            if (line.startsWith('+')) div.className = 'diff-add';
+            else if (line.startsWith('-')) div.className = 'diff-del';
+            div.textContent = line || ' ';
+            view.appendChild(div);
+        });
+    }
+
+    // Move the crate on the canvas conveyor ('intake', a worker role, or 'dock').
+    moveCrate(target, instant = false) {
+        this.crateAt = target;
+        return this.floor.moveTo(target, instant);
+    }
+
+    async loadSettings() {
+        try {
+            this.settings = await fetch('/api/settings').then(r => r.json());
+            document.getElementById('model-name').textContent = this.settings.model;
+            this.applyUi();
+            document.getElementById('auto-apply').checked = !!this.settings.autoApply;
+        } catch {}
+        this.refreshLedger();
+    }
+
+    async refreshLedger() {
+        try {
+            const l = await fetch('/api/ledger').then(r => r.json());
+            document.getElementById('token-count').textContent = (l.prompt_tokens + l.completion_tokens).toLocaleString();
+        } catch {}
+    }
+
+    openModels() { this.showView('models'); }
+
+    showView(name) {
+        document.getElementById('view-factory').hidden = name !== 'factory';
+        ['models', 'skills', 'sources', 'ship', 'settings'].forEach(v => { document.getElementById('view-' + v).hidden = name !== v; });
+        document.querySelectorAll('.rail [data-view]').forEach(b => b.classList.toggle('active', b.dataset.view === name));
+        if (name === 'models') {
+            document.getElementById('set-base').value = (this.settings && this.settings.baseUrl) || '';
+            document.getElementById('set-provider').value = (this.settings && this.settings.provider) || 'local';
+            this.providerChanged();
+            this.refreshModels();
+        }
+        if (name === 'settings') this.fillSettings();
+        if (name === 'skills') this.refreshSkills();
+        if (name === 'sources') this.refreshSources();
+        if (name === 'ship') this.refreshShip();
+    }
+
+    providerChanged() {
+        const p = document.getElementById('set-provider').value;
+        const links = { anthropic: 'https://console.anthropic.com/settings/keys', openai: 'https://platform.openai.com/api-keys', gemini: 'https://aistudio.google.com/apikey', openrouter: 'https://openrouter.ai/keys' };
+        document.getElementById('prov-url').hidden = !(p === 'local' || p === 'custom');
+        document.getElementById('prov-key').hidden = p === 'local';
+        const link = document.getElementById('key-link');
+        link.hidden = !links[p]; link.href = links[p] || '#';
+        const saved = this.settings && this.settings.keysSet && this.settings.keysSet[p];
+        document.getElementById('set-key').placeholder = saved ? 'Key saved. Paste a new one to replace it.' : 'Paste your API key';
+        document.getElementById('prov-note').textContent = p === 'local'
+            ? 'Runs on this computer. Nothing leaves your machine.'
+            : 'Your goals and the workspace files a task needs are sent to this provider, and usage is billed to your account with them. Keys are encrypted on this computer and never shown again.';
+    }
+
+    async saveKey() {
+        const input = document.getElementById('set-key'), msg = document.getElementById('models-msg');
+        const r = await fetch('/api/keys', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ provider: document.getElementById('set-provider').value, key: input.value }) });
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok) { msg.textContent = d.error || 'Could not save the key.'; return; }
+        this.settings = d;
+        input.value = '';
+        this.providerChanged();
+        this.toast(input.placeholder.startsWith('Key saved') ? 'API key saved' : 'API key removed');
+        this.refreshModels();
+    }
+
+    useServer(url) { document.getElementById('set-base').value = url; this.refreshModels(); }
+
+    async postSettings(body) {
+        this.settings = await fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).then(r => r.json());
+        document.getElementById('model-name').textContent = this.settings.model;
+        return this.settings;
+    }
+
+    maxAttempts() { return (this.settings && this.settings.attempts) || 3; }
+
+    fillSettings() {
+        const s = this.settings || {};
+        document.getElementById('set-workspace').value = s.workspace || '';
+        document.getElementById('set-modelsdir').value = s.modelsDir || '';
+        document.getElementById('data-dir').textContent = s.dataDir || '';
+        document.getElementById('set-autoapply').checked = !!s.autoApply;
+        document.getElementById('set-attempts').value = s.attempts || 3;
+        const ui = this.ui();
+        document.getElementById('set-scale').value = String(ui.scale || 1);
+        document.getElementById('set-sounds').checked = ui.sounds !== false;
+        document.getElementById('set-notify').checked = ui.notifications !== false;
+        document.getElementById('set-motion').checked = !!ui.reduceMotion;
+        document.getElementById('set-pace').value = ui.pace || 'normal';
+        const pm = s.permissions || {};
+        document.getElementById('perm-files').checked = pm.readFiles !== false;
+        document.getElementById('perm-tests').checked = pm.runTests !== false;
+        document.getElementById('perm-sources').checked = pm.sources !== false;
+        document.getElementById('perm-net').checked = !!pm.internet;
+        document.getElementById('set-temp').value = s.temperature != null ? s.temperature : 0.7;
+        document.getElementById('temp-val').textContent = document.getElementById('set-temp').value;
+        document.getElementById('set-maxtok').value = s.maxTokens || 4096;
+        this.pickedAccent = ui.accent || '#a855f7';
+        const sw = document.getElementById('swatches');
+        sw.innerHTML = '';
+        ['#a855f7', '#ff9d00', '#00e5ff', '#10b981', '#f43f5e', '#3b82f6'].forEach(col => {
+            const b = document.createElement('button');
+            b.style.background = col;
+            b.title = col;
+            b.className = col === this.pickedAccent ? 'on' : '';
+            b.onclick = () => { this.pickedAccent = col; sw.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); };
+            sw.appendChild(b);
+        });
+    }
+
+    async saveSettings() {
+        await this.postSettings({
+            workspace: document.getElementById('set-workspace').value,
+            modelsDir: document.getElementById('set-modelsdir').value,
+            autoApply: document.getElementById('set-autoapply').checked,
+            attempts: parseInt(document.getElementById('set-attempts').value, 10),
+            temperature: parseFloat(document.getElementById('set-temp').value),
+            maxTokens: parseInt(document.getElementById('set-maxtok').value, 10),
+            permissions: {
+                readFiles: document.getElementById('perm-files').checked,
+                runTests: document.getElementById('perm-tests').checked,
+                sources: document.getElementById('perm-sources').checked,
+                internet: document.getElementById('perm-net').checked
+            },
+            ui: {
+                accent: this.pickedAccent,
+                scale: parseFloat(document.getElementById('set-scale').value),
+                sounds: document.getElementById('set-sounds').checked,
+                notifications: document.getElementById('set-notify').checked,
+                reduceMotion: document.getElementById('set-motion').checked,
+                pace: document.getElementById('set-pace').value
+            }
+        });
+        this.applyUi();
+        this.fillSettings();
+        this.logToConsole('Settings saved.', 'success');
+    }
+
+    clearReport() {
+        this.report = [];
+        try { localStorage.removeItem('ff-report'); } catch {}
+        this.logToConsole('Run report cleared.', 'info');
+    }
+
+    openFolder(which) {
+        fetch('/api/open-folder', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ which }) });
+    }
+
+    async startDownload(path = '/api/download', body = { url: document.getElementById('dl-url').value.trim() }) {
+        const r = await fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok) { document.getElementById('dl-list').textContent = d.error || 'Could not start the download.'; return; }
+        document.getElementById('dl-url').value = '';
+        document.getElementById('ollama-name').value = '';
+        this.refreshDownloads();
+    }
+
+    pullOllama() { this.startDownload('/api/ollama-pull', { name: document.getElementById('ollama-name').value.trim() }); }
+
+    async refreshDownloads() {
+        const d = await fetch('/api/downloads').then(r => r.json()).catch(() => null);
+        if (!d) return;
+        const gb = n => (n / 1e9).toFixed(2) + ' GB';
+        document.getElementById('models-dir').textContent = d.modelsDir;
+        document.getElementById('dl-list').textContent = d.downloads.length
+            ? d.downloads.map(x => `${x.name}  ${x.status}` + (x.total ? `  ${gb(x.received)} / ${gb(x.total)}` : x.received ? `  ${gb(x.received)}` : '') + (x.error ? `  (${x.error})` : '')).join('\n')
+            : 'No downloads yet.';
+        document.getElementById('local-models').textContent = d.local.length ? d.local.map(f => `${f.path}  ${gb(f.size)}`).join('\n') : 'None found yet.';
+        clearTimeout(this.dlTimer);
+        if (d.downloads.some(x => x.status === 'downloading') && !document.getElementById('view-models').hidden)
+            this.dlTimer = setTimeout(() => this.refreshDownloads(), 1500);
+    }
+
+    // ---------- Feel: theme, toasts, sounds, drawers, blueprints ----------
+    ui() { return (this.settings && this.settings.ui) || {}; }
+
+    applyUi() {
+        const ui = this.ui(), root = document.documentElement.style;
+        if (ui.accent) { root.setProperty('--accent', ui.accent); root.setProperty('--primary-purple', ui.accent); }
+        document.body.style.zoom = ui.scale || 1;
+        document.body.classList.toggle('reduce-motion', !!ui.reduceMotion);
+    }
+
+    toast(msg) {
+        const t = document.createElement('div');
+        t.className = 'toast';
+        t.textContent = msg;
+        document.getElementById('toasts').appendChild(t);
+        setTimeout(() => t.remove(), 3300);
+    }
+
+    // Tiny synthesized sounds, so there are no audio files to ship.
+    sfx(kind) {
+        if (this.ui().sounds === false) return;
+        try {
+            const a = this.ac || (this.ac = new AudioContext());
+            const notes = { start: [[520, 0], [780, 0.07]], ship: [[660, 0], [880, 0.09], [1320, 0.18]], ready: [[880, 0], [660, 0.1]], error: [[160, 0], [120, 0.12]] }[kind];
+            notes.forEach(([f, at]) => {
+                const o = a.createOscillator(), g = a.createGain(), t = a.currentTime + at;
+                o.type = kind === 'error' ? 'sawtooth' : 'square';
+                o.frequency.setValueAtTime(f, t);
+                g.gain.setValueAtTime(0.0001, t);
+                g.gain.exponentialRampToValueAtTime(0.05, t + 0.01);
+                g.gain.exponentialRampToValueAtTime(0.0001, t + 0.14);
+                o.connect(g).connect(a.destination);
+                o.start(t); o.stop(t + 0.16);
+            });
+        } catch {}
+    }
+
+    toggleDrawer(side) {
+        const v = document.getElementById('view-factory');
+        v.classList.toggle('hide-' + side);
+        try { localStorage.setItem('ff-drawers', [...v.classList].filter(c => c.startsWith('hide-')).join(' ')); } catch {}
+    }
+
+    renderBlueprints() {
+        const bp = {
+            'CLI tool': 'Create a Node.js command-line tool in tool.js that ',
+            'Web page': 'Create a single-file index.html landing page for ',
+            'Apify Actor project': [
+                'Create my-actor/package.json for an Apify Actor named my-actor: "type": "module", dependency "apify", start script "node src/main.js".',
+                'Create my-actor/src/main.js, an Apify Actor that DESCRIBE WHAT IT DOES. Validate the input, push one result object per item with Actor.pushData.',
+                'Create my-actor/.actor/actor.json for the Apify Actor my-actor with actorSpecification 1, version 0.1 and input ./input_schema.json.',
+                'Create my-actor/.actor/input_schema.json describing every input field my-actor/src/main.js reads, with titles, descriptions and defaults.'
+            ].join('\n'),
+            'Script': 'Create a script in script.js that ',
+            'Update a file': 'Update <file name> so that ',
+            'README': 'Update README.md to describe what is in this workspace.'
+        };
+        const box = document.getElementById('blueprints');
+        Object.entries(bp).forEach(([label, text]) => {
+            const b = document.createElement('button');
+            b.textContent = label;
+            b.onclick = () => {
+                const input = document.getElementById('goal-input');
+                input.value = (input.value.trim() ? input.value.replace(/\s*$/, '\n') : '') + text;
+                input.focus();
+                input.setSelectionRange(input.value.length, input.value.length);
+            };
+            box.appendChild(b);
+        });
+    }
+
+    // ---------- Sources ----------
+    async refreshSources(list) {
+        list = list || await fetch('/api/sources').then(r => r.json()).catch(() => []);
+        if (!Array.isArray(list)) list = [];
+        const box = document.getElementById('sources-list');
+        box.innerHTML = list.length ? '' : '<div class="empty">No sources yet.</div>';
+        list.forEach(src => {
+            const card = document.createElement('div');
+            card.className = 'card';
+            card.innerHTML = `<div class="row" style="justify-content: space-between;"><h2></h2><span class="row"><label class="check"><input type="checkbox"> In use</label><button class="danger mini">Remove</button></span></div><div class="hint"></div>`;
+            card.querySelector('h2').textContent = src.name;
+            card.querySelector('.hint').textContent = `${src.chars.toLocaleString()} characters${src.url ? ' from ' + src.url : ''} · added ${new Date(src.added).toLocaleDateString()}`;
+            const cb = card.querySelector('input');
+            cb.checked = src.enabled;
+            cb.onchange = () => this.updateSource({ id: src.id, enabled: cb.checked });
+            card.querySelector('button').onclick = () => this.updateSource({ id: src.id, remove: true });
+            box.appendChild(card);
+        });
+    }
+
+    async updateSource(body) {
+        const list = await fetch('/api/sources/update', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).then(r => r.json());
+        this.refreshSources(list);
+    }
+
+    async addSource(body) {
+        const msg = document.getElementById('src-msg');
+        msg.textContent = body.url ? 'Fetching the page...' : `Adding ${body.name}...`;
+        const r = await fetch('/api/sources', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+        const d = await r.json().catch(() => ({}));
+        msg.textContent = r.ok ? '' : (d.error || 'Could not add that source.');
+        if (r.ok) this.refreshSources(d);
+    }
+
+    async uploadSources(files) {
+        for (const f of files) {
+            if (f.size > 2 * 1024 * 1024) { document.getElementById('src-msg').textContent = `${f.name} is over 2 MB.`; continue; }
+            await this.addSource({ name: f.name, text: await f.text() });
+        }
+        document.getElementById('src-files').value = '';
+    }
+
+    addUrlSource() {
+        const input = document.getElementById('src-url');
+        if (input.value.trim()) this.addSource({ url: input.value.trim() }).then(() => { input.value = ''; });
+    }
+
+    // ---------- Ship ----------
+    async refreshShip() {
+        let folders = await fetch('/api/folders').then(r => r.json()).catch(() => []);
+        if (!Array.isArray(folders)) folders = [];
+        const sel = document.getElementById('ship-folder');
+        sel.innerHTML = folders.length ? '' : '<option value="">No project folders yet</option>';
+        folders.forEach(f => sel.add(new Option(f, f)));
+        sel.onchange = () => { document.getElementById('ship-name').value = sel.value; };
+        if (!document.getElementById('ship-name').value) document.getElementById('ship-name').value = sel.value || '';
+        document.getElementById('apify-key').placeholder = this.settings && this.settings.keysSet && this.settings.keysSet.apify ? 'Token saved. Paste a new one to replace it.' : 'Apify API token';
+    }
+
+    async saveApifyKey() {
+        const input = document.getElementById('apify-key');
+        const r = await fetch('/api/keys', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ provider: 'apify', key: input.value }) });
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok) { document.getElementById('ship-msg').textContent = d.error || 'Could not save the token.'; return; }
+        this.settings = d;
+        input.value = '';
+        this.refreshShip();
+        this.toast('Apify token saved');
+    }
+
+    async publishApify() {
+        const msg = document.getElementById('ship-msg');
+        msg.textContent = 'Publishing...';
+        const r = await fetch('/api/publish/apify', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ folder: document.getElementById('ship-folder').value, name: document.getElementById('ship-name').value }) });
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok) { msg.textContent = d.error || 'Publishing failed.'; return; }
+        msg.innerHTML = '';
+        const a = document.createElement('a');
+        a.href = d.url; a.target = '_blank'; a.textContent = `Published ${d.files} files as ${d.name}. Build ${String(d.build || 'started').toLowerCase()}. Open in Apify`;
+        msg.appendChild(a);
+        this.toast('Actor sent to Apify');
+        this.sfx('ship');
+    }
+
+    async discardAllStaged() {
+        if (!confirm('Discard every staged change? This cannot be undone.')) return;
+        if (this.currentTask && this.pendingProposal) this.rejectChanges();
+        const d = await fetch('/api/proposals/clear', { method: 'POST' }).then(r => r.json()).catch(() => ({}));
+        this.toast(`Discarded ${d.cleared || 0} staged change${d.cleared === 1 ? '' : 's'}`);
+        this.refreshStaged();
+    }
+
+    // ---------- Skills ----------
+    async refreshSkills() {
+        this.skills = await fetch('/api/skills').then(r => r.json()).catch(() => []);
+        const box = document.getElementById('skills-list');
+        box.innerHTML = this.skills.length ? '' : '<div class="empty">No skills yet. Create one, or drop a folder with a SKILL.md into the skills folder.</div>';
+        this.skills.forEach(k => {
+            const card = document.createElement('div');
+            card.className = 'card';
+            card.innerHTML = `<div class="row" style="justify-content: space-between;"><h2></h2><label class="check"><input type="checkbox"> Enabled</label></div>
+                <div class="hint desc"></div><div class="row meta"></div>
+                <div class="row"><button class="ghost" data-a="edit">Edit</button><button class="danger" data-a="del">Delete</button></div>`;
+            card.querySelector('h2').textContent = k.name;
+            card.querySelector('.desc').textContent = k.description;
+            const pill = t => { const sp = document.createElement('span'); sp.className = 'pill'; sp.textContent = t; return sp; };
+            card.querySelector('.meta').append(pill(k.triggers.length ? 'triggers: ' + k.triggers.join(', ') : 'always on'), pill('workers: ' + (k.roles.length ? k.roles.join(', ') : 'all')));
+            const cb = card.querySelector('input');
+            cb.checked = k.enabled;
+            cb.onchange = () => this.saveSkill({ ...k, enabled: cb.checked });
+            card.querySelector('[data-a=edit]').onclick = () => this.editSkill(k);
+            card.querySelector('[data-a=del]').onclick = () => this.deleteSkill(k);
+            box.appendChild(card);
+        });
+    }
+
+    editSkill(k = null) {
+        this.editingSkill = k;
+        document.getElementById('skill-editor').hidden = false;
+        document.getElementById('skill-editor-title').textContent = k ? 'Edit skill' : 'New skill';
+        document.getElementById('sk-name').value = k ? k.name : '';
+        document.getElementById('sk-triggers').value = k ? k.triggers.join(', ') : '';
+        document.getElementById('sk-desc').value = k ? k.description : '';
+        document.getElementById('sk-body').value = k ? k.body : '';
+        document.querySelectorAll('.sk-role').forEach(cb => { cb.checked = !!k && k.roles.includes(cb.value); });
+        document.getElementById('sk-msg').textContent = '';
+        document.getElementById('sk-name').focus();
+    }
+
+    async saveSkill(skill) {
+        const e = this.editingSkill;
+        const k = skill || {
+            id: e ? e.id : undefined,
+            name: document.getElementById('sk-name').value,
+            triggers: document.getElementById('sk-triggers').value,
+            description: document.getElementById('sk-desc').value,
+            body: document.getElementById('sk-body').value,
+            roles: [...document.querySelectorAll('.sk-role:checked')].map(cb => cb.value),
+            enabled: e ? e.enabled : true
+        };
+        const r = await fetch('/api/skills', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(k) });
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok) { document.getElementById('sk-msg').textContent = d.error || 'Could not save the skill.'; return; }
+        if (!skill) document.getElementById('skill-editor').hidden = true;
+        this.refreshSkills();
+    }
+
+    async deleteSkill(k) {
+        if (!confirm(`Delete the skill "${k.name}"?`)) return;
+        await fetch('/api/skills/delete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: k.id }) });
+        this.refreshSkills();
+    }
+
+    // ---------- First-run setup guide ----------
+    openSetup() { this.setupI = 0; document.getElementById('setup-modal').hidden = false; this.renderSetup(); }
+
+    async setupStep(dir) {
+        if (dir > 0 && this.setupI === 2) {
+            const sel = document.getElementById('setup-model');
+            if (sel && sel.value) await this.postSettings({ model: sel.value });
+        }
+        if (dir > 0 && this.setupI === 3) {
+            await this.postSettings({ setupDone: true });
+            document.getElementById('setup-modal').hidden = true;
+            this.checkApiConnection();
+            return;
+        }
+        this.setupI = Math.max(0, this.setupI + dir);
+        this.renderSetup();
+    }
+
+    async renderSetup() {
+        const i = this.setupI, body = document.getElementById('setup-body');
+        document.getElementById('setup-steps').textContent = `Setup guide · step ${i + 1} of 4`;
+        document.getElementById('setup-back').style.visibility = i ? 'visible' : 'hidden';
+        document.getElementById('setup-next').textContent = i === 3 ? 'Start building' : 'Next';
+        if (i === 0) body.innerHTML = `<h2>Welcome to Freeze Foundry</h2>
+            <p>A software factory that runs on your own computer. You type a goal; four AI workers plan it, write the code, test it and review it, and nothing is written to disk until it passes your approval.</p>
+            <p class="hint">This guide connects a local model in about two minutes. Your code and prompts never leave this machine.</p>`;
+        if (i === 1) {
+            body.innerHTML = '<h2>Connect a model server</h2><p class="hint">Looking for LM Studio and Ollama...</p>';
+            const d = await fetch('/api/detect').then(r => r.json()).catch(() => ({}));
+            if (this.setupI !== 1) return;
+            const base = this.settings && this.settings.baseUrl;
+            const row = (name, ok, url, site) => `<div class="row"><span class="pill ${ok ? 'ok' : 'bad'}">${ok ? 'Running' : 'Not found'}</span><b>${name}</b>` +
+                (ok ? `<button class="ghost" onclick="app.postSettings({ baseUrl: '${url}' }).then(() => app.renderSetup())">${base === url ? '✓ Selected' : 'Use this'}</button>`
+                    : `<a href="${site}" target="_blank">Get ${name}</a>`) + '</div>';
+            body.innerHTML = `<h2>Connect a model server</h2>
+                <p class="hint">Prefer Claude, OpenAI or Gemini? Skip this step and pick them on the Models page afterwards. For a free, private local model, Freeze Foundry uses LM Studio or Ollama. Install one and start it: in LM Studio, open the Developer tab and turn on the local server. Then check again.</p>
+                ${row('LM Studio', d.lmstudio, 'http://127.0.0.1:1234/v1', 'https://lmstudio.ai')}
+                ${row('Ollama', d.ollama, 'http://127.0.0.1:11434/v1', 'https://ollama.com/download')}
+                <div class="row"><button class="ghost" onclick="app.renderSetup()">Check again</button></div>`;
+        }
+        if (i === 2) {
+            body.innerHTML = '<h2>Pick a model</h2><p class="hint">Loading your models...</p>';
+            const r = await fetch('/api/models');
+            const d = await r.json().catch(() => ({}));
+            if (this.setupI !== 2) return;
+            const models = d.models || [];
+            body.innerHTML = '<h2>Pick a model</h2>' + (models.length
+                ? `<label class="hint" style="display:flex;flex-direction:column;gap:5px">Model for all workers <select id="setup-model">${models.map(m => `<option ${m.id === this.settings.model ? 'selected' : ''}>${m.id}</option>`).join('')}</select></label>
+                   <p class="hint">You can give each worker its own model later on the Models page.</p>`
+                : `<p class="hint">${r.ok ? 'No models are installed yet.' : (d.error || 'The model server is not reachable.')} Download one in LM Studio's Discover tab, or from the Models page here once setup is done. A 7&ndash;9B coding model such as Qwen is a good start.</p>`);
+        }
+        if (i === 3) body.innerHTML = `<h2>You're ready</h2>
+            <p>Type a goal in the box under the factory floor, one goal per line, and press Submit. Watch the workers carry it down the line; click any office to read its output.</p>
+            <p class="hint">Turn on Auto-apply to let a queue run unattended: changes that pass tests and review are applied, everything else waits in the Report. Change folders and defaults in Settings.</p>`;
+    }
+
+    async refreshModels() {
+        const msg = document.getElementById('models-msg');
+        msg.textContent = 'Loading models...';
+        const prov = document.getElementById('set-provider').value;
+        if (this.settings && prov !== this.settings.provider) await this.postSettings({ provider: prov });
+        this.refreshDownloads();
+        const base = document.getElementById('set-base').value.trim();
+        if (base && this.settings && base !== this.settings.baseUrl) {
+            this.settings = await fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ baseUrl: base }) }).then(r => r.json());
+        }
+        const res = await fetch('/api/models');
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) { msg.textContent = data.error || 'Could not list models.'; return; }
+        const opts = data.models.map(m => ({ id: m.id, label: m.id + (m.state === 'loaded' ? '  (loaded)' : '') }));
+        const fill = (sel, value, withDefault) => {
+            sel.innerHTML = '';
+            if (withDefault) sel.add(new Option('(use default)', ''));
+            opts.forEach(o => sel.add(new Option(o.label, o.id)));
+            if (value && !opts.some(o => o.id === value)) sel.add(new Option(value + ' (not found)', value));
+            sel.value = value || '';
+        };
+        fill(document.getElementById('set-model'), this.settings.model, false);
+        document.querySelectorAll('.role-model').forEach(sel => fill(sel, (this.settings.roleModels || {})[sel.dataset.role], true));
+        msg.textContent = `${data.models.length} models found. In LM Studio, models that aren't loaded load on first use when just-in-time loading is on.`;
+    }
+
+    async saveModels() {
+        const roleModels = {};
+        document.querySelectorAll('.role-model').forEach(sel => { if (sel.value) roleModels[sel.dataset.role] = sel.value; });
+        const body = { baseUrl: document.getElementById('set-base').value.trim(), model: document.getElementById('set-model').value, roleModels };
+        this.settings = await fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).then(r => r.json());
+        document.getElementById('model-name').textContent = this.settings.model;
+        this.logToConsole('Model settings saved.', 'success');
+    }
+
+    record(task, outcome) {
+        this.report.push({ time: new Date().toLocaleString(), goal: task.goal, outcome });
+        if (outcome.startsWith('applied')) {
+            this.shippedCount = (this.shippedCount || 0) + 1;
+            document.getElementById('shipped-count').textContent = this.shippedCount;
+            this.toast('Shipped: ' + String(task.goal || '').slice(0, 60));
+            this.sfx('ship');
+        }
+        try { localStorage.setItem('ff-report', JSON.stringify(this.report.slice(-200))); } catch {}
+    }
+
+    showReport() {
+        this.showDetail('Run report', this.report.length
+            ? this.report.map(r => `${r.time}  ${r.outcome.toUpperCase()}\n  ${r.goal}`).join('\n\n')
+            : 'No finished tasks yet.');
+    }
+
+    finishTask() {
+        this.taskQueue.shift();
+        this.currentTask = null;
+        this.pendingProposal = null;
+        this.renderTaskList();
+        this.refreshStaged();
+        this.refreshFiles();
+        document.getElementById('ticket').classList.remove('awaiting');
+        if (!this.taskQueue.length && this.ui().notifications !== false) try { new Notification('Freeze Foundry', { body: 'All queued tasks are done. Open the Report to see results.' }); } catch {}
+    }
+
+    async refreshStaged() {
+        const list = await fetch('/api/proposals').then(r => r.json()).catch(() => []);
+        this.staged = list;
+        document.getElementById('staged-count').textContent = list.length;
+        const box = document.getElementById('staged-list');
+        box.innerHTML = list.length ? '' : '<div class="empty">Nothing waiting. Changes that need your OK show up here.</div>';
+        list.forEach(p => {
+            const div = document.createElement('div');
+            div.className = 'staged-item';
+            const pill = (txt, ok) => txt ? `<span class="pill ${ok ? 'ok' : 'bad'}">${txt}</span>` : '';
+            div.innerHTML = `<div class="goal"></div><div class="meta"></div>
+                <div class="row">${pill(p.test && 'tests ' + p.test, p.test !== 'failed')}${pill(p.verdict && 'review ' + p.verdict, p.verdict === 'approve')}</div>
+                <div class="row"><button class="ghost" data-a="diff">Diff</button><button class="success" data-a="apply">Apply</button><button class="danger" data-a="reject">Reject</button></div>`;
+            div.querySelector('.goal').textContent = p.goal || '(no goal recorded)';
+            div.querySelector('.meta').textContent = p.file_path;
+            div.querySelector('[data-a=diff]').onclick = () => this.showDetail(`Diff: ${p.file_path}`, p.diff, true);
+            div.querySelector('[data-a=apply]').onclick = () => this.stagedAction(p, 'approve');
+            div.querySelector('[data-a=reject]').onclick = () => this.stagedAction(p, 'reject');
+            box.appendChild(div);
+        });
+    }
+
+    async stagedAction(p, action) {
+        // The task on the factory floor goes through its own buttons so the queue moves on.
+        if (this.currentTask && this.pendingProposal === p.proposal_id) return action === 'approve' ? this.applyChanges() : this.rejectChanges();
+        const r = await fetch(`/api/tasks/${p.task_id}/${action}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ proposal_id: p.proposal_id }) });
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok) this.logToConsole(`${action === 'approve' ? 'Apply' : 'Reject'} failed: ${d.error || r.status}`, 'error');
+        else {
+            this.logToConsole(action === 'approve' ? `Applied ${p.file_path}.` : `Discarded change to ${p.file_path}.`, action === 'approve' ? 'success' : 'warn');
+            this.record({ goal: p.goal }, action === 'approve' ? 'applied from staged' : 'rejected from staged');
+        }
+        this.refreshStaged();
+        this.refreshFiles();
+    }
+
+    async refreshFiles() {
+        const files = await fetch('/api/files').then(r => r.json()).catch(() => []);
+        if (this.pendingFile && !files.includes(this.pendingFile)) files.push(this.pendingFile);
+        this.updateFileBrowser(files.map(f => ({ name: f === this.pendingFile && this.pendingProposal ? f + '  (proposed)' : f, path: f })));
+    }
+
+    async openFile(p) {
+        if (this.lastDiff && this.pendingProposal && p === this.pendingFile) return this.showDetail('Diff (review before applying)', this.lastDiff, true);
+        const d = await fetch('/api/file?path=' + encodeURIComponent(p)).then(r => r.json()).catch(() => ({}));
+        this.showDetail(p, d.content != null ? d.content : (d.error || 'Could not open file.'));
+    }
+
+    init() {
+        this.logToConsole("Freeze Foundry initialized.");
+        this.checkApiConnection();
+        document.getElementById('auto-apply').onchange = e => this.postSettings({ autoApply: e.target.checked });
+        this.loadSettings().then(() => { if (this.settings && !this.settings.setupDone) this.openSetup(); });
+        
+        // Initial file listing
+        this.refreshFiles();
+        this.refreshStaged();
+        this.renderBlueprints();
+        const drop = document.getElementById('drop');
+        drop.addEventListener('dragover', e => { e.preventDefault(); drop.style.borderColor = 'var(--accent)'; });
+        drop.addEventListener('dragleave', () => { drop.style.borderColor = ''; });
+        drop.addEventListener('drop', e => { e.preventDefault(); drop.style.borderColor = ''; this.uploadSources(e.dataTransfer.files); });
+        document.getElementById('ticket-date').textContent = new Date().toLocaleDateString();
+        try { const d = localStorage.getItem('ff-drawers'); if (d) document.getElementById('view-factory').classList.add(...d.split(' ').filter(Boolean)); } catch {}
+        document.getElementById('goal-input').addEventListener('keydown', e => {
+            if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); this.submitTask(); }
+        });
+    }
+
+    logToConsole(msg, type='info') {
+        const out = document.getElementById('console-output');
+        const div = document.createElement('div');
+        div.className = `log-entry log-${type}`;
+        div.textContent = `> ${msg}`;
+        out.appendChild(div);
+        out.scrollTop = out.scrollHeight;
+    }
+
+    async checkApiConnection() {
+        try {
+            const r = await fetch(`${CONFIG.apiBase}/api/models`);
+            if (!r.ok) throw new Error('model server offline');
+            document.getElementById('api-status').innerHTML = '<span style="color:var(--success)">Connected</span>';
+        } catch (e) {
+            document.getElementById('api-status').innerHTML = '<span style="color:var(--error)">Offline</span>';
+            this.logToConsole("Model server unreachable. Click the model name at the top to set it up.", "warn");
+        }
+    }
+
+    async loadTasks() {
+        try {
+            const response = await fetch(`${CONFIG.apiBase}/api/tasks`);
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            return await response.json();
+        } catch (err) {
+            console.error("Failed to load tasks:", err);
+            this.logToConsole(`Error loading tasks: ${err.message}`, 'error');
+            return {};
+        }
+    }
+
+    async submitTask() {
+        const input = document.getElementById('goal-input');
+        const goals = (input ? input.value : '').split('\n').map(g => g.trim()).filter(Boolean);
+        if (!goals.length) return this.logToConsole("Enter a goal first.", "warn");
+        for (const goal of goals) {
+
+        this.logToConsole("Creating new task...", "info");
+        try {
+            const res = await fetch(`${CONFIG.apiBase}/api/tasks`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ goal: goal })
+            });
+            
+            const text = await res.text();
+            if (!res.ok) throw new Error(`HTTP ${res.status}: ${text}`);
+
+            const payload = JSON.parse(text);
+            const task = payload.task || payload;
+            
+            if (!task || !task.id) throw new Error("Invalid task format from server");
+
+            this.taskQueue.push(task);
+            this.renderTaskList();
+            this.logToConsole(`Task created: ${task.id}`, "success");
+        } catch (err) {
+            console.error(err);
+            this.logToConsole(`Failed to create task: ${err.message}`, "error");
+        }
+        }
+        if (input) input.value = "";
+        const ticket = document.getElementById('ticket');
+        ticket.classList.remove('sent'); void ticket.offsetWidth; ticket.classList.add('sent');
+        this.toast(goals.length > 1 ? `${goals.length} work orders sent to intake` : 'Work order sent to intake');
+        this.sfx('start');
+        this.processNextTask();
+    }
+
+    async processNextTask() {
+        if (this.busy || this.currentTask || this.taskQueue.length === 0) return;
+        this.busy = true;
+        await this.floor.idle();
+        const task = this.taskQueue[0];
+        this.currentTask = task;
+        
+        Object.values(this.workers).forEach(w => w.reset());
+        this.crateAt = null;
+        this.moveCrate('intake', true);
+        this.renderTaskList();
+
+        try {
+            // 1. PLANNER
+            const planned = await this.runWorker('planner', async () => {
+                const res = await fetch(`/api/tasks/${task.id}/plan`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({}),
+                    body: JSON.stringify({ task: task.goal })
+                });
+                const data = await res.json().catch(()=>({}));
+                if (!res.ok) throw new Error(data.error || 'Plan failed');
+                this.logToConsole("Plan generated successfully.", "success");
+                if (data.skills && data.skills.length) this.logToConsole("Skills in use: " + data.skills.join(", "), "info");
+                this.workers.planner.show(data.plan);
+                return data;
+            });
+            if (/^\s*\**\s*NO_BUILD/i.test(planned.plan || '')) {
+                const answer = planned.plan.replace(/^\s*\**\s*NO_BUILD\**:?\s*/i, '');
+                this.logToConsole('Planner: ' + answer, 'info');
+                this.showDetail('Planner reply (nothing to build)', answer);
+                this.toast('Nothing to build. The Planner answered instead.');
+                this.floor.visible = false;
+                this.record(task, 'answered, no build');
+                this.finishTask();
+                setTimeout(() => this.processNextTask(), 0);
+                return;
+            }
+
+            // 2-4. BUILDER -> TESTER -> REVIEWER, looping back to Builder with feedback (max 3 attempts)
+            let feedback = '';
+            let test, review;
+            const max = this.maxAttempts();
+            for (let attempt = 1; attempt <= max; attempt++) {
+                await this.runWorker('builder', async () => {
+                    const res = await fetch(`/api/tasks/${task.id}/propose`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ feedback, previous_proposal_id: feedback ? this.pendingProposal : null })
+                    });
+                    const data = await res.json().catch(()=>({}));
+                    if (!res.ok) throw new Error(data.error || 'Propose failed');
+
+                    this.pendingProposal = data.proposal_id;
+                    this.workers.builder.show(`${data.file_path}\n\n${data.content || ''}`);
+
+                    if (data.file_path) {
+                        this.logToConsole("Proposed file: " + data.file_path, "info");
+                        this.pendingFile = data.file_path;
+                        this.refreshFiles();
+                    }
+                    return data;
+                });
+
+                test = await this.runWorker('tester', async () => {
+                    const res = await fetch(`/api/tasks/${task.id}/test`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ proposal_id: this.pendingProposal })
+                    });
+                    const data = await res.json().catch(()=>({}));
+                    if (!res.ok) throw new Error(data.error || 'Tests could not run');
+                    (data.checks || []).forEach(c => this.logToConsole(`$ ${c.command} -> exit ${c.exitCode}`, c.exitCode === 0 ? 'success' : 'error'));
+                    if (data.status === 'no_checks') this.logToConsole("No checks apply to this file type.", "warn");
+                    else this.logToConsole(`Tests ${data.status}.`, data.status === 'passed' ? 'success' : 'error');
+                    this.workers.tester.show(`${data.status.toUpperCase()}\n` + (data.checks || []).map(c => `$ ${c.command} -> exit ${c.exitCode}\n${c.output}`).join('\n'));
+                    return data;
+                });
+                if (test.status === 'failed') this.workers.tester.setStatus('error');
+
+                review = await this.runWorker('reviewer', async () => {
+                    const res = await fetch(`/api/tasks/${task.id}/review`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ proposal_id: this.pendingProposal })
+                    });
+                    const data = await res.json().catch(()=>({}));
+                    if (!res.ok) throw new Error(data.error || 'Review failed');
+                    this.logToConsole(`Reviewer verdict: ${data.verdict}`, data.verdict === 'approve' ? 'success' : 'warn');
+                    (data.issues || []).forEach(i => this.logToConsole(" - " + i, "warn"));
+                    (data.notes || []).forEach(n => this.logToConsole(" note: " + n, "info"));
+                    this.workers.reviewer.show(`${(data.verdict || '').toUpperCase()}\n` + [...(data.issues || []).map(i => '- ' + i), ...(data.notes || []).map(n => 'note: ' + n)].join('\n'));
+                    this.lastDiff = data.diff || '';
+                    this.showDetail('Diff (review before applying)', this.lastDiff, true);
+                    this.refreshStaged();
+                    return data;
+                });
+
+                if (review.verdict !== 'revise') break;
+                this.workers.reviewer.setStatus('error');
+                feedback = [
+                    ...(review.issues || []),
+                    ...(test.checks || []).filter(c => c.exitCode !== 0).map(c => `${c.command} failed:\n${c.output}`)
+                ].join('\n');
+                if (attempt < max) this.logToConsole(`Sending back to Builder (attempt ${attempt + 1} of ${max}).`, "warn");
+                else this.logToConsole(`Still failing after ${max} attempts. Review before applying.`, "error");
+            }
+
+            task.status = 'completed';
+            this.refreshLedger();
+            this.renderTaskList();
+            
+            if (document.getElementById('auto-apply').checked) {
+                if (review.verdict === 'approve' && test.status !== 'failed') {
+                    if (!(await this.applyChanges())) { this.record(task, 'apply failed, left staged'); this.finishTask(); }
+                } else {
+                    this.record(task, `left staged for review (${this.pendingProposal})`);
+                    this.finishTask();
+                }
+            } else {
+                const btnApply = document.getElementById('btn-apply');
+                const btnReject = document.getElementById('btn-reject');
+                if (btnApply) btnApply.disabled = false;
+                if (btnReject) btnReject.disabled = false;
+                document.getElementById('ticket').classList.add('awaiting');
+                this.toast('A change is ready for your approval');
+                this.sfx('ready');
+            }
+
+        } catch (err) {
+            console.error(err);
+            this.logToConsole("Pipeline error: " + err.message, "error");
+            this.sfx('error');
+            this.record(task, 'error: ' + err.message);
+            this.finishTask();
+        } finally {
+            this.busy = false;
+        }
+        // Manual mode waits here for Apply/Reject, which start the next task.
+        this.processNextTask();
+    }
+
+    runWorker(role, action) {
+        return new Promise(async (resolve, reject) => {
+            const worker = this.workers[role];
+            
+            await this.moveCrate(role);
+            worker.setStatus('running');
+            this.logToConsole(`Dispatching ${role.toUpperCase()}...`);
+
+            try {
+                const result = await action();
+                
+                if (result && result.action === 'building') {
+                    // Store diff for approval
+                    task.diffs.push(result.data);
+                    this.updateFileBrowser(task.files);
+                }
+
+                worker.setStatus('success');
+                this.logToConsole(`${role.toUpperCase()} completed successfully.`);
+                resolve(result);
+
+            } catch (err) {
+                worker.setStatus('error');
+                this.logToConsole(`${role.toUpperCase()} failed: ${err.message}`, 'error');
+                reject(err);
+            }
+        });
+    }
+
+    async callModel(prompt) {
+        // Call Backend API for Plan Generation
+        const response = await fetch(`${CONFIG.apiBase}/api/tasks/${this.currentTask.id}/plan`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ task: prompt })
+        });
+
+        if (!response.ok) throw new Error(`API Error: ${response.statusText}`);
+        
+        const data = await response.json();
+        return data.plan;
+    }
+
+    async callModelPropose(prompt) {
+        // Call Backend API for Proposal Generation
+        const response = await fetch(`${CONFIG.apiBase}/api/tasks/${this.currentTask.id}/propose`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ goal: this.currentTask.goal, file_path: prompt })
+        });
+
+        if (!response.ok) throw new Error(`API Error: ${response.statusText}`);
+        
+        const data = await response.json();
+        return data;
+    }
+
+    updateFileBrowser(files) {
+        const container = document.getElementById('file-browser');
+        container.innerHTML = '';
+        
+        if (files.length === 0) {
+            container.innerHTML = '<div style="color: var(--text-muted); padding: 4px;">No files loaded.</div>';
+            return;
+        }
+
+        // Sort by name
+        const sortedFiles = [...files].sort((a,b) => a.name.localeCompare(b.name));
+
+        sortedFiles.forEach(file => {
+            const div = document.createElement('div');
+            div.className = 'file-item';
+            div.textContent = '📄 ' + file.name;
+            div.onclick = () => this.openFile(file.path);
+            container.appendChild(div);
+        });
+    }
+
+    renderTaskList() {
+        document.getElementById('ticket-no').textContent = '#' + String(this.report.length + this.taskQueue.length + 1).padStart(4, '0');
+        const list = document.getElementById('task-list');
+        list.innerHTML = '';
+
+        this.taskQueue.forEach(task => {
+            const div = document.createElement('div');
+            div.className = `task-item ${task.status === 'running' ? 'active' : ''}`;
+            
+            let statusText = 'Pending';
+            let statusColor = '#333';
+            
+            if (task.status === 'running') { statusText = 'Running...'; statusColor = '#00e5ff'; }
+            else if (task.status === 'completed') { statusText = 'Completed'; statusColor = '#10b981'; }
+
+            div.innerHTML = `
+                <div class="task-header">
+                    <span class="task-id">#${String(task.id || task.task_id || task.taskId || 'NEW').slice(-4)}</span>
+                    <span class="task-status" style="background:${statusColor}; color:#000">${statusText}</span>
+                </div>
+                <div style="font-size: 0.85rem; color: #ccc;">${String(task.goal || task.title || 'Untitled task').substring(0, 40)}...</div>
+            `;
+            
+            div.onclick = () => {
+                if (task.status === 'completed') this.applyChanges();
+            };
+
+            list.appendChild(div);
+        });
+    }
+
+    applyChanges() {
+        if (!this.currentTask) return Promise.resolve(false);
+        const task = this.currentTask;
+        
+        const btnApply = document.getElementById('btn-apply');
+        btnApply.disabled = true;
+        btnApply.innerText = "Applying...";
+
+        // Call Backend API for Approval
+        return fetch(`${CONFIG.apiBase}/api/tasks/${this.currentTask.id}/approve`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ proposal_id: typeof this.pendingProposal === 'string' ? this.pendingProposal : this.pendingProposal.proposal_id })
+        })
+        .then(async res => { const data = await res.json().catch(()=>({})); if (!res.ok) throw new Error(data.error || 'Server rejected approval'); return data; })
+        .then(data => {
+            this.logToConsole("Changes applied to disk successfully.", 'success');
+            this.moveCrate('dock');
+            
+            this.record(task, 'applied');
+            this.finishTask();
+            btnApply.disabled = true;
+            document.getElementById('btn-reject').disabled = true;
+            btnApply.innerText = "Apply Changes";
+            this.processNextTask();
+            return true;
+        })
+        .catch(err => {
+            this.logToConsole(`Failed to apply changes: ${err.message}`, 'error');
+            btnApply.disabled = false;
+            btnApply.innerText = "Apply Changes";
+            return false;
+        });
+    }
+
+    rejectChanges() {
+        if (!this.currentTask) return;
+        
+        const btnReject = document.getElementById('btn-reject');
+        btnReject.disabled = true;
+        btnReject.innerText = "Rejected";
+
+        fetch(`${CONFIG.apiBase}/api/tasks/${this.currentTask.id}/reject`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ proposal_id: this.pendingProposal })
+        }).catch(() => {});
+        this.logToConsole("Changes rejected and discarded.", 'warn');
+        this.record(this.currentTask, 'rejected');
+
+        Object.values(this.workers).forEach(w => w.reset());
+        this.finishTask();
+
+        btnReject.disabled = true;
+        document.getElementById('btn-apply').disabled = true;
+        btnReject.innerText = "Reject";
+        this.processNextTask();
+    }
+
+    resetQueue() {
+        this.taskQueue = [];
+        this.currentTask = null;
+        Object.values(this.workers).forEach(w => w.reset());
+        this.renderTaskList();
+        document.getElementById('goal-input').value = '';
+    }
+}
+
+// Initialize App
+const app = new App();
+
+</script>
+</body>
+</html>
