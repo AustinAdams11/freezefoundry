@@ -520,6 +520,7 @@
     </div>
     <div class="card">
         <h2>Worker models</h2>
+        <div class="row"><input id="model-filter" placeholder="Search models, e.g. qwen, coder, llama" oninput="app.renderModelOptions()"><label class="check" id="free-wrap"><input type="checkbox" id="free-only" checked onchange="app.renderModelOptions()"> Free models only</label></div>
         <div class="grid2">
             <label>Default (all workers) <select id="set-model"></select></label>
             <label>Planner <select class="role-model" data-role="planner"></select></label>
@@ -1456,7 +1457,8 @@ class App {
             'Apify Actor project': [
                 'Create my-actor/package.json for an Apify Actor named my-actor: "type": "module", dependency "apify", start script "node src/main.js".',
                 'Create my-actor/src/main.js, an Apify Actor that DESCRIBE WHAT IT DOES. Validate the input, push one result object per item with Actor.pushData.',
-                'Create my-actor/.actor/actor.json for the Apify Actor my-actor with actorSpecification 1, version 0.1 and input ./input_schema.json.',
+                'Create my-actor/.actor/actor.json for the Apify Actor my-actor with actorSpecification 1, version 0.1, input ./input_schema.json and output ./output_schema.json.',
+                'Create my-actor/.actor/output_schema.json in Apify format: actorOutputSchemaVersion 1, a title, and one property "results" (type string, title Results, template {{links.apiDefaultDatasetUrl}}/items).',
                 'Create my-actor/.actor/input_schema.json describing every input field my-actor/src/main.js reads, with titles, descriptions and defaults.'
             ].join('\n'),
             'Script': 'Create a script in script.js that ',
@@ -1699,17 +1701,28 @@ class App {
         const res = await fetch('/api/models');
         const data = await res.json().catch(() => ({}));
         if (!res.ok) { msg.textContent = data.error || 'Could not list models.'; return; }
-        const opts = data.models.map(m => ({ id: m.id, label: m.id + (m.state === 'loaded' ? '  (loaded)' : '') }));
+        this.modelOpts = data.models.map(m => ({ id: m.id, label: m.id + (m.state === 'loaded' ? '  (loaded)' : '') }));
+        const free = this.modelOpts.filter(o => o.id.endsWith(':free')).length;
+        document.getElementById('free-wrap').hidden = !free;
+        this.renderModelOptions();
+        msg.textContent = `${data.models.length} models found${free ? `, ${free} of them free` : ''}. In LM Studio, models that aren't loaded load on first use when just-in-time loading is on.`;
+    }
+
+    // Narrows the model dropdowns by the search box and the "Free models only" switch; a saved choice always stays listed.
+    renderModelOptions() {
+        const q = document.getElementById('model-filter').value.trim().toLowerCase();
+        const freeOnly = !document.getElementById('free-wrap').hidden && document.getElementById('free-only').checked;
+        const opts = (this.modelOpts || []).filter(o => (!q || o.id.toLowerCase().includes(q)) && (!freeOnly || o.id.endsWith(':free')));
         const fill = (sel, value, withDefault) => {
+            const current = sel.value || value;
             sel.innerHTML = '';
             if (withDefault) sel.add(new Option('(use default)', ''));
             opts.forEach(o => sel.add(new Option(o.label, o.id)));
-            if (value && !opts.some(o => o.id === value)) sel.add(new Option(value + ' (not found)', value));
-            sel.value = value || '';
+            if (current && !opts.some(o => o.id === current)) sel.add(new Option(current, current));
+            sel.value = current || '';
         };
         fill(document.getElementById('set-model'), this.settings.model, false);
         document.querySelectorAll('.role-model').forEach(sel => fill(sel, (this.settings.roleModels || {})[sel.dataset.role], true));
-        msg.textContent = `${data.models.length} models found. In LM Studio, models that aren't loaded load on first use when just-in-time loading is on.`;
     }
 
     async saveModels() {
@@ -1739,7 +1752,7 @@ class App {
     }
 
     finishTask() {
-        this.taskQueue.shift();
+        if (this.currentTask) this.taskQueue.shift();
         this.currentTask = null;
         this.pendingProposal = null;
         this.renderTaskList();
@@ -1750,7 +1763,9 @@ class App {
     }
 
     async refreshStaged() {
-        const list = await fetch('/api/proposals').then(r => r.json()).catch(() => []);
+        let list = await fetch('/api/proposals').then(r => r.json()).catch(() => []);
+        if (!Array.isArray(list)) list = [];
+        if (this.busy && this.currentTask) list = list.filter(p => p.task_id !== this.currentTask.id);
         this.staged = list;
         document.getElementById('staged-count').textContent = list.length;
         const box = document.getElementById('staged-list');
@@ -1916,7 +1931,8 @@ class App {
                 this.workers.planner.show(data.plan);
                 return data;
             });
-            if (/^\s*\**\s*NO_BUILD/i.test(planned.plan || '')) {
+            const wantsFile = /^\s*(create|make|build|write|add|update|fix|generate|change|edit)\b/i.test(task.goal) || /[\w-]+\.[a-z0-9]{1,6}\b/i.test(task.goal);
+            if (!wantsFile && /^\s*\**\s*NO_BUILD/i.test(planned.plan || '')) {
                 const answer = planned.plan.replace(/^\s*\**\s*NO_BUILD\**:?\s*/i, '');
                 this.logToConsole('Planner: ' + answer, 'info');
                 this.showDetail('Planner reply (nothing to build)', answer);
@@ -2022,6 +2038,8 @@ class App {
             console.error(err);
             this.logToConsole("Pipeline error: " + err.message, "error");
             this.sfx('error');
+            this.toast('Failed: ' + err.message.slice(0, 140));
+            this.showDetail('Task failed', `${task.goal}\n\n${err.message}`);
             this.record(task, 'error: ' + err.message);
             this.finishTask();
         } finally {
