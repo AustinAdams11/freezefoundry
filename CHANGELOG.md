@@ -1,0 +1,43 @@
+# Changelog
+
+Everything that changed in Freeze Foundry, newest first.
+
+## 0.9.0 · 2026-10-27
+
+- **Light and dark themes.** A sun/moon switch in the top bar flips between Frost (light) and Forge (dark); Settings > Appearance can also follow your system.
+- **The Guide is now a manual.** Every page of the app is explained in one place: writing work orders, approvals, worker tuning, Watch, the training bay, Apify and troubleshooting. The setup wizard still runs from the Guide.
+- **What's new.** This changelog lives in the app. A dot on the Guide button tells you when an update brought something new.
+
+## 0.8.0 · 2026-10-27
+
+- **Worker tuning.** Give the Planner, Builder and Reviewer each their own provider, model, temperature, top-p, token limit and standing instructions, with Precise, Balanced and Creative presets. Plan with Claude and build on your own GPU in the same run.
+- **Watch.** Poll miners, servers and APIs on a timer. Presets for Antminer / cgminer (TCP port 4028), Bitaxe / AxeOS, Ollama and CoinGecko prices. Chart a value, alert when a rule trips or a device stops answering, and optionally have your model explain the alert.
+- **Training bay.** A PyTorch blueprint and skill, a Run button on approved `.py` files, live output and a loss chart. Off until you allow "Run Python scripts" in Permissions.
+- **Python checks.** The Tester syntax-checks `.py` files.
+- **AMD-aware training scripts.** Device order is CUDA (NVIDIA, or AMD with ROCm), Apple MPS, DirectML, then CPU.
+- **Fixed installer names,** so download links always point at the newest release.
+- New starter skills now reach existing installs without bringing back ones you deleted.
+
+## 0.7.1 · 2026-10-27
+
+- **One release per version.** Windows and Mac installers now land in the same GitHub release, published only after both builds finish.
+- **Fairer Reviewer.** It judges the file in front of it instead of asking for files other tasks will build.
+- The Apify Actor blueprint now creates the output schema the Apify Store requires.
+
+## 0.7.0 · 2026-10-26
+
+- **Cloud models.** Claude, OpenAI, Gemini, OpenRouter and any OpenAI-compatible server, alongside LM Studio and Ollama. API keys are encrypted with your operating system's keychain.
+- **Skills, Sources and Permissions.** Reusable instructions in the Agent Skills format, reference files and web pages for the workers, and switches for what the AI may access.
+- **Ship to Apify.** Build an Apify Actor from a blueprint and publish it to your account.
+- **The frozen foundry.** A new zoomed-out factory floor with a serpentine conveyor, paced animation and the snowflake-and-anvil logo.
+- **Overnight queue with Auto-apply.** Work that passes tests and review applies itself; the rest waits in Staged changes and the run report.
+
+## 0.3.0 · 2026-10-26
+
+- **Desktop app** for Windows and macOS, with a first-run setup guide that finds LM Studio or Ollama.
+- **Models page.** Download `.gguf` models from Hugging Face into LM Studio, or pull Ollama models, from inside the app.
+- **Settings** for folders, generation, attempts and appearance.
+
+## Before 0.3
+
+- The first working line: Planner, Builder, Tester and Reviewer, with a retry loop, diffs, backups and an approval gate in front of every write.

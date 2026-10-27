@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Freeze Foundry — AI Software Factory</title>
     <link rel="icon" href="logo.svg">
+    <script>try { const t = localStorage.getItem('ff-theme'); if (t) document.documentElement.dataset.theme = t; } catch {}</script>
     <style>
         :root {
             --bg-dark: #1a1520;
@@ -430,6 +431,71 @@
         body.reduce-motion *, body.reduce-motion *::before { animation: none !important; transition: none !important; }
         @media (max-width: 1100px) { #view-factory { --r: 16px; } .drawer-right { display: none; } }
         @media (max-width: 900px) { #view-factory { --l: 16px; } .drawer-left { display: none; } .blueprints { display: none; } }
+    
+        /* ===== Light theme ("Frost"): same factory, morning light ===== */
+        [data-theme="light"] {
+            --bg-dark: #eef2f6; --bg-panel: #ffffff; --bg-input: #f3f6f9; --bg-raise: #f7f9fb;
+            --border-color: #d5dce4; --text-main: #172131; --text-muted: #5b6676; --glass: rgba(255,255,255,0.8);
+            color-scheme: light;
+        }
+        [data-theme="light"] header { background: linear-gradient(180deg, #ffffff, #f2f5f8); }
+        [data-theme="light"] .rail button.active { background: color-mix(in srgb, var(--accent) 14%, transparent); color: color-mix(in srgb, var(--accent) 75%, #000); }
+        [data-theme="light"] button.ghost:hover { background: #e7ecf2; }
+        [data-theme="light"] #view-factory { background: radial-gradient(ellipse at 50% 38%, #ffffff 0%, #e9eef4 60%, #dde4ec 100%); }
+        [data-theme="light"] #view-factory::before { background-image: linear-gradient(rgba(23,33,49,0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(23,33,49,0.05) 1px, transparent 1px); }
+        [data-theme="light"] .drawer { border-color: rgba(23,33,49,0.08) !important; box-shadow: 0 18px 40px rgba(23,33,49,0.12); }
+        [data-theme="light"] .floor-wrap { box-shadow: 0 0 0 1px var(--border-color), 0 18px 40px rgba(23,33,49,0.18); }
+        [data-theme="light"] .readouts .worker-station { background: rgba(23,33,49,0.03); border-color: rgba(23,33,49,0.08); }
+        [data-theme="light"] .readouts .station-log { background: rgba(23,33,49,0.05); }
+        [data-theme="light"] .blueprints button { background: rgba(255,255,255,0.7); border-color: rgba(23,33,49,0.12); }
+        [data-theme="light"] .blueprints button:hover { background: #fff !important; }
+        [data-theme="light"] .toast { border-color: rgba(23,33,49,0.12); box-shadow: 0 8px 24px rgba(23,33,49,0.12); }
+        [data-theme="light"] .pill.ok { color: #047857; border-color: #a7f3d0; }
+        [data-theme="light"] .pill.bad { color: #b91c1c; border-color: #fecaca; }
+        [data-theme="light"] .modal-box { box-shadow: 0 24px 60px rgba(23,33,49,0.25); }
+        #detail-view { background: var(--bg-input); border-color: var(--border-color); color: var(--text-main); }
+        [data-theme="light"] .log-info { color: #0e7490; }
+        [data-theme="light"] .log-success { color: #047857; }
+        [data-theme="light"] .log-error { color: #b91c1c; background: rgba(239, 68, 68, 0.08); }
+        [data-theme="light"] .log-warn { color: #a16207; }
+        [data-theme="light"] .log-planner, [data-theme="light"] .log-builder, [data-theme="light"] .log-tester, [data-theme="light"] .log-reviewer { filter: brightness(0.55) saturate(1.4); }
+        html.theming, html.theming * { transition: background-color .45s ease, color .45s ease, border-color .45s ease, box-shadow .45s ease !important; }
+
+        .theme-btn { width: 34px; height: 30px; padding: 0; display: grid; place-items: center; overflow: hidden; position: relative; }
+        .theme-btn svg { width: 17px; height: 17px; position: absolute; transition: transform .5s cubic-bezier(.5,1.6,.4,1), opacity .3s; }
+        .theme-btn .sun { transform: rotate(-90deg) scale(.4); opacity: 0; }
+        [data-theme="light"] .theme-btn .sun { transform: none; opacity: 1; }
+        [data-theme="light"] .theme-btn .moon { transform: rotate(90deg) scale(.4); opacity: 0; }
+
+        /* ===== Guide: a manual and a changelog ===== */
+        #view-guide { padding: 0; }
+        .guide { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 40px; padding: 28px 36px 60px; max-width: 1180px; }
+        .guide-toc { position: sticky; top: 20px; align-self: start; display: grid; gap: 2px; font-size: 13px; }
+        .guide-toc .toc-h { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--text-muted); margin: 14px 0 6px; }
+        .guide-toc a { color: var(--text-muted); text-decoration: none; padding: 5px 10px; border-radius: 8px; border-left: 2px solid transparent; }
+        .guide-toc a:hover { color: var(--text-main); background: var(--bg-raise); }
+        .guide-toc a.on { color: var(--text-main); border-left-color: var(--accent); background: var(--bg-raise); }
+        .guide-body { max-width: 760px; line-height: 1.65; font-size: 15px; }
+        .guide-body h1 { margin: 0 0 6px; }
+        .guide-body h2 { margin: 44px 0 10px; font-size: 22px; scroll-margin-top: 16px; }
+        .guide-body h3 { margin: 22px 0 6px; font-size: 16px; }
+        .guide-body p, .guide-body li { color: var(--text-main); }
+        .guide-body .lead { color: var(--text-muted); font-size: 16px; }
+        .guide-body ul, .guide-body ol { padding-left: 22px; display: grid; gap: 6px; }
+        .guide-body code { background: var(--bg-raise); border: 1px solid var(--border-color); border-radius: 6px; padding: 1px 6px; font-size: 13px; }
+        .guide-body pre { background: var(--bg-input); border: 1px solid var(--border-color); border-radius: 10px; padding: 12px 14px; overflow-x: auto; font: 13px/1.55 var(--mono); }
+        .guide-body table { border-collapse: collapse; width: 100%; font-size: 14px; }
+        .guide-body th, .guide-body td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border-color); vertical-align: top; }
+        .guide-body th { color: var(--text-muted); font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: .05em; }
+        .callout { border: 1px solid var(--border-color); border-left: 3px solid var(--accent); background: var(--bg-raise); border-radius: 10px; padding: 12px 14px; margin: 14px 0; }
+        .release { border-top: 1px solid var(--border-color); padding: 18px 0 6px; display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 20px; }
+        .release .ver { font: 600 15px var(--mono); }
+        .release .ver small { display: block; color: var(--text-muted); font-weight: 400; font-size: 12px; margin-top: 3px; }
+        .release .ver .new { display: inline-block; margin-top: 6px; font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: var(--accent); border: 1px solid var(--accent); border-radius: 999px; padding: 1px 7px; }
+        .release ul { margin: 0; }
+        .rail button { position: relative; }
+        .rail .dot-new { position: absolute; top: 8px; right: 14px; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 8px var(--accent); }
+        @media (max-width: 900px) { .guide { grid-template-columns: 1fr; padding: 20px; } .guide-toc { position: static; } .release { grid-template-columns: 1fr; gap: 6px; } }
     </style>
 </head>
 <body>
@@ -442,6 +508,10 @@
         <div class="status-item" title="Tokens used">&#9889; <span id="token-count">0</span></div>
         <div class="status-item" title="Changes waiting for you">&#129534; <span id="staged-count">0</span></div>
         <div class="status-item" title="Changes shipped this session">&#128230; <span id="shipped-count">0</span></div>
+        <button class="ghost mini theme-btn" onclick="app.toggleTheme()" title="Switch light / dark" aria-label="Switch light or dark theme">
+            <svg class="moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+            <svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4.2"/><path d="M12 2v2.2M12 19.8V22M4.9 4.9l1.6 1.6M17.5 17.5l1.6 1.6M2 12h2.2M19.8 12H22M4.9 19.1l1.6-1.6M17.5 6.5l1.6-1.6"/></svg>
+        </button>
         <button class="ghost mini" onclick="app.toggleDrawer('left')" title="Show or hide the queue">&#9703;</button>
         <button class="ghost mini" onclick="app.toggleDrawer('right')" title="Show or hide the inspector">&#9704;</button>
     </div>
@@ -457,7 +527,7 @@
     <button data-view="ship" onclick="app.showView('ship')"><span>&#128640;</span>Ship</button>
     <button data-view="settings" onclick="app.showView('settings')"><span>&#9881;&#65039;</span>Settings</button>
     <div class="spacer"></div>
-    <button onclick="app.openSetup()" title="Setup guide"><span>&#10067;</span>Guide</button>
+    <button data-view="guide" onclick="app.showView('guide')" title="Guide and what's new"><span>&#128214;</span>Guide<i class="dot-new" id="guide-dot" hidden></i></button>
 </nav>
 <main id="view-factory">
     <div class="floor-area"><div class="floor-wrap"><canvas id="floor-canvas" width="640" height="300"></canvas><canvas id="floor-light"></canvas></div></div>
@@ -650,6 +720,137 @@
     </div>
 </section>
 
+<section class="view" id="view-guide" hidden>
+  <div class="guide">
+    <nav class="guide-toc" id="guide-toc" aria-label="Guide sections"></nav>
+    <article class="guide-body">
+      <h1>Guide</h1>
+      <p class="lead">How to run the factory, page by page. Updates are listed at the bottom under What's new.</p>
+
+      <h2 id="g-start" data-toc="Getting started">Getting started</h2>
+      <ol>
+        <li><b>Start a model server.</b> Install <a href="https://lmstudio.ai" target="_blank">LM Studio</a> or <a href="https://ollama.com" target="_blank">Ollama</a>. In LM Studio, open the Developer tab and start the server. Prefer a cloud model? Skip this and add a key on the Models page.</li>
+        <li><b>Pick a model.</b> A coding model that fits your GPU's memory: 7&ndash;9B for 8&ndash;12 GB, up to 24B for 16 GB or a Mac with 32 GB+.</li>
+        <li><b>Write a work order</b> in the cream ticket under the factory floor and press <code>Ctrl+Enter</code>.</li>
+      </ol>
+      <div class="row"><button onclick="app.openSetup()">Run the setup wizard</button></div>
+
+      <h2 id="g-line" data-toc="How the line works">How the line works</h2>
+      <table>
+        <tr><th>Station</th><th>What it does</th></tr>
+        <tr><td><b>Planner</b></td><td>Turns your goal into a short plan, reading workspace files and your Sources. Small talk gets an answer instead of a build.</td></tr>
+        <tr><td><b>Builder</b></td><td>Writes one file per work order. The draft is staged; your workspace isn't touched.</td></tr>
+        <tr><td><b>Tester</b></td><td>Checks the draft in a throwaway copy: JavaScript syntax, JSON, Python syntax and your workspace's own <code>npm test</code>. It also fails a change to an existing file your goal never mentions.</td></tr>
+        <tr><td><b>Reviewer</b></td><td>Reads the diff and test results. It approves, or sends the work back with blocking issues. A failed test always means revise.</td></tr>
+      </table>
+      <p>Work that's sent back returns to the Builder with the feedback attached, up to the number of attempts set in Settings (3 by default).</p>
+
+      <h2 id="g-orders" data-toc="Writing work orders">Writing good work orders</h2>
+      <ul>
+        <li><b>One file per line.</b> "Create tools/rename.js that renames photos by EXIF date" beats "build me a photo app".</li>
+        <li><b>Name the file when you want an edit.</b> The Tester blocks edits to files the goal doesn't mention, so the Builder can't wander.</li>
+        <li><b>Say what done looks like:</b> inputs, outputs, flags and error messages.</li>
+        <li><b>Use blueprints.</b> The chips above the ticket fill in a proven template: CLI tool, web page, Apify Actor project, PyTorch model, script or README.</li>
+        <li><b>Queue a night's work.</b> One goal per line runs top to bottom.</li>
+      </ul>
+
+      <h2 id="g-approve" data-toc="Approvals and the queue">Approvals, Auto-apply and the queue</h2>
+      <p>With <b>Auto-apply</b> off, every finished change waits in <b>Staged changes</b>. Click it to see the diff, then apply or reject. With it on, a change applies itself only when tests didn't fail <i>and</i> the Reviewer approved; everything else waits for you.</p>
+      <p>Every applied change keeps a backup of the file it replaced. <b>Report</b> on the ticket lists what happened to each goal in the run.</p>
+
+      <h2 id="g-models" data-toc="Models and tuning">Models and worker tuning</h2>
+      <p>On the <b>Models</b> page, choose a provider (local, Claude, OpenAI, Gemini, OpenRouter or a custom OpenAI-compatible server), a default model and, optionally, a model per worker. Keys are encrypted with your system's keychain and never shown again.</p>
+      <h3>Worker tuning</h3>
+      <p>Each worker can override provider, model, temperature, top-p, max tokens and add standing instructions. Blank fields use the defaults.</p>
+      <table>
+        <tr><th>Setting</th><th>Rule of thumb</th></tr>
+        <tr><td>Temperature</td><td>0.1&ndash;0.3 for Builder and Reviewer (consistent code), 0.3&ndash;0.7 for the Planner. The presets set 0.2, 0.7 and 1.0.</td></tr>
+        <tr><td>Top-p</td><td>Leave blank unless a model card recommends one. Ignored by OpenAI and Claude.</td></tr>
+        <tr><td>Max tokens</td><td>Raise for long files (8192+). It must fit your model's context in LM Studio.</td></tr>
+        <tr><td>Instructions</td><td>House rules for one worker, e.g. "Node built-ins only" for the Builder.</td></tr>
+      </table>
+      <div class="callout">A worker on a different provider than the default needs its model name typed in, because the dropdowns list only the default provider's models.</div>
+
+      <h2 id="g-skills" data-toc="Skills">Skills</h2>
+      <p>A skill is a folder with a <code>SKILL.md</code>: standing instructions that switch on when a trigger word appears in a goal, for the workers you choose. Starter skills cover house style, security review, READMEs, Node CLIs, Apify Actors and PyTorch.</p>
+      <pre>---
+name: House style
+description: How I like my code.
+triggers: [js, node]
+roles: [builder, reviewer]
+---
+- Two-space indents and semicolons.
+- Prefer small pure functions.</pre>
+
+      <h2 id="g-sources" data-toc="Sources and permissions">Sources and permissions</h2>
+      <p><b>Sources</b> are reference files and web pages the workers read while planning and building. <b>Permissions</b> in Settings decide what the AI may touch:</p>
+      <ul>
+        <li>Read workspace files, run your tests, use Sources (on by default)</li>
+        <li>Internet: fetch pages linked in a goal (off by default)</li>
+        <li>Run Python scripts: the Run button in the training bay (off by default)</li>
+      </ul>
+
+      <h2 id="g-watch" data-toc="Watch">Watch</h2>
+      <p>Watchers check a device or API on a timer while the app is open, chart the first value you track, and alert you when a rule trips.</p>
+      <ol>
+        <li>Pick a preset or Custom, fill in the address, and press <b>Test connection</b> to see the raw data.</li>
+        <li>List the values to track with dot paths: <code>temp</code>, <code>bitcoin.usd</code>, <code>SUMMARY.0.MHS 5s</code>.</li>
+        <li>Set a rule (above, below, equals, changes, or stops responding) and, if you like, a question for your model when it fires.</li>
+      </ol>
+      <table>
+        <tr><th>Preset</th><th>Connects to</th></tr>
+        <tr><td>Antminer / cgminer</td><td>TCP port 4028 with the <code>summary</code> command. Scrypt miners report <code>MHS 5s</code>; SHA-256 miners report <code>GHS 5s</code>. The miner's API must be enabled.</td></tr>
+        <tr><td>Bitaxe / AxeOS</td><td><code>http://&lt;ip&gt;/api/system/info</code>: hashRate, temp, power</td></tr>
+        <tr><td>Ollama</td><td><code>/api/ps</code>, to know when your model server goes down</td></tr>
+        <tr><td>Crypto price</td><td>CoinGecko's free price API, every 5 minutes</td></tr>
+      </table>
+      <p class="hint">History and alerts reset when the app closes. Watchers themselves are saved.</p>
+
+      <h2 id="g-training" data-toc="Training bay">Training bay (PyTorch)</h2>
+      <ol>
+        <li>Allow <b>Run Python scripts</b> in Settings &gt; Permissions. If you use a virtualenv, put its python path in <b>Python command</b>.</li>
+        <li>Install PyTorch for your hardware (table below).</li>
+        <li>Send the <b>PyTorch model</b> blueprint with what the network should learn. Approve the files.</li>
+        <li>Open <code>train.py</code> in Workspace files and click <b>Run</b>. Lines like <code>epoch 3 loss 0.41</code> draw the loss chart.</li>
+      </ol>
+      <table>
+        <tr><th>Hardware</th><th>Install</th></tr>
+        <tr><td>Apple Silicon</td><td><code>pip3 install torch</code> (uses the GPU through MPS)</td></tr>
+        <tr><td>NVIDIA</td><td>The CUDA command from pytorch.org's install selector</td></tr>
+        <tr><td>AMD Radeon RX 7000 / 9000</td><td>AMD's ROCm build of PyTorch (Windows or Linux). It reports as <code>cuda</code>, so scripts need no changes.</td></tr>
+        <tr><td>Other Windows GPUs</td><td><code>pip install torch-directml</code></td></tr>
+        <tr><td>No GPU</td><td><code>pip install torch</code>; keep models small</td></tr>
+      </table>
+
+      <h2 id="g-ship" data-toc="Ship to Apify">Ship to Apify</h2>
+      <p>Build an Actor with the <b>Apify Actor project</b> blueprint, then publish the folder from the <b>Ship</b> page with your Apify token. It arrives as a private Actor; you choose when to make it public and how to charge.</p>
+
+      <h2 id="g-files" data-toc="Where files live">Where your files live</h2>
+      <table>
+        <tr><th>What</th><th>Installed app</th><th>From source</th></tr>
+        <tr><td>Workspace (your code)</td><td><code>Documents/Freeze Foundry/workspace</code></td><td><code>workspace/</code> in the repo</td></tr>
+        <tr><td>Tasks, settings, keys, backups</td><td><code>Documents/Freeze Foundry/data</code></td><td><code>data/</code></td></tr>
+        <tr><td>Skills</td><td><code>Documents/Freeze Foundry/skills</code></td><td><code>skills/</code></td></tr>
+      </table>
+      <p>Change the workspace folder in Settings.</p>
+
+      <h2 id="g-help" data-toc="Troubleshooting">Troubleshooting</h2>
+      <table>
+        <tr><th>Problem</th><th>Fix</th></tr>
+        <tr><td>"Model server unreachable"</td><td>Start LM Studio's server (Developer tab) or Ollama, then click the model name in the top bar.</td></tr>
+        <tr><td>Model error 400 or a context error</td><td>Lower Max tokens, or raise the context length when loading the model in LM Studio.</td></tr>
+        <tr><td>The Reviewer keeps sending work back</td><td>Read its issues in the Reviewer office. Make the goal more specific, give the Reviewer temperature 0.1, or use a larger model for it.</td></tr>
+        <tr><td>Python was not found</td><td>Install Python 3, or set Python command to the full path of your python.</td></tr>
+        <tr><td>Mac says the app is damaged</td><td>Run <code>xattr -cr "/Applications/Freeze Foundry.app"</code> once.</td></tr>
+        <tr><td>Windows SmartScreen warning</td><td>More info, then Run anyway. The installer isn't code-signed yet.</td></tr>
+      </table>
+
+      <h2 id="changelog" data-toc="What's new">What's new</h2>
+      <div id="changelog-body"><p class="hint">Loading...</p></div>
+    </article>
+  </div>
+</section>
+
 <section class="view" id="view-ship" hidden>
     <h1>Ship</h1>
     <p class="sub">Turn what the factory builds into something people pay for.</p>
@@ -692,6 +893,7 @@
     <div class="card">
         <h2>Appearance and sound</h2>
         <label>Accent colour <div class="swatches" id="swatches"></div></label>
+        <label>Theme <select id="set-theme" style="max-width: 200px" onchange="app.setTheme(this.value)"><option value="system">Match my system</option><option value="dark">Forge (dark)</option><option value="light">Frost (light)</option></select></label>
         <label>Interface size <select id="set-scale" style="max-width: 160px"><option value="0.9">Compact</option><option value="1">Normal</option><option value="1.1">Large</option><option value="1.25">Extra large</option></select></label>
         <label class="check"><input type="checkbox" id="set-sounds"> Sound effects</label>
         <label class="check"><input type="checkbox" id="set-notify"> Desktop notification when the queue finishes</label>
@@ -1334,7 +1536,7 @@ class App {
 
     showView(name) {
         document.getElementById('view-factory').hidden = name !== 'factory';
-        ['models', 'skills', 'sources', 'watch', 'ship', 'settings'].forEach(v => { document.getElementById('view-' + v).hidden = name !== v; });
+        ['models', 'skills', 'sources', 'watch', 'ship', 'settings', 'guide'].forEach(v => { document.getElementById('view-' + v).hidden = name !== v; });
         document.querySelectorAll('.rail [data-view]').forEach(b => b.classList.toggle('active', b.dataset.view === name));
         if (name === 'models') {
             document.getElementById('set-base').value = (this.settings && this.settings.baseUrl) || '';
@@ -1347,6 +1549,7 @@ class App {
         if (name === 'sources') this.refreshSources();
         if (name === 'ship') this.refreshShip();
         if (name === 'watch') this.refreshWatch();
+        if (name === 'guide') this.openGuide();
         if (name === 'models') this.renderTuning();
     }
 
@@ -1564,6 +1767,7 @@ class App {
         document.getElementById('set-notify').checked = ui.notifications !== false;
         document.getElementById('set-motion').checked = !!ui.reduceMotion;
         document.getElementById('set-pace').value = ui.pace || 'normal';
+        document.getElementById('set-theme').value = ui.theme || 'system';
         const pm = s.permissions || {};
         document.getElementById('perm-files').checked = pm.readFiles !== false;
         document.getElementById('perm-tests').checked = pm.runTests !== false;
@@ -1609,7 +1813,8 @@ class App {
                 sounds: document.getElementById('set-sounds').checked,
                 notifications: document.getElementById('set-notify').checked,
                 reduceMotion: document.getElementById('set-motion').checked,
-                pace: document.getElementById('set-pace').value
+                pace: document.getElementById('set-pace').value,
+                theme: document.getElementById('set-theme').value
             }
         });
         this.applyUi();
@@ -1660,6 +1865,71 @@ class App {
         if (ui.accent) { root.setProperty('--accent', ui.accent); root.setProperty('--primary-purple', ui.accent); }
         document.body.style.zoom = ui.scale || 1;
         document.body.classList.toggle('reduce-motion', !!ui.reduceMotion);
+        this.applyTheme();
+        if (this.settings && this.settings.version && ui.seenVersion !== this.settings.version) document.getElementById('guide-dot').hidden = false;
+    }
+
+    // Theme: 'system' follows the OS; the choice is mirrored to localStorage so the next launch paints in the right colors.
+    applyTheme() {
+        const pref = this.ui().theme || 'system';
+        const mq = window.matchMedia('(prefers-color-scheme: light)');
+        const eff = pref === 'system' ? (mq.matches ? 'light' : 'dark') : pref;
+        document.documentElement.dataset.theme = eff;
+        try { localStorage.setItem('ff-theme', eff); } catch {}
+        if (!this.themeMq) { this.themeMq = mq; mq.addEventListener('change', () => { if ((this.ui().theme || 'system') === 'system') this.applyTheme(); }); }
+    }
+
+    async setTheme(theme) {
+        const root = document.documentElement;
+        if (!this.ui().reduceMotion) { root.classList.add('theming'); setTimeout(() => root.classList.remove('theming'), 500); }
+        this.settings.ui = { ...this.ui(), theme };
+        this.applyTheme();
+        await this.postSettings({ ui: { theme } });
+    }
+
+    toggleTheme() { this.setTheme(document.documentElement.dataset.theme === 'light' ? 'dark' : 'light'); }
+
+    // ---------- Guide and changelog ----------
+    async openGuide() {
+        document.getElementById('guide-dot').hidden = true;
+        if (this.settings && this.settings.version && this.ui().seenVersion !== this.settings.version) {
+            this.settings.ui = { ...this.ui(), seenVersion: this.settings.version };
+            this.postSettings({ ui: { seenVersion: this.settings.version } });
+        }
+        const toc = document.getElementById('guide-toc');
+        if (!toc.dataset.ready) {
+            toc.dataset.ready = '1';
+            const links = [...document.querySelectorAll('.guide-body h2[id]')];
+            toc.innerHTML = '<div class="toc-h">Manual</div>';
+            links.forEach(h => {
+                if (h.id === 'changelog') toc.insertAdjacentHTML('beforeend', '<div class="toc-h">Updates</div>');
+                const a = document.createElement('a');
+                a.href = '#' + h.id; a.textContent = h.dataset.toc || h.textContent;
+                a.onclick = e => { e.preventDefault(); h.scrollIntoView({ behavior: 'smooth' }); };
+                toc.appendChild(a);
+            });
+            const scroller = document.getElementById('view-guide');
+            scroller.addEventListener('scroll', () => {
+                let cur = links[0];
+                links.forEach(h => { if (h.getBoundingClientRect().top < 140) cur = h; });
+                toc.querySelectorAll('a').forEach(a => a.classList.toggle('on', a.hash === '#' + cur.id));
+            });
+            const md = await fetch('/api/changelog').then(r => r.text()).catch(() => '');
+            document.getElementById('changelog-body').innerHTML = this.renderChangelog(md) || '<p class="hint">Changelog not found.</p>';
+        }
+    }
+
+    // Minimal markdown for CHANGELOG.md: "## version · date" headings and "- " bullets with **bold** and `code`.
+    renderChangelog(md) {
+        const esc = t => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        const inline = t => esc(t).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/`([^`]+)`/g, '<code>$1</code>');
+        const current = this.settings && this.settings.version;
+        return md.split(/^## /m).slice(1).map(block => {
+            const [head, ...rest] = block.split('\n');
+            const [ver, date] = head.split('·').map(x => x.trim());
+            const items = rest.filter(l => l.startsWith('- ')).map(l => `<li>${inline(l.slice(2))}</li>`).join('');
+            return `<div class="release"><div class="ver">${esc(ver)}${date ? `<small>${esc(date)}</small>` : ''}${ver === current ? '<span class="new">Installed</span>' : ''}</div><ul>${items}</ul></div>`;
+        }).join('');
     }
 
     toast(msg) {
@@ -2110,7 +2380,7 @@ class App {
         g.lineWidth = 2; g.beginPath();
         vals.forEach((v, i) => i ? g.lineTo(x(i), y(v)) : g.moveTo(x(i), y(v)));
         g.stroke();
-        g.fillStyle = '#cbd5e1'; g.font = '10px monospace';
+        g.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--text-muted').trim() || '#94a3b8'; g.font = '10px monospace';
         g.fillText(`loss ${vals[vals.length - 1].toPrecision(4)}  (${vals.length} points)`, pad, 11);
     }
 
