@@ -582,6 +582,8 @@ if (pathname.startsWith('/api/tasks/') && pathname.endsWith('/approve')) {
           for (const k of ['sounds', 'notifications', 'reduceMotion']) if (typeof u[k] === 'boolean') ui[k] = u[k];
           if (typeof u.scale === 'number' && u.scale >= 0.8 && u.scale <= 1.5) ui.scale = u.scale;
           if (['relaxed', 'normal', 'fast', 'off'].includes(u.pace)) ui.pace = u.pace;
+          if (['system', 'light', 'dark'].includes(u.theme)) ui.theme = u.theme;
+          if (typeof u.seenVersion === 'string' && u.seenVersion.length < 20) ui.seenVersion = u.seenVersion;
           st.ui = ui;
         }
         if (b.roleConfig && typeof b.roleConfig === 'object') {
@@ -722,6 +724,11 @@ if (pathname.startsWith('/api/tasks/') && pathname.endsWith('/approve')) {
     let cleared = 0;
     for (const f of fs.readdirSync(PROPOSALS_DIR)) if (/^proposal_.*\.json$/.test(f)) { fs.unlinkSync(path.join(PROPOSALS_DIR, f)); cleared++; }
     res.writeHead(200); return res.end(JSON.stringify({ cleared }));
+  }
+
+  if (pathname === '/api/changelog') {
+    res.writeHead(200, { 'Content-Type': 'text/markdown; charset=utf-8' });
+    try { return res.end(fs.readFileSync(path.join(__dirname, 'CHANGELOG.md'), 'utf8')); } catch { return res.end(''); }
   }
 
   if (pathname === '/api/files') {
@@ -1126,11 +1133,13 @@ const LEDGER_FILE = path.join(DATA_DIR, 'ledger.jsonl');
 const DEFAULT_SETTINGS = {
   provider: 'local', baseUrl: 'http://127.0.0.1:1234/v1', model: MODEL_NAME, roleModels: {}, roleConfig: {},
   modelsDir: path.join(os.homedir(), '.lmstudio', 'models'), attempts: 3, autoApply: true, setupDone: false,
-  temperature: 0.7, maxTokens: 4096, permissions: { readFiles: true, runTests: true, sources: true, internet: false, runScripts: false }, ui: { accent: '#a855f7', pace: 'normal', sounds: true, notifications: true, reduceMotion: false, scale: 1 }
+  temperature: 0.7, maxTokens: 4096, permissions: { readFiles: true, runTests: true, sources: true, internet: false, runScripts: false }, ui: { accent: '#a855f7', theme: 'system', pace: 'normal', sounds: true, notifications: true, reduceMotion: false, scale: 1 }
 };
 
+const APP_VERSION = require('./package.json').version;
+
 function publicSettings(st) {
-  return { ...st, root: ROOT_DIR, dataDir: DATA_DIR, workspace: st.workspace || WORKSPACE_DIR, keysSet: Object.fromEntries(Object.keys(readKeys()).map(k => [k, true])) };
+  return { ...st, version: APP_VERSION, root: ROOT_DIR, dataDir: DATA_DIR, workspace: st.workspace || WORKSPACE_DIR, keysSet: Object.fromEntries(Object.keys(readKeys()).map(k => [k, true])) };
 }
 
 function loadSettings() {
