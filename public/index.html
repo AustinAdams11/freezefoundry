@@ -253,6 +253,9 @@
         .readouts .station-status-light { margin: 0; }
         .readouts .station-name { margin: 0; font-size: 0.75rem; }
         .readouts .station-log { height: 70px; font-size: 0.65rem; white-space: pre-wrap; word-break: break-word; }
+        .detail-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+        .detail-head button { padding: 3px 12px; font-size: 11px; letter-spacing: 0.06em; }
+        #loss-chart { margin: 0 12px 8px; width: calc(100% - 24px); height: 70px; border-radius: 8px; background: rgba(255,255,255,0.04); }
         #detail-view {
             max-height: 40vh; overflow: auto; margin: 0 0 0.5rem; padding: 6px;
             background: #121014; border: 1px solid #333; font-size: 0.72rem; white-space: pre-wrap; word-break: break-word;
@@ -475,7 +478,8 @@
         </div>
         <div class="panel-header">Workspace files</div>
         <div class="file-browser" id="file-browser"></div>
-        <div class="panel-header" id="detail-title">Detail</div>
+        <div class="panel-header detail-head"><span id="detail-title">Detail</span><button id="run-btn" class="ghost" hidden title="Run this Python file (Training bay)">Run</button></div>
+        <canvas id="loss-chart" width="320" height="70" hidden></canvas>
         <pre id="detail-view">Click an office, a worker or a file to see it here.</pre>
         <div class="panel-header">Console</div>
         <div id="console-output"></div>
@@ -635,6 +639,9 @@
         <label class="check"><input type="checkbox" id="perm-tests"> Run the workspace's own tests (npm test) on proposed changes</label>
         <label class="check"><input type="checkbox" id="perm-sources"> Use the reference material on the Sources page</label>
         <label class="check"><input type="checkbox" id="perm-net"> Internet: fetch web pages linked in a goal or added as sources</label>
+        <label class="check"><input type="checkbox" id="perm-scripts"> Run Python scripts: a Run button on approved .py files (for PyTorch training and other scripts)</label>
+        <label>Python command for the Run button (blank = python on Windows, python3 on Mac; or the full path to a virtualenv's python)
+            <input id="set-python" placeholder="python3"></label>
         <div class="hint">Workers can only ever write inside the workspace folder. With a cloud provider, whatever the workers can read is sent to that provider.</div>
     </div>
     <div class="card">
@@ -1221,6 +1228,8 @@ class App {
 
     showDetail(title, text, isDiff = false) {
         document.getElementById('detail-title').textContent = title;
+        document.getElementById('run-btn').hidden = true;
+        document.getElementById('loss-chart').hidden = true;
         const view = document.getElementById('detail-view');
         view.innerHTML = '';
         if (!isDiff) { view.textContent = text; return; }
@@ -1328,6 +1337,8 @@ class App {
         document.getElementById('perm-tests').checked = pm.runTests !== false;
         document.getElementById('perm-sources').checked = pm.sources !== false;
         document.getElementById('perm-net').checked = !!pm.internet;
+        document.getElementById('perm-scripts').checked = !!pm.runScripts;
+        document.getElementById('set-python').value = s.pythonPath || '';
         document.getElementById('set-temp').value = s.temperature != null ? s.temperature : 0.7;
         document.getElementById('temp-val').textContent = document.getElementById('set-temp').value;
         document.getElementById('set-maxtok').value = s.maxTokens || 4096;
@@ -1356,8 +1367,10 @@ class App {
                 readFiles: document.getElementById('perm-files').checked,
                 runTests: document.getElementById('perm-tests').checked,
                 sources: document.getElementById('perm-sources').checked,
-                internet: document.getElementById('perm-net').checked
+                internet: document.getElementById('perm-net').checked,
+                runScripts: document.getElementById('perm-scripts').checked
             },
+            pythonPath: document.getElementById('set-python').value,
             ui: {
                 accent: this.pickedAccent,
                 scale: parseFloat(document.getElementById('set-scale').value),
@@ -1460,6 +1473,11 @@ class App {
                 'Create my-actor/.actor/actor.json for the Apify Actor my-actor with actorSpecification 1, version 0.1, input ./input_schema.json and output ./output_schema.json.',
                 'Create my-actor/.actor/output_schema.json in Apify format: actorOutputSchemaVersion 1, a title, and one property "results" (type string, title Results, template {{links.apiDefaultDatasetUrl}}/items).',
                 'Create my-actor/.actor/input_schema.json describing every input field my-actor/src/main.js reads, with titles, descriptions and defaults.'
+            ].join('\n'),
+            'PyTorch model': [
+                'Create model/train.py, a PyTorch script that DESCRIBE WHAT THE NETWORK LEARNS. Use cuda if available, else mps, else cpu. Set a seed, keep the dataset small or synthetic, print one line per epoch exactly like "epoch 3 loss 0.4123", and save the weights to model.pt next to the script.',
+                'Create model/requirements.txt listing torch and every other package model/train.py imports.',
+                'Create model/README.md explaining how to install the requirements and run train.py, and what it trains.'
             ].join('\n'),
             'Script': 'Create a script in script.js that ',
             'Update a file': 'Update <file name> so that ',
@@ -1810,6 +1828,58 @@ class App {
         if (this.lastDiff && this.pendingProposal && p === this.pendingFile) return this.showDetail('Diff (review before applying)', this.lastDiff, true);
         const d = await fetch('/api/file?path=' + encodeURIComponent(p)).then(r => r.json()).catch(() => ({}));
         this.showDetail(p, d.content != null ? d.content : (d.error || 'Could not open file.'));
+        if (p.endsWith('.py')) {
+            const rb = document.getElementById('run-btn');
+            rb.hidden = false;
+            rb.textContent = this.runPoll && this.runPath === p ? 'Stop' : 'Run';
+            rb.onclick = () => this.toggleRun(p);
+        }
+    }
+
+    // Training bay: run an approved .py file, stream its output and chart any "loss" numbers it prints.
+    async toggleRun(p) {
+        if (this.runPoll) { await fetch('/api/run/stop', { method: 'POST' }); return; }
+        const r = await fetch('/api/run', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ path: p }) });
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok) return this.toast(d.error || 'Could not start the script');
+        this.runPath = p;
+        document.getElementById('run-btn').textContent = 'Stop';
+        this.logToConsole(`Training bay: running ${p}`);
+        this.runPoll = setInterval(() => this.pollRun(), 1000);
+    }
+
+    async pollRun() {
+        const run = await fetch('/api/run').then(r => r.json()).catch(() => null);
+        if (!run) return;
+        if (document.getElementById('detail-title').textContent === run.path) {
+            const view = document.getElementById('detail-view');
+            view.textContent = run.output || 'Starting...';
+            view.scrollTop = view.scrollHeight;
+            this.drawLoss(run.output || '');
+        }
+        if (run.status !== 'running') {
+            clearInterval(this.runPoll); this.runPoll = null;
+            document.getElementById('run-btn').textContent = 'Run';
+            this.toast(`${run.path}: ${run.status}${run.exitCode != null ? ' (exit ' + run.exitCode + ')' : ''}`);
+            this.logToConsole(`Training bay: ${run.path} ${run.status}`);
+        }
+    }
+
+    drawLoss(output) {
+        const vals = [...output.matchAll(/loss[^0-9\n-]{0,12}(-?\d*\.?\d+(?:e-?\d+)?)/gi)].map(m => parseFloat(m[1])).filter(Number.isFinite);
+        const c = document.getElementById('loss-chart');
+        c.hidden = vals.length < 2;
+        if (c.hidden) return;
+        const g = c.getContext('2d'), W = c.width, H = c.height, pad = 8;
+        const lo = Math.min(...vals), hi = Math.max(...vals), span = hi - lo || 1;
+        const x = i => pad + i * (W - 2 * pad) / (vals.length - 1), y = v => H - pad - (v - lo) / span * (H - 2 * pad - 12);
+        g.clearRect(0, 0, W, H);
+        g.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#a855f7';
+        g.lineWidth = 2; g.beginPath();
+        vals.forEach((v, i) => i ? g.lineTo(x(i), y(v)) : g.moveTo(x(i), y(v)));
+        g.stroke();
+        g.fillStyle = '#cbd5e1'; g.font = '10px monospace';
+        g.fillText(`loss ${vals[vals.length - 1].toPrecision(4)}  (${vals.length} points)`, pad, 11);
     }
 
     init() {

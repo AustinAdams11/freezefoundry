@@ -93,3 +93,25 @@ test('sources: text uploads work, binary and web pages are refused by default', 
 test('publishing needs a token and a real workspace folder', async () => {
   assert.equal((await post('/api/publish/apify', { folder: 'nope' })).status, 400);
 });
+
+test('training bay: off by default, then runs an approved .py file', async () => {
+  const off = await post('/api/run', { path: 'train.py' });
+  assert.equal(off.status, 400);
+  assert.match((await off.json()).error, /Permissions/);
+
+  const s = await (await fetch(BASE + '/api/settings')).json();
+  await post('/api/settings', { permissions: { ...s.permissions, runScripts: true } });
+  assert.equal((await post('/api/run', { path: '../outside.py' })).status, 400);
+  assert.equal((await post('/api/run', { path: 'notes.txt' })).status, 400);
+
+  fs.writeFileSync(path.join(s.workspace, 'train.py'), 'for e in range(3): print(f"epoch {e} loss {1/(e+1):.3f}")\n');
+  assert.equal((await post('/api/run', { path: 'train.py' })).status, 200);
+  let run;
+  for (let i = 0; i < 50; i++) {
+    run = await (await fetch(BASE + '/api/run')).json();
+    if (run.status !== 'running') break;
+    await new Promise(r => setTimeout(r, 200));
+  }
+  assert.equal(run.status, 'done', run.output);
+  assert.match(run.output, /epoch 2 loss 0\.333/);
+});

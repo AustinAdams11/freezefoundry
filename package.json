@@ -1,6 +1,6 @@
 {
   "name": "freeze-foundry",
-  "version": "0.7.1",
+  "version": "0.8.0",
   "private": true,
   "description": "Local-first AI software factory: four local-model workers plan, build, test and review code on a pixel-art factory floor.",
   "scripts": {
@@ -30,6 +30,7 @@
     },
     "win": {
       "target": "nsis",
+      "artifactName": "Freeze-Foundry-Setup.${ext}",
       "icon": "public/icon.ico"
     },
     "nsis": {
@@ -47,6 +48,7 @@
         }
       ],
       "category": "public.app-category.developer-tools",
+      "artifactName": "Freeze-Foundry-${arch}.${ext}",
       "icon": "public/icon.png"
     },
     "publish": {
