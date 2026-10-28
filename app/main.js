@@ -1,6 +1,6 @@
 // Freeze Foundry desktop shell: runs the local server in-process and shows it in its own window.
 // Same code runs on Windows, macOS and Linux.
-const { app, BrowserWindow, shell } = require('electron');
+const { app, BrowserWindow, shell, session } = require('electron');
 const path = require('path');
 const http = require('http');
 
@@ -30,6 +30,12 @@ async function createWindow() {
     if (/^https?:\/\//.test(url)) shell.openExternal(url);
     return { action: 'deny' };
   });
+  // The window only ever shows the local app; any other page opens in the system browser instead.
+  win.webContents.on('will-navigate', (e, url) => {
+    if (url.startsWith(URL_BASE + '/')) return;
+    e.preventDefault();
+    if (/^https?:\/\//.test(url)) shell.openExternal(url);
+  });
   await waitForServer();
   win.loadURL(URL_BASE + '/');
 }
@@ -37,6 +43,10 @@ async function createWindow() {
 // Gives the window its own taskbar identity, so Windows shows our icon instead of Electron's.
 if (process.platform === 'win32') app.setAppUserModelId('com.freezefoundry.app');
 
-app.whenReady().then(createWindow);
+app.whenReady().then(() => {
+  // The page may show notifications; camera, microphone, location, USB and the rest are always refused.
+  session.defaultSession.setPermissionRequestHandler((wc, permission, done) => done(permission === 'notifications'));
+  createWindow();
+});
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
 app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });

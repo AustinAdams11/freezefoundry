@@ -183,6 +183,16 @@ const server = http.createServer(async (req, res) => {
 
   // Set default headers
   res.setHeader('Content-Type', 'application/json');
+  // Hardening: never framed by another site, no MIME sniffing, no referrer leaks.
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('Content-Security-Policy', "frame-ancestors 'none'");
+  res.setHeader('Referrer-Policy', 'no-referrer');
+  // DNS rebinding guard: a hostile website can point its own domain at 127.0.0.1, but it can't fake the Host header.
+  if (!isLocalHost(req.headers.host)) {
+    res.writeHead(403);
+    return res.end(JSON.stringify({ error: 'Freeze Foundry only answers on 127.0.0.1 or localhost' }));
+  }
   // Only this app may change things: blocks other websites in your browser from driving the factory.
   const origin = req.headers.origin;
   if (method !== 'GET' && method !== 'HEAD' && origin && origin !== `http://127.0.0.1:${PORT}` && origin !== `http://localhost:${PORT}`) {
@@ -193,37 +203,6 @@ const server = http.createServer(async (req, res) => {
   if (method === 'OPTIONS') {
     res.writeHead(204);
     res.end();
-    return;
-  }
-
-  // Static file serving for public directory
-  if (pathname.startsWith('/public/')) {
-    const filePath = path.join(PUBLIC_DIR, pathname.substring(7));
-    try {
-      const stat = fs.statSync(filePath);
-      if (stat.isDirectory()) {
-        res.setHeader('Content-Type', 'text/html');
-        const indexPath = path.join(filePath, 'index.html');
-        if (fs.existsSync(indexPath)) {
-          const content = fs.readFileSync(indexPath, 'utf8');
-          res.writeHead(200);
-          res.end(content);
-        } else {
-          res.writeHead(404);
-          res.end(JSON.stringify({ error: 'Not found' }));
-        }
-      } else if (stat.isFile()) {
-        const content = fs.readFileSync(filePath);
-        res.writeHead(200, { 'Content-Length': content.length });
-        res.end(content);
-      } else {
-        res.writeHead(404);
-        res.end(JSON.stringify({ error: 'Not found' }));
-      }
-    } catch (err) {
-      res.writeHead(500);
-      res.end(JSON.stringify({ error: err.message }));
-    }
     return;
   }
 
@@ -1389,6 +1368,10 @@ function setKey(provider, key) {
 
 // ---------- Permissions, sources, web pages ----------
 function perms() { return loadSettings().permissions; }
+
+function isLocalHost(host) {
+  return host === `127.0.0.1:${PORT}` || host === `localhost:${PORT}` || host === `[::1]:${PORT}`;
+}
 
 function sha1(buf) { return require('crypto').createHash('sha1').update(buf).digest('hex'); }
 

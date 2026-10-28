@@ -65,6 +65,8 @@ test/              node:test suite
 docs/SPEC.md       Original build specification
 ```
 
+See [SECURITY.md](SECURITY.md) for the full threat model and how to report a vulnerability.
+
 ## License
 
 MIT
