@@ -2,6 +2,11 @@
 
 Everything that changed in Freeze Foundry, newest first.
 
+## 0.10.1 · 2026-10-28
+
+- **Security pass.** The local server now rejects requests whose `Host` isn't localhost (stops DNS-rebinding attacks from websites) and sends anti-framing and no-sniff headers. Model names, server errors and goals are escaped before they reach the screen. The app window can no longer navigate to outside pages and refuses camera, microphone and location permissions. An unused file route without path checks was removed.
+- **SECURITY.md** explains what Freeze Foundry protects against and how to report a vulnerability privately.
+
 ## 0.10.0 · 2026-10-28
 
 - **Undo.** Every applied change can be rolled back from the Report: the old file comes back, or a newly created file is removed. Undo refuses if you edited the file since, so it never loses your work.

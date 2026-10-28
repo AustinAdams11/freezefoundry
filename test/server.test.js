@@ -218,3 +218,14 @@ test('applied changes are committed when the workspace is a git repo and the opt
   assert.match(execFileSync('git', ['-C', s.workspace, 'log', '-1', '--format=%s']).toString(), /Freeze Foundry: Create hello\.md/);
   await post('/api/settings', { gitCommit: false });
 });
+
+test('DNS rebinding is blocked and responses carry hardening headers', async () => {
+  const http = require('node:http');
+  const get = host => new Promise((resolve, reject) => http.get({ host: '127.0.0.1', port: PORT, path: '/api/settings', headers: { Host: host } }, r => { r.resume(); resolve(r); }).on('error', reject));
+  assert.equal((await get('evil.example:' + PORT)).statusCode, 403);
+  const ok = await get('localhost:' + PORT);
+  assert.equal(ok.statusCode, 200);
+  assert.equal(ok.headers['x-frame-options'], 'DENY');
+  assert.equal(ok.headers['x-content-type-options'], 'nosniff');
+  for (const p of ['/public/../server.js', '/%2e%2e/server.js', '/..%2fserver.js']) assert.doesNotMatch(await (await fetch(BASE + p)).text(), /createServer/, p);
+});
