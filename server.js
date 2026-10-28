@@ -145,11 +145,11 @@ async function modelFetch(st, url, opts) {
 }
 
 // Call the configured OpenAI-compatible model server (LM Studio or Ollama) and record usage in the ledger.
-async function callLMStudio(messages, role = 'default', taskId = null, override = null) {
+async function callLMStudio(messages, role = 'default', taskId = null) {
   const st = { ...loadSettings() };
   // Per-worker tuning: each worker can override provider, model, temperature, token limit, top-p and add instructions.
-  const rc = override || (st.roleConfig || {})[role] || {};
-  // LAN Foundry: a worker (or Assay entry) can run on another machine's LM Studio or Ollama server.
+  const rc = (st.roleConfig || {})[role] || {};
+  // LAN Foundry: a worker can run on another machine's LM Studio or Ollama server.
   if (rc.baseUrl) { st.provider = 'local'; st.baseUrl = rc.baseUrl; }
   if (!rc.baseUrl && rc.provider && rc.provider !== st.provider) {
     if (!rc.model) throw new Error(`The ${role} uses ${PROVIDERS[rc.provider].label}; type its model name in Models > Worker tuning.`);
@@ -832,27 +832,6 @@ if (pathname.startsWith('/api/tasks/') && pathname.endsWith('/approve')) {
     catch (e) { res.writeHead(502); return res.end(JSON.stringify({ error: `No model server answered at ${url} (${e.name === 'TimeoutError' ? 'timed out' : e.message}). On that machine, turn on "Serve on local network" in LM Studio, or set OLLAMA_HOST=0.0.0.0 for Ollama.` })); }
   }
 
-  // ASSAY: one goal, several models, same Tester and Reviewer; a leaderboard of which model codes best on your hardware
-  if (pathname === '/api/assay' && method === 'GET') {
-    res.writeHead(200); return res.end(JSON.stringify(listAssays()));
-  }
-  if (pathname === '/api/assay' && method === 'POST') {
-    try {
-      const b = await readJsonBody(req);
-      const out = startAssay(b); res.writeHead(200); return res.end(JSON.stringify(out));
-    } catch (e) { res.writeHead(400); return res.end(JSON.stringify({ error: e.message })); }
-  }
-  if (/^\/api\/assay\/[\w-]+$/.test(pathname) && method === 'GET') {
-    const a = readAssay(pathname.split('/')[3]);
-    res.writeHead(a ? 200 : 404); return res.end(JSON.stringify(a || { error: 'Assay not found' }));
-  }
-  if (/^\/api\/assay\/[\w-]+\/stage$/.test(pathname) && method === 'POST') {
-    try {
-      const b = await readJsonBody(req);
-      const out = stageAssayResult(pathname.split('/')[3], Number(b.index)); res.writeHead(200); return res.end(JSON.stringify(out));
-    } catch (e) { res.writeHead(400); return res.end(JSON.stringify({ error: e.message })); }
-  }
-
   // TRAINING BAY: run an approved .py file from the workspace (only when the user clicks Run)
   if (pathname === '/api/run' && method === 'GET') {
     res.writeHead(200); return res.end(JSON.stringify(scriptRun ? { ...scriptRun, output: scriptRun.output.slice(-20000), child: undefined } : null));
@@ -1423,91 +1402,6 @@ function cleanServerUrl(u) {
 
 function isLocalHost(host) {
   return host === `127.0.0.1:${PORT}` || host === `localhost:${PORT}` || host === `[::1]:${PORT}`;
-}
-
-// ---------- Assay ----------
-const ASSAY_DIR = path.join(DATA_DIR, 'assays');
-let assayRunning = null;
-
-function readAssay(id) {
-  if (!/^[\w-]+$/.test(id)) return null;
-  try { return JSON.parse(fs.readFileSync(path.join(ASSAY_DIR, id + '.json'), 'utf8')); } catch { return null; }
-}
-
-function listAssays() {
-  try {
-    return fs.readdirSync(ASSAY_DIR).filter(f => f.endsWith('.json')).map(f => readAssay(f.slice(0, -5))).filter(Boolean)
-      .sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 30)
-      .map(a => ({ id: a.id, goal: a.goal, createdAt: a.createdAt, status: a.status, winner: (a.results.find(r => r.rank === 1) || {}).label || null, count: a.results.length }));
-  } catch { return []; }
-}
-
-function startAssay(b) {
-  if (assayRunning) throw new Error('An assay is already running. Let it finish first.');
-  const goal = String(b.goal || '').trim();
-  if (!goal || goal.length > 2000) throw new Error('Write a goal for the assay (one file, like a normal work order).');
-  const entries = (Array.isArray(b.entries) ? b.entries : []).map(e => ({
-    label: String(e.label || e.model || '').trim().slice(0, 80), model: String(e.model || '').trim().slice(0, 200),
-    baseUrl: e.baseUrl ? cleanServerUrl(e.baseUrl) : undefined, machine: e.machine ? String(e.machine).slice(0, 40) : undefined
-  })).filter(e => e.model);
-  if (entries.length < 2 || entries.length > 6) throw new Error('Pick between 2 and 6 models to compare.');
-  fs.mkdirSync(ASSAY_DIR, { recursive: true });
-  const a = { id: 'assay_' + Date.now().toString(36), goal, createdAt: new Date().toISOString(), status: 'running', results: entries.map(e => ({ ...e, status: 'waiting' })) };
-  const save = () => writeJsonAtomic(path.join(ASSAY_DIR, a.id + '.json'), a);
-  save();
-  assayRunning = a.id;
-  (async () => {
-    // One model at a time: a local GPU can only hold so much, and it keeps the timings fair.
-    for (const r of a.results) {
-      try {
-        r.status = 'building'; save();
-        const started = Date.now();
-        const out = parseBuilderOutput(await callLMStudio(await builderMessages({ goal }), 'builder', null, { model: r.model, baseUrl: r.baseUrl, temperature: 0.2 }));
-        r.ms = Date.now() - started;
-        r.file_path = out.file_path; r.content = String(out.content || '').slice(0, 200000); r.chars = r.content.length;
-        r.status = 'testing'; save();
-        const test = await testProposal(out, { goal });
-        r.test = test.status;
-        r.testOutput = test.checks.filter(c => c.exitCode !== 0).map(c => `${c.command}: ${String(c.output).slice(0, 600)}`).join('\n');
-        r.status = 'reviewing'; save();
-        const review = await reviewProposal({ goal }, { ...out, test }); // the same Reviewer judges every entry
-        r.verdict = review.verdict; r.issues = review.issues; r.notes = review.notes;
-        r.status = 'done';
-      } catch (e) { r.status = 'failed'; r.error = e.message.slice(0, 500); }
-      save();
-    }
-    scoreAssay(a);
-    a.status = 'done'; a.finishedAt = new Date().toISOString();
-    save();
-  })().catch(e => { a.status = 'failed'; a.error = e.message; save(); }).finally(() => { assayRunning = null; });
-  return a;
-}
-
-// Quality first (tests 40, review 50), speed breaks ties (up to 10 points for the fastest finisher).
-function scoreAssay(a) {
-  const done = a.results.filter(r => r.status === 'done');
-  const fastest = Math.min(...done.map(r => r.ms));
-  for (const r of a.results) {
-    if (r.status !== 'done') { r.score = 0; continue; }
-    r.score = ({ passed: 40, no_checks: 30 }[r.test] || 0) + ({ approve: 50, revise: 15 }[r.verdict] || 0) + Math.round(10 * fastest / r.ms);
-  }
-  [...a.results].sort((x, y) => y.score - x.score || (x.ms || 1e12) - (y.ms || 1e12)).forEach((r, i) => { r.rank = i + 1; });
-  return a;
-}
-
-// Turn an assay entry into a normal staged change, so it can be reviewed and applied like any other.
-function stageAssayResult(id, index) {
-  const a = readAssay(id);
-  const r = a && a.results[index];
-  if (!r || r.status !== 'done') throw new Error('That result has no finished file to stage.');
-  const tasks = loadTasks();
-  const taskId = `task_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
-  tasks[taskId] = { id: taskId, goal: a.goal, status: 'staged', createdAt: new Date().toISOString(), plan: null, proposals: [], outcome: `staged from assay (${r.label})` };
-  saveTasks(tasks);
-  const proposalId = `${taskId}_${Date.now()}`;
-  fs.mkdirSync(PROPOSALS_DIR, { recursive: true });
-  writeJsonAtomic(path.join(PROPOSALS_DIR, `proposal_${proposalId}.json`), { proposal_id: proposalId, file_path: r.file_path, content: r.content, goal: a.goal, test: { status: r.test }, review: { verdict: r.verdict } });
-  return { task_id: taskId, proposal_id: proposalId, file_path: r.file_path };
 }
 
 async function builderMessages(task, feedback = '', previous = '') {

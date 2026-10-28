@@ -231,44 +231,17 @@ test('DNS rebinding is blocked and responses carry hardening headers', async () 
   for (const p of ['/public/../server.js', '/%2e%2e/server.js', '/..%2fserver.js']) assert.doesNotMatch(await (await fetch(BASE + p)).text(), /createServer/, p);
 });
 
-test('assay ranks models over the LAN path and stages the winner', async () => {
+test('LAN machines are saved and listed', async () => {
   const http = require('node:http');
-  const mock = http.createServer((q, r) => {
-    let b = ''; q.on('data', d => b += d); q.on('end', () => {
-      if (q.url.endsWith('/models')) return r.end(JSON.stringify({ data: [{ id: 'good-coder' }, { id: 'bad-coder' }] }));
-      const body = JSON.parse(b), sys = body.messages.map(m => m.content).join(' ');
-      let text = 'Plan: one file.';
-      if (/code generator/.test(sys)) text = JSON.stringify({ file_path: 'hello.js', content: body.model === 'bad-coder' ? 'function (' : 'console.log("hi");\n' });
-      if (/code reviewer/.test(sys)) text = JSON.stringify({ verdict: /function \(/.test(sys) ? 'revise' : 'approve', issues: [] });
-      r.end(JSON.stringify({ choices: [{ message: { content: text } }], usage: {} }));
-    });
-  }).listen(0);
+  const mock = http.createServer((q, r) => r.end(JSON.stringify({ data: [{ id: 'remote-coder' }] }))).listen(0);
   await new Promise(r => setTimeout(r, 100));
   const url = `http://127.0.0.1:${mock.address().port}`;
-  const before = await (await fetch(BASE + '/api/settings')).json();
   try {
-    await post('/api/settings', { provider: 'local', baseUrl: url + '/v1', model: 'good-coder', machines: [{ name: 'Other PC', baseUrl: url }] });
-    const s = await (await fetch(BASE + '/api/settings')).json();
-    assert.deepEqual(s.machines, [{ name: 'Other PC', baseUrl: url + '/v1' }]);
-    assert.deepEqual((await (await fetch(BASE + '/api/machines/models?url=' + encodeURIComponent(url))).json()).models, ['good-coder', 'bad-coder']);
-
-    assert.equal((await post('/api/assay', { goal: 'Create hello.js', entries: [{ model: 'only-one' }] })).status, 400);
-    const a = await (await post('/api/assay', { goal: 'Create hello.js', entries: [{ model: 'bad-coder', baseUrl: url }, { model: 'good-coder', baseUrl: url, machine: 'Other PC' }] })).json();
-    let done;
-    for (let i = 0; i < 100; i++) { done = await (await fetch(BASE + '/api/assay/' + a.id)).json(); if (done.status !== 'running') break; await new Promise(r => setTimeout(r, 100)); }
-    assert.equal(done.status, 'done');
-    const [bad, good] = done.results;
-    assert.equal(good.rank, 1);
-    assert.equal(bad.test, 'failed');
-    assert.ok(good.score > bad.score);
-
-    const st = await (await post(`/api/assay/${a.id}/stage`, { index: 1 })).json();
-    const staged = await (await fetch(BASE + '/api/proposals')).json();
-    assert.ok(staged.some(p => p.proposal_id === st.proposal_id && p.goal === 'Create hello.js'));
-  } finally {
-    mock.close();
-    await post('/api/settings', { baseUrl: before.baseUrl, model: before.model, machines: [] });
-  }
+    await post('/api/settings', { machines: [{ name: 'Other PC', baseUrl: url }, { name: 'bad', baseUrl: 'ftp://x' }] });
+    assert.deepEqual((await (await fetch(BASE + '/api/settings')).json()).machines, [{ name: 'Other PC', baseUrl: url + '/v1' }]);
+    assert.deepEqual((await (await fetch(BASE + '/api/machines/models?url=' + encodeURIComponent(url))).json()).models, ['remote-coder']);
+    assert.equal((await fetch(BASE + '/api/machines/models?url=nope')).status, 400);
+  } finally { mock.close(); await post('/api/settings', { machines: [] }); }
 });
 
 test('saves are atomic and the server keeps a log', async () => {

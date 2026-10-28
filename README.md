@@ -21,7 +21,6 @@ Runs on your own local model through [LM Studio](https://lmstudio.ai) or [Ollama
 - **Sources**: upload reference files or add web pages; workers read them while planning and building.
 - **Permissions**: choose whether the AI may read workspace files, run tests, use sources and reach the internet.
 - **Training bay (PyTorch)**: the PyTorch blueprint has the workers write a training script; approve it, click **Run** on the `.py` file and watch its output and loss curve live. Off until you allow "Run Python scripts" in Permissions; uses your own Python with torch installed. Works on NVIDIA (CUDA), Apple Silicon (MPS), AMD Radeon (ROCm build of PyTorch, Windows or Linux) and CPU.
-- **Assay**: one work order, several models, the same Tester and Reviewer: a leaderboard of which model codes best on *your* hardware, with a shareable results card.
 - **LAN Foundry**: run workers on other machines' LM Studio or Ollama servers. Plan on your Mac, build on your gaming PC.
 - **Worker tuning**: give the Planner, Builder and Reviewer each their own provider, model, temperature, top-p, token limit and standing instructions, e.g. plan with Claude and build on your local GPU.
 - **Watch**: poll miners (Antminer/cgminer API on port 4028, Bitaxe/AxeOS), servers or any JSON API on a timer. Chart a value, alert when a rule trips or a device goes offline, POST the alert to a webhook (smart plug, Home Assistant, Discord, ntfy), and optionally have the model explain it.
