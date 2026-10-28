@@ -22,6 +22,11 @@ function clean(w) {
     enabled: w.enabled !== false,
     aiPrompt: String(w.aiPrompt || '').trim().slice(0, 2000) || undefined
   };
+  if (w.webhook) {
+    const h = new URL(String(w.webhook));
+    if (!['http:', 'https:'].includes(h.protocol)) throw new Error('The webhook must be an http:// or https:// address.');
+    out.webhook = h.href;
+  }
   if (kind === 'http') {
     const u = new URL(String(w.url || ''));
     if (!['http:', 'https:'].includes(u.protocol)) throw new Error('Use an http:// or https:// address.');
@@ -80,11 +85,35 @@ function check(rule, value, prev, ok) {
 function createWatchers(file, { onAlert } = {}) {
   let list = [];
   try { list = JSON.parse(fs.readFileSync(file, 'utf8')).map(w => { try { return clean(w); } catch { return null; } }).filter(Boolean); } catch {}
+  const stateFile = file.replace(/\.json$/, '') + '-state.json';
   const state = {};   // id -> { status, error, lastAt, values, history, firing, raw }
   const timers = {};
-  const alerts = [];  // shortcut: history and alerts live in memory and reset on restart; persist them if people ask
+  let alerts = [];
+  // History and alerts survive restarts: reload them, then save at most every 30 seconds.
+  try { const saved = JSON.parse(fs.readFileSync(stateFile, 'utf8')); alerts = saved.alerts || []; for (const [id, h] of Object.entries(saved.history || {})) state[id] = { history: h }; } catch {}
+  let dirty = false;
+  const saveState = () => {
+    if (!dirty) return;
+    dirty = false;
+    const tmp = stateFile + '.tmp';
+    try { fs.writeFileSync(tmp, JSON.stringify({ alerts, history: Object.fromEntries(Object.entries(state).map(([id, s]) => [id, s.history || []])) })); fs.renameSync(tmp, stateFile); } catch {}
+  };
+  const stateTimer = setInterval(saveState, 30000);
+  stateTimer.unref?.();
+  process.on('exit', () => { dirty = true; saveState(); });
 
-  const save = () => fs.writeFileSync(file, JSON.stringify(list, null, 2));
+  const save = () => { const tmp = file + '.tmp'; fs.writeFileSync(tmp, JSON.stringify(list, null, 2)); fs.renameSync(tmp, file); };
+
+  // POST the alert to the user's webhook (smart plug, Discord, Home Assistant, ntfy...). 10-second limit, never retried.
+  async function sendWebhook(w, a, s) {
+    try {
+      const r = await fetch(w.webhook, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: AbortSignal.timeout(10000),
+        body: JSON.stringify({ watcher: w.name, message: a.message, at: a.at, values: s.values || null, text: `Freeze Foundry: ${a.message}`, content: `Freeze Foundry: ${a.message}` })
+      });
+      a.webhook = r.ok ? 'sent' : `failed (HTTP ${r.status})`;
+    } catch (e) { a.webhook = `failed (${e.name === 'TimeoutError' ? 'timed out' : e.message})`; }
+  }
 
   async function poll(w) {
     const s = state[w.id] || (state[w.id] = { history: [] });
@@ -112,9 +141,11 @@ function createWatchers(file, { onAlert } = {}) {
           : `${w.name}: ${w.rule.path} is ${ruleValue} (rule: ${w.rule.op} ${w.rule.value})`
       };
       alerts.unshift(a); alerts.length = Math.min(alerts.length, 100);
+      if (w.webhook) sendWebhook(w, a, s);
       if (onAlert) onAlert(a, w, s);
     }
     s.firing = firing;
+    dirty = true;
   }
 
   function schedule(w) {
@@ -135,21 +166,21 @@ function createWatchers(file, { onAlert } = {}) {
       const w = clean(raw);
       const i = list.findIndex(x => x.id === w.id);
       if (i >= 0) list[i] = w; else { if (list.length >= 50) throw new Error('Up to 50 watchers.'); list.push(w); }
-      delete state[w.id];
+      if (i < 0) delete state[w.id]; // editing keeps the chart history
       save(); schedule(w);
       return w;
     },
     remove(id) {
       list = list.filter(w => w.id !== id);
       clearInterval(timers[id]); delete timers[id]; delete state[id];
-      save();
+      dirty = true; save(); saveState();
     },
     async test(raw) {
       const w = clean(raw);
       const data = await readOnce(w);
       return { data, values: Object.fromEntries(w.fields.map(f => [f, getPath(data, f)])) };
     },
-    stopAll() { Object.values(timers).forEach(clearInterval); }
+    stopAll() { Object.values(timers).forEach(clearInterval); clearInterval(stateTimer); dirty = true; saveState(); }
   };
 }
 

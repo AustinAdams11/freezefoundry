@@ -2,6 +2,19 @@
 
 Everything that changed in Freeze Foundry, newest first.
 
+## 0.10.0 · 2026-10-28
+
+- **Undo.** Every applied change can be rolled back from the Report: the old file comes back, or a newly created file is removed. Undo refuses if you edited the file since, so it never loses your work.
+- **Retry.** Failed or staged work orders have a Retry button in the Report that puts the goal back on the ticket.
+- **Stop.** A Stop button (or Esc twice) ends the work order on the floor and moves on to the next one.
+- **Nothing lost on restart.** Work orders that were waiting or mid-run when the app closed come back paused; press Send with an empty ticket to resume, or Clear to drop them.
+- **Sturdier model calls.** A time limit per answer (Settings), automatic retries on rate limits, server errors and dropped connections, and errors that say what to do ("Start LM Studio's server...") instead of "fetch failed".
+- **Git commits.** Optionally commit each applied change when the workspace is a git repository, with the goal as the message.
+- **Watch webhooks.** An alert can POST to a URL: cut a smart plug's power when a miner overheats, or ping Home Assistant, Discord or ntfy. Watch history and alerts now survive restarts.
+- **Crash-safe saves.** Tasks, settings, keys and sources are written atomically, so a crash mid-save can't corrupt them.
+- **Logs.** The server keeps a rotating log in `data/logs/server.log`; Settings has an Open logs folder button.
+- **Small things.** Copy a file's path or add it to the work order from the Detail panel; the console stops jumping to the bottom while you read older lines; Esc closes dialogs.
+
 ## 0.9.0 · 2026-10-27
 
 - **Light and dark themes.** A sun/moon switch in the top bar flips between Frost (light) and Forge (dark); Settings > Appearance can also follow your system.

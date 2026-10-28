@@ -496,6 +496,11 @@
         .rail button { position: relative; }
         .rail .dot-new { position: absolute; top: 8px; right: 14px; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 8px var(--accent); }
         @media (max-width: 900px) { .guide { grid-template-columns: 1fr; padding: 20px; } .guide-toc { position: static; } .release { grid-template-columns: 1fr; gap: 6px; } }
+    
+        .detail-actions { display: flex; gap: 6px; }
+        .report-row { padding: 8px 2px; border-bottom: 1px solid var(--border-color); display: grid; gap: 4px; white-space: normal; }
+        .report-row .when { color: var(--text-muted); font-size: 11px; }
+        .report-row .row button { padding: 3px 10px; font-size: 11px; }
     </style>
 </head>
 <body>
@@ -561,7 +566,7 @@
         </div>
         <div class="panel-header">Workspace files</div>
         <div class="file-browser" id="file-browser"></div>
-        <div class="panel-header detail-head"><span id="detail-title">Detail</span><button id="run-btn" class="ghost" hidden title="Run this Python file (Training bay)">Run</button></div>
+        <div class="panel-header detail-head"><span id="detail-title">Detail</span><span class="detail-actions"><button id="copy-btn" class="ghost" hidden title="Copy this file's path">Copy path</button><button id="ref-btn" class="ghost" hidden title="Add this file to the work order">+ Work order</button><button id="run-btn" class="ghost" hidden title="Run this Python file (Training bay)">Run</button></span></div>
         <canvas id="loss-chart" width="320" height="70" hidden></canvas>
         <pre id="detail-view">Click an office, a worker or a file to see it here.</pre>
         <div class="panel-header">Console</div>
@@ -577,6 +582,7 @@
                 <label class="toggle" title="Apply a change by itself when tests pass and the Reviewer approves; anything else stays staged and the queue keeps going."><input type="checkbox" id="auto-apply"> Auto-apply</label>
                 <button class="ghost" onclick="app.showReport()">Report</button>
                 <span class="spacer"></span>
+                <button onclick="app.stopTask()" id="btn-stop" class="ghost" hidden title="Stop the current work order (Esc twice)">Stop</button>
                 <button onclick="app.rejectChanges()" id="btn-reject" class="danger" disabled>Reject</button>
                 <button onclick="app.applyChanges()" id="btn-apply" class="success" disabled>Apply change</button>
                 <button class="send" onclick="app.submitTask()">Send to intake &#10140;</button>
@@ -709,6 +715,7 @@
                 <select id="wf-op"><option value="">never</option><option value="<">value is below</option><option value=">">value is above</option><option value="==">value equals</option><option value="changed">value changes</option><option value="offline">it stops responding</option></select></label>
             <label>Which value, and the limit <div style="display:grid;grid-template-columns:1fr 110px;gap:8px"><input id="wf-path" placeholder="temp" style="min-width:0"><input id="wf-value" type="number" placeholder="85" style="min-width:0"></div></label>
         </div>
+        <label>When it alerts, POST to a webhook (optional: smart plug, Home Assistant, Discord, ntfy) <input id="wf-webhook" placeholder="http://192.168.1.60/relay/0?turn=off  or  https://ntfy.sh/my-rigs"></label>
         <label>When it alerts, ask the model (optional) <input id="wf-ai" placeholder="This is my Scrypt miner. Explain the likely cause and what to check."></label>
         <div class="row"><button class="ghost" onclick="app.testWatcher()">Test connection</button><button onclick="app.saveWatcher()">Save watcher</button><button class="ghost" id="wf-cancel" hidden onclick="app.resetWatchForm()">Cancel edit</button><span id="wf-msg" class="hint"></span></div>
         <pre id="wf-out" class="list" hidden></pre>
@@ -756,7 +763,13 @@
 
       <h2 id="g-approve" data-toc="Approvals and the queue">Approvals, Auto-apply and the queue</h2>
       <p>With <b>Auto-apply</b> off, every finished change waits in <b>Staged changes</b>. Click it to see the diff, then apply or reject. With it on, a change applies itself only when tests didn't fail <i>and</i> the Reviewer approved; everything else waits for you.</p>
-      <p>Every applied change keeps a backup of the file it replaced. <b>Report</b> on the ticket lists what happened to each goal in the run.</p>
+      <p>Every applied change keeps a backup of the file it replaced. <b>Report</b> on the ticket lists what happened to each goal, with two buttons:</p>
+      <ul>
+        <li><b>Undo</b> rolls an applied change back: the previous file returns, or a file the change created is removed. It refuses if you've edited the file since.</li>
+        <li><b>Retry</b> puts a failed or staged goal back on the ticket so you can tweak it and send it again.</li>
+      </ul>
+      <p><b>Stop</b> (or <code>Esc</code> twice) ends the work order on the floor and moves on. If the app closes mid-queue, unfinished work orders come back paused: press <b>Send to intake</b> with an empty ticket to resume, or <b>Clear</b> to drop them.</p>
+      <p>Turn on <b>Commit each applied change with git</b> in Settings to get a commit per change when your workspace is a git repository.</p>
 
       <h2 id="g-models" data-toc="Models and tuning">Models and worker tuning</h2>
       <p>On the <b>Models</b> page, choose a provider (local, Claude, OpenAI, Gemini, OpenRouter or a custom OpenAI-compatible server), a default model and, optionally, a model per worker. Keys are encrypted with your system's keychain and never shown again.</p>
@@ -796,6 +809,7 @@ roles: [builder, reviewer]
         <li>Pick a preset or Custom, fill in the address, and press <b>Test connection</b> to see the raw data.</li>
         <li>List the values to track with dot paths: <code>temp</code>, <code>bitcoin.usd</code>, <code>SUMMARY.0.MHS 5s</code>.</li>
         <li>Set a rule (above, below, equals, changes, or stops responding) and, if you like, a question for your model when it fires.</li>
+        <li>Optionally add a <b>webhook</b>: the alert is POSTed as JSON (<code>watcher</code>, <code>message</code>, <code>values</code>, plus <code>text</code>/<code>content</code> for chat apps). Point it at a smart plug's off URL, Home Assistant, a Discord webhook or ntfy.</li>
       </ol>
       <table>
         <tr><th>Preset</th><th>Connects to</th></tr>
@@ -804,7 +818,7 @@ roles: [builder, reviewer]
         <tr><td>Ollama</td><td><code>/api/ps</code>, to know when your model server goes down</td></tr>
         <tr><td>Crypto price</td><td>CoinGecko's free price API, every 5 minutes</td></tr>
       </table>
-      <p class="hint">History and alerts reset when the app closes. Watchers themselves are saved.</p>
+      <p class="hint">Watchers, their chart history and alerts are saved. They poll while the app is open.</p>
 
       <h2 id="g-training" data-toc="Training bay">Training bay (PyTorch)</h2>
       <ol>
@@ -838,6 +852,8 @@ roles: [builder, reviewer]
       <table>
         <tr><th>Problem</th><th>Fix</th></tr>
         <tr><td>"Model server unreachable"</td><td>Start LM Studio's server (Developer tab) or Ollama, then click the model name in the top bar.</td></tr>
+        <tr><td>"The model took longer than..."</td><td>Raise <b>Model time limit</b> in Settings &gt; Generation, lower Max tokens, or use a smaller model.</td></tr>
+        <tr><td>Something odd happened</td><td>Settings &gt; <b>Open logs folder</b>: <code>server.log</code> records every error with a timestamp.</td></tr>
         <tr><td>Model error 400 or a context error</td><td>Lower Max tokens, or raise the context length when loading the model in LM Studio.</td></tr>
         <tr><td>The Reviewer keeps sending work back</td><td>Read its issues in the Reviewer office. Make the goal more specific, give the Reviewer temperature 0.1, or use a larger model for it.</td></tr>
         <tr><td>Python was not found</td><td>Install Python 3, or set Python command to the full path of your python.</td></tr>
@@ -915,12 +931,14 @@ roles: [builder, reviewer]
         <h2>Model behaviour</h2>
         <label>Creativity (temperature): <span id="temp-val"></span> <input type="range" id="set-temp" min="0" max="1.5" step="0.1" oninput="document.getElementById('temp-val').textContent = this.value"></label>
         <div class="hint">Lower is steadier and better for code; higher is more inventive.</div>
+        <label>Model time limit per answer (seconds) <input type="number" id="set-timeout" min="30" max="3600" step="30" style="max-width: 160px"></label>
+        <label class="check"><input type="checkbox" id="set-git"> Commit each applied change with git (when the workspace is a git repository)</label>
         <label>Longest answer a worker may write (tokens) <input type="number" id="set-maxtok" min="256" max="32768" step="256" style="max-width: 160px"></label>
     </div>
     <div class="row" style="max-width: 860px; margin-bottom: 16px;"><button onclick="app.saveSettings()">Save settings</button></div>
     <div class="card">
         <h2>Help</h2>
-        <div class="row"><button class="ghost" onclick="app.openSetup()">Run the setup guide</button><button class="ghost" onclick="app.clearReport()">Clear run report</button></div>
+        <div class="row"><button class="ghost" onclick="app.openSetup()">Run the setup guide</button><button class="ghost" onclick="app.openFolder('logs')">Open logs folder</button><button class="ghost" onclick="app.clearReport()">Clear run report</button></div>
     </div>
 </section>
 </div>
@@ -1495,7 +1513,7 @@ class App {
 
     showDetail(title, text, isDiff = false) {
         document.getElementById('detail-title').textContent = title;
-        document.getElementById('run-btn').hidden = true;
+        ['run-btn', 'copy-btn', 'ref-btn'].forEach(id => { document.getElementById(id).hidden = true; });
         document.getElementById('loss-chart').hidden = true;
         const view = document.getElementById('detail-view');
         view.innerHTML = '';
@@ -1626,7 +1644,7 @@ class App {
             list.appendChild(row);
         });
         document.getElementById('alert-list').textContent = d.alerts.length
-            ? d.alerts.map(a => `${new Date(a.at).toLocaleString()}  ${a.message}${a.ai ? '\n   AI: ' + a.ai : ''}`).join('\n')
+            ? d.alerts.map(a => `${new Date(a.at).toLocaleString()}  ${a.message}${a.webhook ? '\n   Webhook: ' + a.webhook : ''}${a.ai ? '\n   AI: ' + a.ai : ''}`).join('\n')
             : 'No alerts.';
     }
 
@@ -1646,7 +1664,7 @@ class App {
         const op = v('wf-op');
         return {
             id: this.editingWatch || undefined, name: v('wf-name'), kind: v('wf-kind'), url: v('wf-url'), host: v('wf-host'), port: v('wf-port'), command: v('wf-command'),
-            intervalSec: v('wf-interval'), fields: v('wf-fields'), aiPrompt: v('wf-ai'),
+            intervalSec: v('wf-interval'), fields: v('wf-fields'), aiPrompt: v('wf-ai'), webhook: v('wf-webhook') || undefined,
             rule: op ? { op, path: v('wf-path'), value: v('wf-value') } : undefined
         };
     }
@@ -1699,7 +1717,7 @@ class App {
         this.editingWatch = w.id;
         const set = (id, val) => { document.getElementById(id).value = val == null ? '' : val; };
         set('wf-preset', ''); set('wf-name', w.name); set('wf-kind', w.kind); set('wf-url', w.url); set('wf-host', w.host); set('wf-port', w.port); set('wf-command', w.command);
-        set('wf-interval', w.intervalSec); set('wf-fields', (w.fields || []).join(', ')); set('wf-ai', w.aiPrompt);
+        set('wf-interval', w.intervalSec); set('wf-fields', (w.fields || []).join(', ')); set('wf-ai', w.aiPrompt); set('wf-webhook', w.webhook);
         set('wf-op', w.rule ? w.rule.op : ''); set('wf-path', w.rule ? w.rule.path : ''); set('wf-value', w.rule ? w.rule.value : '');
         document.getElementById('wf-title').textContent = 'Edit ' + w.name;
         document.getElementById('wf-cancel').hidden = false;
@@ -1709,7 +1727,7 @@ class App {
 
     resetWatchForm() {
         this.editingWatch = null;
-        ['wf-name', 'wf-url', 'wf-host', 'wf-port', 'wf-command', 'wf-fields', 'wf-ai', 'wf-path', 'wf-value'].forEach(id => { document.getElementById(id).value = ''; });
+        ['wf-name', 'wf-url', 'wf-host', 'wf-port', 'wf-command', 'wf-fields', 'wf-ai', 'wf-webhook', 'wf-path', 'wf-value'].forEach(id => { document.getElementById(id).value = ''; });
         document.getElementById('wf-op').value = ''; document.getElementById('wf-preset').value = ''; document.getElementById('wf-interval').value = 60;
         document.getElementById('wf-title').textContent = 'Add a watcher';
         document.getElementById('wf-cancel').hidden = true;
@@ -1778,6 +1796,8 @@ class App {
         document.getElementById('set-temp').value = s.temperature != null ? s.temperature : 0.7;
         document.getElementById('temp-val').textContent = document.getElementById('set-temp').value;
         document.getElementById('set-maxtok').value = s.maxTokens || 4096;
+        document.getElementById('set-timeout').value = s.requestTimeoutSec || 600;
+        document.getElementById('set-git').checked = !!s.gitCommit;
         this.pickedAccent = ui.accent || '#a855f7';
         const sw = document.getElementById('swatches');
         sw.innerHTML = '';
@@ -1799,6 +1819,8 @@ class App {
             attempts: parseInt(document.getElementById('set-attempts').value, 10),
             temperature: parseFloat(document.getElementById('set-temp').value),
             maxTokens: parseInt(document.getElementById('set-maxtok').value, 10),
+            requestTimeoutSec: parseInt(document.getElementById('set-timeout').value, 10),
+            gitCommit: document.getElementById('set-git').checked,
             permissions: {
                 readFiles: document.getElementById('perm-files').checked,
                 runTests: document.getElementById('perm-tests').checked,
@@ -2255,7 +2277,10 @@ class App {
     }
 
     record(task, outcome) {
-        this.report.push({ time: new Date().toLocaleString(), goal: task.goal, outcome });
+        this.report.push({ time: new Date().toLocaleString(), goal: task.goal, outcome, id: task.id || null });
+        const status = /^applied/.test(outcome) ? null : /^rejected/.test(outcome) ? null : /^answered/.test(outcome) ? 'answered'
+            : /^cancelled/.test(outcome) ? 'cancelled' : /^error|^apply failed/.test(outcome) ? 'failed' : /staged/.test(outcome) ? 'staged' : 'done';
+        if (status && task.id) fetch(`/api/tasks/${task.id}/status`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status, outcome }) }).catch(() => {});
         if (outcome.startsWith('applied')) {
             this.shippedCount = (this.shippedCount || 0) + 1;
             document.getElementById('shipped-count').textContent = this.shippedCount;
@@ -2266,9 +2291,64 @@ class App {
     }
 
     showReport() {
-        this.showDetail('Run report', this.report.length
-            ? this.report.map(r => `${r.time}  ${r.outcome.toUpperCase()}\n  ${r.goal}`).join('\n\n')
-            : 'No finished tasks yet.');
+        this.showDetail('Run report', this.report.length ? '' : 'No finished tasks yet.');
+        const view = document.getElementById('detail-view');
+        [...this.report].reverse().forEach(r => {
+            const row = document.createElement('div');
+            row.className = 'report-row';
+            row.innerHTML = '<div class="when"></div><div class="what"></div><div class="row"></div>';
+            row.querySelector('.when').textContent = `${r.time}  ${r.outcome.toUpperCase()}`;
+            row.querySelector('.what').textContent = r.goal || '';
+            const btns = row.querySelector('.row');
+            const add = (label, fn) => { const b = document.createElement('button'); b.className = 'ghost'; b.textContent = label; b.onclick = fn; btns.appendChild(b); };
+            if (!/^applied|^answered/.test(r.outcome)) add('Retry', () => this.retryGoal(r.goal));
+            if (/^applied/.test(r.outcome) && r.id && !r.undone) add('Undo', () => this.undoTask(r, row));
+            view.appendChild(row);
+        });
+    }
+
+    // Work orders that were waiting or mid-run when the app closed come back paused; an empty Send resumes them.
+    async restoreQueue() {
+        const tasks = await fetch('/api/tasks').then(r => r.json()).catch(() => ({}));
+        const waiting = Object.values(tasks || {}).filter(t => t.status === 'pending' || t.status === 'running')
+            .sort((a, b) => String(a.createdAt).localeCompare(String(b.createdAt)));
+        if (!waiting.length || this.taskQueue.length) return;
+        waiting.forEach(t => this.taskQueue.push({ ...t, status: 'pending' }));
+        this.renderTaskList();
+        this.logToConsole(`Restored ${waiting.length} work order${waiting.length > 1 ? 's' : ''} from last session. Press Send to intake with an empty ticket to resume, or Clear to drop them.`, 'info');
+        this.toast(`${waiting.length} unfinished work order${waiting.length > 1 ? 's' : ''} restored`);
+    }
+
+    retryGoal(goal) {
+        const input = document.getElementById('goal-input');
+        input.value = goal;
+        input.focus();
+        this.toast('Back on the work order. Edit it if you like, then send.');
+    }
+
+    async undoTask(r, row) {
+        const res = await fetch(`/api/tasks/${r.id}/undo`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+        const d = await res.json().catch(() => ({}));
+        if (!res.ok) { this.toast(d.error || 'Could not undo'); this.logToConsole('Undo failed: ' + (d.error || res.status), 'error'); return; }
+        r.undone = true;
+        r.outcome = 'applied, then undone';
+        try { localStorage.setItem('ff-report', JSON.stringify(this.report.slice(-200))); } catch {}
+        this.logToConsole(d.restored ? `Undo: restored the previous ${d.path}.` : `Undo: removed ${d.path}, which this change created.`, 'success');
+        this.toast('Change undone');
+        this.refreshFiles();
+        this.showReport();
+    }
+
+    copyText(text) {
+        const done = () => this.toast('Copied ' + text);
+        if (navigator.clipboard) navigator.clipboard.writeText(text).then(done).catch(() => this.toast('Could not copy'));
+    }
+
+    // Stop the work order on the floor: abort its requests and move on to the next one.
+    stopTask() {
+        if (!this.currentTask || !this.abort) return;
+        this.abort.abort();
+        this.logToConsole('Stopping the current work order...', 'warn');
     }
 
     finishTask() {
@@ -2330,6 +2410,17 @@ class App {
         if (this.lastDiff && this.pendingProposal && p === this.pendingFile) return this.showDetail('Diff (review before applying)', this.lastDiff, true);
         const d = await fetch('/api/file?path=' + encodeURIComponent(p)).then(r => r.json()).catch(() => ({}));
         this.showDetail(p, d.content != null ? d.content : (d.error || 'Could not open file.'));
+        if (d.content != null) {
+            const cb = document.getElementById('copy-btn'), rf = document.getElementById('ref-btn');
+            cb.hidden = rf.hidden = false;
+            cb.onclick = () => this.copyText(p);
+            rf.onclick = () => {
+                const input = document.getElementById('goal-input');
+                input.value = (input.value.trim() ? input.value.replace(/\s*$/, ' ') : 'Update ') + p + ' ';
+                input.focus();
+                this.toast(`${p} added to the work order`);
+            };
+        }
         if (p.endsWith('.py')) {
             const rb = document.getElementById('run-btn');
             rb.hidden = false;
@@ -2396,6 +2487,15 @@ class App {
         this.renderBlueprints();
         this.refreshWatch();
         setInterval(() => this.refreshWatch(), 10000);
+        this.restoreQueue();
+        document.addEventListener('keydown', e => {
+            if (e.key !== 'Escape') return;
+            const open = [...document.querySelectorAll('.modal')].find(m => !m.hidden);
+            if (open) { open.hidden = true; return; }
+            const now = Date.now();
+            if (this.currentTask && this.busy && now - (this.lastEsc || 0) < 600) this.stopTask(); // Esc twice stops the run
+            this.lastEsc = now;
+        });
         const drop = document.getElementById('drop');
         drop.addEventListener('dragover', e => { e.preventDefault(); drop.style.borderColor = 'var(--accent)'; });
         drop.addEventListener('dragleave', () => { drop.style.borderColor = ''; });
@@ -2409,11 +2509,13 @@ class App {
 
     logToConsole(msg, type='info') {
         const out = document.getElementById('console-output');
+        const atBottom = out.scrollHeight - out.scrollTop - out.clientHeight < 40; // reading older lines? don't yank the view
         const div = document.createElement('div');
         div.className = `log-entry log-${type}`;
         div.textContent = `> ${msg}`;
         out.appendChild(div);
-        out.scrollTop = out.scrollHeight;
+        while (out.childElementCount > 1000) out.firstElementChild.remove();
+        if (atBottom) out.scrollTop = out.scrollHeight;
     }
 
     async checkApiConnection() {
@@ -2442,7 +2544,10 @@ class App {
     async submitTask() {
         const input = document.getElementById('goal-input');
         const goals = (input ? input.value : '').split('\n').map(g => g.trim()).filter(Boolean);
-        if (!goals.length) return this.logToConsole("Enter a goal first.", "warn");
+        if (!goals.length) {
+            if (this.taskQueue.length && !this.currentTask) { this.toast(`Resuming ${this.taskQueue.length} work order${this.taskQueue.length > 1 ? 's' : ''}`); return this.processNextTask(); }
+            return this.logToConsole("Enter a goal first.", "warn");
+        }
         for (const goal of goals) {
 
         this.logToConsole("Creating new task...", "info");
@@ -2483,6 +2588,10 @@ class App {
         await this.floor.idle();
         const task = this.taskQueue[0];
         this.currentTask = task;
+        this.abort = new AbortController();
+        const signal = this.abort.signal;
+        document.getElementById('btn-stop').hidden = false;
+        fetch(`/api/tasks/${task.id}/status`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: 'running' }) }).catch(() => {});
         
         Object.values(this.workers).forEach(w => w.reset());
         this.crateAt = null;
@@ -2493,6 +2602,7 @@ class App {
             // 1. PLANNER
             const planned = await this.runWorker('planner', async () => {
                 const res = await fetch(`/api/tasks/${task.id}/plan`, {
+                    signal,
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({}),
@@ -2525,6 +2635,7 @@ class App {
             for (let attempt = 1; attempt <= max; attempt++) {
                 await this.runWorker('builder', async () => {
                     const res = await fetch(`/api/tasks/${task.id}/propose`, {
+                    signal,
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ feedback, previous_proposal_id: feedback ? this.pendingProposal : null })
@@ -2545,6 +2656,7 @@ class App {
 
                 test = await this.runWorker('tester', async () => {
                     const res = await fetch(`/api/tasks/${task.id}/test`, {
+                    signal,
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ proposal_id: this.pendingProposal })
@@ -2561,6 +2673,7 @@ class App {
 
                 review = await this.runWorker('reviewer', async () => {
                     const res = await fetch(`/api/tasks/${task.id}/review`, {
+                    signal,
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ proposal_id: this.pendingProposal })
@@ -2609,6 +2722,15 @@ class App {
             }
 
         } catch (err) {
+            if (err.name === 'AbortError') {
+                this.logToConsole('Work order stopped.', 'warn');
+                this.toast('Stopped');
+                Object.values(this.workers).forEach(w => w.reset());
+                this.record(task, 'cancelled');
+                this.finishTask();
+                setTimeout(() => this.processNextTask(), 0);
+                return;
+            }
             console.error(err);
             this.logToConsole("Pipeline error: " + err.message, "error");
             this.sfx('error');
@@ -2618,6 +2740,7 @@ class App {
             this.finishTask();
         } finally {
             this.busy = false;
+            document.getElementById('btn-stop').hidden = true;
         }
         // Manual mode waits here for Apply/Reject, which start the next task.
         this.processNextTask();
@@ -2748,7 +2871,7 @@ class App {
         })
         .then(async res => { const data = await res.json().catch(()=>({})); if (!res.ok) throw new Error(data.error || 'Server rejected approval'); return data; })
         .then(data => {
-            this.logToConsole("Changes applied to disk successfully.", 'success');
+            this.logToConsole("Changes applied to disk successfully." + (data.committed ? ` Committed as ${data.committed}.` : ''), 'success');
             this.moveCrate('dock');
             
             this.record(task, 'applied');
@@ -2791,6 +2914,9 @@ class App {
     }
 
     resetQueue() {
+        // Dropped work orders shouldn't come back on the next launch.
+        this.taskQueue.filter(t => t !== this.currentTask && t.id).forEach(t =>
+            fetch(`/api/tasks/${t.id}/status`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: 'cancelled', outcome: 'cleared from the queue' }) }).catch(() => {}));
         this.taskQueue = [];
         this.currentTask = null;
         Object.values(this.workers).forEach(w => w.reset());
