@@ -46,9 +46,33 @@ function loadTasks() {
 
 // Save tasks to JSON file
 function saveTasks(tasks) {
-  const tasksFile = path.join(DATA_DIR, 'tasks.json');
-  fs.writeFileSync(tasksFile, JSON.stringify(tasks, null, 2), 'utf8');
+  writeJsonAtomic(path.join(DATA_DIR, 'tasks.json'), tasks);
 }
+
+// Write to a temp file and rename it over the original, so a crash or power cut mid-write never leaves half a file.
+function writeJsonAtomic(file, value, opts = {}) {
+  const tmp = `${file}.${process.pid}.tmp`;
+  fs.writeFileSync(tmp, JSON.stringify(value, null, 2), { encoding: 'utf8', ...opts });
+  fs.renameSync(tmp, file);
+}
+
+// Mirror server output to data/logs/server.log (rotated at 2 MB) so problems can be diagnosed after the fact.
+(() => {
+  const dir = path.join(DATA_DIR, 'logs');
+  const file = path.join(dir, 'server.log');
+  try { fs.mkdirSync(dir, { recursive: true }); } catch {}
+  const write = (level, args) => {
+    try {
+      if (fs.existsSync(file) && fs.statSync(file).size > 2 * 1024 * 1024) fs.renameSync(file, file + '.1');
+      const text = args.map(a => (a instanceof Error ? a.stack || a.message : typeof a === 'string' ? a : JSON.stringify(a))).join(' ');
+      fs.appendFileSync(file, `${new Date().toISOString()} ${level} ${text}\n`);
+    } catch {}
+  };
+  for (const [name, level] of [['log', 'INFO'], ['warn', 'WARN'], ['error', 'ERROR']]) {
+    const orig = console[name].bind(console);
+    console[name] = (...args) => { orig(...args); write(level, args); };
+  }
+})();
 
 // Check if a file is a symlink
 function isSymlink(filePath) {
@@ -125,11 +149,14 @@ async function callLMStudio(messages, role = 'default', taskId = null) {
   const st = { ...loadSettings() };
   // Per-worker tuning: each worker can override provider, model, temperature, token limit, top-p and add instructions.
   const rc = (st.roleConfig || {})[role] || {};
-  if (rc.provider && rc.provider !== st.provider) {
+  // LAN Foundry: a worker can run on another machine's LM Studio or Ollama server.
+  if (rc.baseUrl) { st.provider = 'local'; st.baseUrl = rc.baseUrl; }
+  if (!rc.baseUrl && rc.provider && rc.provider !== st.provider) {
     if (!rc.model) throw new Error(`The ${role} uses ${PROVIDERS[rc.provider].label}; type its model name in Models > Worker tuning.`);
     st.provider = rc.provider;
   }
-  const model = rc.model || (rc.provider ? '' : (st.roleModels && st.roleModels[role])) || st.model;
+  const model = rc.model || (rc.provider || rc.baseUrl ? '' : (st.roleModels && st.roleModels[role])) || st.model;
+  if (!model) throw new Error(`No model chosen for the ${role}. Pick one on the Models page.`);
   if (rc.temperature != null) st.temperature = rc.temperature;
   if (rc.maxTokens) st.maxTokens = rc.maxTokens;
   if (rc.instructions) {
@@ -166,7 +193,7 @@ async function callLMStudio(messages, role = 'default', taskId = null) {
       text = d.choices[0].message.content || '';
       usage = d.usage || {};
     }
-    logUsage({ ts: new Date().toISOString(), task: taskId, role, provider: st.provider, model, prompt_tokens: usage.prompt_tokens || 0, completion_tokens: usage.completion_tokens || 0, ms: Date.now() - started });
+    logUsage({ ts: new Date().toISOString(), task: taskId, role, provider: rc.baseUrl ? 'lan' : st.provider, model, prompt_tokens: usage.prompt_tokens || 0, completion_tokens: usage.completion_tokens || 0, ms: Date.now() - started });
     return text;
   } catch (err) {
     console.error('Model call failed:', err.message);
@@ -236,6 +263,7 @@ const server = http.createServer(async (req, res) => {
           const task = {
             id: taskId,
             goal: data.goal || '',
+            project: cleanProject(data.project),
             status: 'pending',
             createdAt: new Date().toISOString(),
             plan: null,
@@ -290,6 +318,25 @@ const server = http.createServer(async (req, res) => {
       task.status = 'undone'; task.updatedAt = new Date().toISOString(); delete task.applied;
       saveTasks(tasks);
       res.writeHead(200); return res.end(JSON.stringify({ ok: true, path: a.path, restored: !!a.backup }));
+    } catch (e) { res.writeHead(400); return res.end(JSON.stringify({ error: e.message })); }
+  }
+
+  // FOREMAN: break a big goal into ordered one-file work orders that fit together
+  if (pathname === '/api/foreman' && method === 'POST') {
+    try {
+      const b = await readJsonBody(req);
+      const goal = String(b.goal || '').trim();
+      if (!goal || goal.length > 4000) throw new Error('Describe the project on the work order first.');
+      const raw = await callLMStudio(withSkills([
+        { role: 'system', content: 'You are the foreman of a software factory. Workers build exactly ONE file per work order. Break the project into the smallest set of work orders (at most 8) in build order: shared modules first, then the files that use them, then tests, then docs. Each work order must name its file path and say what it does and which other project files it uses, e.g. "Create src/parse.js that exports parseCsv(text)". Reuse existing files from the file list instead of recreating them. Output ONLY JSON: {"project": "<short name>", "orders": ["<work order>", ...]}' },
+        { role: 'user', content: `Project: ${goal}\n\n${workspaceContext(goal)}` + (await extraContext(goal)) }
+      ], skillsFor('planner', goal)), 'planner');
+      const text = raw.replace(/<think>[\s\S]*?<\/think>/g, '');
+      let plan;
+      try { plan = JSON.parse(text.slice(text.indexOf('{'), text.lastIndexOf('}') + 1)); } catch { throw new Error('The foreman did not return a plan. Try again, or use a stronger model for the Planner.'); }
+      const orders = (Array.isArray(plan.orders) ? plan.orders : []).map(o => String(typeof o === 'string' ? o : (o && o.goal) || '').trim().slice(0, 1000)).filter(Boolean).slice(0, 8);
+      if (!orders.length) throw new Error('The foreman returned no work orders. Make the project description more specific.');
+      res.writeHead(200); return res.end(JSON.stringify({ project: String(plan.project || goal).slice(0, 80), orders }));
     } catch (e) { res.writeHead(400); return res.end(JSON.stringify({ error: e.message })); }
   }
 
@@ -367,27 +414,8 @@ const server = http.createServer(async (req, res) => {
             let previous = '';
             const prev = feedback && getProposal(taskId, previousId);
             if (prev) previous = `\n\nYour previous draft (${prev.data.file_path}):\n${String(prev.data.content || '').slice(0, 12000)}`;
-            const messages = withSkills([
-                { role: 'system', content: 'You are a code generator. Output ONLY valid JSON, no markdown blocks. Format: {"file_path": "<relative path inside the workspace>", "content": "<complete file contents>"}. To change an existing file, use its exact path from the file list. Base everything on the goal and the existing files shown. Never invent features, technologies, URLs, or contact details that are not given.' },
-                { role: 'user', content: 'Goal: ' + task.goal + (task.plan ? '\n\nPlan:\n' + task.plan : '') + '\n\n' + workspaceContext(task.goal) + (await extraContext(task.goal)) + previous + (feedback ? '\n\nYour previous draft was rejected. Fix these problems and return the corrected complete file:\n' + feedback : '') }
-            ], skillsFor('builder', task.goal));
-
-            let response = await callLMStudio(messages, 'builder', taskId);
-            response = response.replace(/<think>[\s\S]*?<\/think>/g, '');
-            let parsed = { file_path: 'untitled.md', content: response };
-            
-            try {
-                let s_idx = response.indexOf('{');
-                let e_idx = response.lastIndexOf('}');
-                if (s_idx > -1 && e_idx > -1) {
-                    let temp = JSON.parse(response.substring(s_idx, e_idx + 1));
-                    if (temp.files && temp.files.length > 0) temp = temp.files[0];
-                    if (temp.file_path || temp.path) parsed.file_path = temp.file_path || temp.path;
-                    if (temp.content || temp.code) parsed.content = temp.content || temp.code;
-                }
-            } catch(e) {
-                console.log("JSON parsing skipped, using raw response as content.");
-            }
+            const messages = await builderMessages(task, feedback, previous);
+            const parsed = parseBuilderOutput(await callLMStudio(messages, 'builder', taskId));
 
             const proposalId = taskId + '_' + Date.now();
             const proposalsDir = typeof PROPOSALS_DIR !== 'undefined' ? PROPOSALS_DIR : path.join(DATA_DIR, 'proposals');
@@ -618,6 +646,7 @@ if (pathname.startsWith('/api/tasks/') && pathname.endsWith('/approve')) {
         if (Number.isInteger(b.attempts) && b.attempts >= 1 && b.attempts <= 10) st.attempts = b.attempts;
         if (Number.isInteger(b.requestTimeoutSec) && b.requestTimeoutSec >= 30 && b.requestTimeoutSec <= 3600) st.requestTimeoutSec = b.requestTimeoutSec;
         if (typeof b.gitCommit === 'boolean') st.gitCommit = b.gitCommit;
+        if (Array.isArray(b.machines)) st.machines = b.machines.slice(0, 20).map(m => ({ name: String(m.name || '').trim().slice(0, 40) || 'Machine', baseUrl: cleanServerUrl(m.baseUrl) })).filter(m => m.baseUrl);
         if (typeof b.pythonPath === 'string' && b.pythonPath.length <= 300 && !/[\r\n]/.test(b.pythonPath)) st.pythonPath = b.pythonPath.trim();
         if (typeof b.temperature === 'number' && b.temperature >= 0 && b.temperature <= 2) st.temperature = b.temperature;
         if (Number.isInteger(b.maxTokens) && b.maxTokens >= 256 && b.maxTokens <= 32768) st.maxTokens = b.maxTokens;
@@ -647,14 +676,15 @@ if (pathname.startsWith('/api/tasks/') && pathname.endsWith('/approve')) {
               temperature: num(c.temperature, 0, 2),
               topP: num(c.topP, 0, 1),
               maxTokens: Number.isInteger(c.maxTokens) ? num(c.maxTokens, 256, 200000) : undefined,
-              instructions: typeof c.instructions === 'string' && c.instructions.trim() ? c.instructions.trim().slice(0, 4000) : undefined
+              instructions: typeof c.instructions === 'string' && c.instructions.trim() ? c.instructions.trim().slice(0, 4000) : undefined,
+              baseUrl: cleanServerUrl(c.baseUrl) || undefined
             };
             st.roleConfig[r] = JSON.parse(JSON.stringify(clean)); // drops undefined
           }
         }
         if (b.roleModels && typeof b.roleModels === 'object')
           st.roleModels = Object.fromEntries(Object.entries(b.roleModels).filter(([k, v]) => ['planner', 'builder', 'reviewer'].includes(k) && typeof v === 'string' && v));
-        fs.writeFileSync(SETTINGS_FILE, JSON.stringify(st, null, 2));
+        writeJsonAtomic(SETTINGS_FILE, st);
         res.writeHead(200); return res.end(JSON.stringify(publicSettings(st)));
       } catch (err) { res.writeHead(400); return res.end(JSON.stringify({ error: err.message })); }
     }
@@ -808,6 +838,18 @@ if (pathname.startsWith('/api/tasks/') && pathname.endsWith('/approve')) {
       else { res.writeHead(404); return res.end(JSON.stringify({ error: 'Not found' })); }
       res.writeHead(200); return res.end(JSON.stringify(out));
     } catch (e) { res.writeHead(400); return res.end(JSON.stringify({ error: e.message })); }
+  }
+
+  // LAN FOUNDRY: find model servers on the local network, list a machine's models
+  if (pathname === '/api/machines/scan' && method === 'GET') {
+    try { const found = await require('./lan').scan(); res.writeHead(200); return res.end(JSON.stringify({ subnets: require('./lan').localSubnets(), found })); }
+    catch (e) { res.writeHead(500); return res.end(JSON.stringify({ error: e.message })); }
+  }
+  if (pathname === '/api/machines/models' && method === 'GET') {
+    const url = cleanServerUrl(parsedUrl.query.url);
+    if (!url) { res.writeHead(400); return res.end(JSON.stringify({ error: 'Give a server address like http://192.168.1.20:1234' })); }
+    try { const models = await require('./lan').listModels(url); res.writeHead(200); return res.end(JSON.stringify({ baseUrl: url, models })); }
+    catch (e) { res.writeHead(502); return res.end(JSON.stringify({ error: `No model server answered at ${url} (${e.name === 'TimeoutError' ? 'timed out' : e.message}). On that machine, turn on "Serve on local network" in LM Studio, or set OLLAMA_HOST=0.0.0.0 for Ollama.` })); }
   }
 
   // TRAINING BAY: run an approved .py file from the workspace (only when the user clicks Run)
@@ -1363,14 +1405,52 @@ function setKey(provider, key) {
   if (!key) delete all[provider];
   else if (safeStorage && safeStorage.isEncryptionAvailable()) all[provider] = { enc: safeStorage.encryptString(key).toString('base64') };
   else all[provider] = { plain: key };
-  fs.writeFileSync(KEYS_FILE, JSON.stringify(all), { mode: 0o600 });
+  writeJsonAtomic(KEYS_FILE, all, { mode: 0o600 });
 }
 
 // ---------- Permissions, sources, web pages ----------
 function perms() { return loadSettings().permissions; }
 
+// A model server address for LAN Foundry: http(s), ending in /v1, no credentials or query.
+function cleanServerUrl(u) {
+  try {
+    const x = new URL(String(u || '').trim());
+    if (!['http:', 'https:'].includes(x.protocol) || x.username || x.password) return null;
+    return `${x.protocol}//${x.host}${x.pathname.replace(/\/+$/, '').replace(/(\/v1)?$/, '/v1')}`;
+  } catch { return null; }
+}
+
 function isLocalHost(host) {
   return host === `127.0.0.1:${PORT}` || host === `localhost:${PORT}` || host === `[::1]:${PORT}`;
+}
+
+async function builderMessages(task, feedback = '', previous = '') {
+  return withSkills([
+    { role: 'system', content: 'You are a code generator. Output ONLY valid JSON, no markdown blocks. Format: {"file_path": "<relative path inside the workspace>", "content": "<complete file contents>"}. To change an existing file, use its exact path from the file list. Base everything on the goal and the existing files shown. Never invent features, technologies, URLs, or contact details that are not given.' },
+    { role: 'user', content: 'Goal: ' + task.goal + (task.project ? `\n\nThis file is order ${task.project.index + 1} of ${task.project.orders.length} in the project "${task.project.name}". The whole project, in build order (earlier files already exist in the workspace):\n` + task.project.orders.map((o, i) => `${i + 1}. ${o}`).join('\n') + '\nMatch the names, exports and formats the other orders describe.' : '') + (task.plan ? '\n\nPlan:\n' + task.plan : '') + '\n\n' + workspaceContext(task.goal + ' ' + (task.project ? task.project.orders.join(' ') : '')) + (await extraContext(task.goal)) + previous + (feedback ? '\n\nYour previous draft was rejected. Fix these problems and return the corrected complete file:\n' + feedback : '') }
+  ], skillsFor('builder', task.goal));
+}
+
+function parseBuilderOutput(response) {
+  response = response.replace(/<think>[\s\S]*?<\/think>/g, '');
+  const parsed = { file_path: 'untitled.md', content: response };
+  try {
+    const a = response.indexOf('{'), b = response.lastIndexOf('}');
+    if (a > -1 && b > -1) {
+      let temp = JSON.parse(response.substring(a, b + 1));
+      if (temp.files && temp.files.length > 0) temp = temp.files[0];
+      if (temp.file_path || temp.path) parsed.file_path = temp.file_path || temp.path;
+      if (temp.content || temp.code) parsed.content = temp.content || temp.code;
+    }
+  } catch { console.log('JSON parsing skipped, using raw response as content.'); }
+  return parsed;
+}
+
+function cleanProject(p) {
+  if (!p || typeof p !== 'object' || !Array.isArray(p.orders)) return undefined;
+  const orders = p.orders.map(o => String(o).slice(0, 1000)).slice(0, 8);
+  const index = Number.isInteger(p.index) && p.index >= 0 && p.index < orders.length ? p.index : 0;
+  return { id: /^[\w-]{1,40}$/.test(p.id || '') ? p.id : 'proj_' + Date.now().toString(36), name: String(p.name || 'Project').slice(0, 80), index, orders };
 }
 
 function sha1(buf) { return require('crypto').createHash('sha1').update(buf).digest('hex'); }
@@ -1411,7 +1491,7 @@ function pythonCmd() {
 const SOURCES_DIR = path.join(DATA_DIR, 'sources');
 const SOURCES_FILE = path.join(SOURCES_DIR, 'sources.json');
 function readSources() { try { return JSON.parse(fs.readFileSync(SOURCES_FILE, 'utf8')); } catch { return []; } }
-function writeSources(list) { fs.mkdirSync(SOURCES_DIR, { recursive: true }); fs.writeFileSync(SOURCES_FILE, JSON.stringify(list, null, 2)); }
+function writeSources(list) { fs.mkdirSync(SOURCES_DIR, { recursive: true }); writeJsonAtomic(SOURCES_FILE, list); }
 
 async function fetchPageText(url) {
   if (!/^https?:\/\//i.test(url)) throw new Error('Only http and https links can be fetched.');

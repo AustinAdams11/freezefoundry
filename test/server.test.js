@@ -15,6 +15,7 @@ const post = (p, body, headers = {}) => fetch(BASE + p, { method: 'POST', header
 
 before(async () => {
   server = spawn(process.execPath, [path.join(__dirname, '..', 'server.js')], { env: { ...process.env, FF_HOME: home, FF_PORT: String(PORT) } });
+  server.stderr.on('data', d => { if (process.env.FF_TEST_LOG) process.stderr.write(d); });
   await new Promise((resolve, reject) => {
     server.stdout.on('data', d => { if (String(d).includes('running at')) resolve(); });
     server.on('exit', code => reject(new Error('server exited ' + code)));
@@ -228,4 +229,58 @@ test('DNS rebinding is blocked and responses carry hardening headers', async () 
   assert.equal(ok.headers['x-frame-options'], 'DENY');
   assert.equal(ok.headers['x-content-type-options'], 'nosniff');
   for (const p of ['/public/../server.js', '/%2e%2e/server.js', '/..%2fserver.js']) assert.doesNotMatch(await (await fetch(BASE + p)).text(), /createServer/, p);
+});
+
+test('LAN machines are saved and listed', async () => {
+  const http = require('node:http');
+  const mock = http.createServer((q, r) => r.end(JSON.stringify({ data: [{ id: 'remote-coder' }] }))).listen(0);
+  await new Promise(r => setTimeout(r, 100));
+  const url = `http://127.0.0.1:${mock.address().port}`;
+  try {
+    await post('/api/settings', { machines: [{ name: 'Other PC', baseUrl: url }, { name: 'bad', baseUrl: 'ftp://x' }] });
+    assert.deepEqual((await (await fetch(BASE + '/api/settings')).json()).machines, [{ name: 'Other PC', baseUrl: url + '/v1' }]);
+    assert.deepEqual((await (await fetch(BASE + '/api/machines/models?url=' + encodeURIComponent(url))).json()).models, ['remote-coder']);
+    assert.equal((await fetch(BASE + '/api/machines/models?url=nope')).status, 400);
+  } finally { mock.close(); await post('/api/settings', { machines: [] }); }
+});
+
+test('saves are atomic and the server keeps a log', async () => {
+  await post('/api/settings', { attempts: 4 });
+  assert.equal(JSON.parse(fs.readFileSync(path.join(home, 'data', 'settings.json'), 'utf8')).attempts, 4);
+  assert.deepEqual(fs.readdirSync(path.join(home, 'data')).filter(f => f.endsWith('.tmp')), []);
+  assert.match(fs.readFileSync(path.join(home, 'data', 'logs', 'server.log'), 'utf8'), /server running at/);
+  await post('/api/settings', { attempts: 3 });
+});
+
+test('the foreman plans a project and every builder sees the whole plan', async () => {
+  const http = require('node:http');
+  let builderPrompt = '';
+  const mock = http.createServer((q, r) => {
+    let b = ''; q.on('data', d => b += d); q.on('end', () => {
+      const msgs = JSON.parse(b).messages, sys = msgs.map(m => m.content).join(' ');
+      let text = 'ok';
+      if (/foreman/.test(sys)) text = 'Sure! {"project": "csv2json", "orders": ["Create src/parse.js that exports parseCsv(text)", "Create cli.js that uses src/parse.js", "Create README.md"]}';
+      if (/code generator/.test(sys)) { builderPrompt = msgs[msgs.length - 1].content; text = JSON.stringify({ file_path: 'cli.js', content: 'console.log(1)\n' }); }
+      r.end(JSON.stringify({ choices: [{ message: { content: text } }], usage: {} }));
+    });
+  }).listen(0);
+  await new Promise(r => setTimeout(r, 100));
+  const before = await (await fetch(BASE + '/api/settings')).json();
+  try {
+    await post('/api/settings', { provider: 'local', baseUrl: `http://127.0.0.1:${mock.address().port}/v1`, model: 'm' });
+    assert.equal((await post('/api/foreman', { goal: '' })).status, 400);
+    const plan = await (await post('/api/foreman', { goal: 'A CLI that turns CSV into JSON' })).json();
+    assert.equal(plan.project, 'csv2json');
+    assert.equal(plan.orders.length, 3);
+
+    const project = { id: 'proj_t1', name: plan.project, orders: plan.orders, index: 1 };
+    const t = await (await post('/api/tasks', { goal: plan.orders[1], project })).json();
+    assert.equal(t.project.index, 1);
+    assert.equal((await post(`/api/tasks/${t.id}/propose`, {})).status, 200);
+    assert.match(builderPrompt, /order 2 of 3 in the project "csv2json"/);
+    assert.match(builderPrompt, /1\. Create src\/parse\.js/);
+  } finally {
+    mock.close();
+    await post('/api/settings', { baseUrl: before.baseUrl, model: before.model });
+  }
 });
