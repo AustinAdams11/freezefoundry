@@ -252,35 +252,109 @@ test('saves are atomic and the server keeps a log', async () => {
   await post('/api/settings', { attempts: 3 });
 });
 
-test('the foreman plans a project and every builder sees the whole plan', async () => {
+test('the foreman runs a project: parallel lines, re-plan on failure, final inspection, apply and undo', async () => {
   const http = require('node:http');
-  let builderPrompt = '';
+  const calls = [];
+  let active = 0, peak = 0, inspections = 0, plans = 0;
+  const reply = (r, text) => r.end(JSON.stringify({ choices: [{ message: { content: text } }], usage: {} }));
+  const mockFor = name => http.createServer((q, r) => {
+    let b = ''; q.on('data', d => b += d); q.on('end', async () => {
+      const body = JSON.parse(b), msgs = body.messages, sys = msgs[0].content, user = msgs[msgs.length - 1].content;
+      if (/foreman/.test(sys)) {
+        plans++;
+        return reply(r, /RE-PLAN/.test(user)
+          ? JSON.stringify({ project: 'csv2json', orders: [{ file: 'main.js', goal: 'Create main.js that prints toJson(parseCsv(text))', needs: ['src/parse.js', 'src/format.js'] }] })
+          : JSON.stringify({ project: 'csv2json', orders: [
+            { file: 'src/parse.js', goal: 'Create src/parse.js that exports parseCsv(text)', needs: [] },
+            { file: 'src/format.js', goal: 'Create src/format.js that exports toJson(rows)', needs: [] },
+            { file: 'cli.js', goal: 'Create cli.js that uses both', needs: ['src/parse.js', 'src/format.js', 'nope.js'] }] }));
+      }
+      if (/final inspector/.test(sys)) return reply(r, ++inspections === 1 ? '{"verdict": "revise", "issues": [{"file": "src/format.js", "problem": "toJson must indent with 2 spaces"}]}' : '{"verdict": "approve", "issues": []}');
+      if (/code reviewer/.test(sys)) return reply(r, '{"verdict": "approve", "issues": []}');
+      const goal = user.match(/^Goal: (.*)/)[1];
+      calls.push({ name, model: body.model, goal, user });
+      active++; peak = Math.max(peak, active);
+      await new Promise(res => setTimeout(res, 300));
+      active--;
+      const file = goal.match(/[\w/]+\.js/)[0];
+      const content = file === 'cli.js' ? 'console.log(' : file === 'main.js' ? "require('./src/parse');\nrequire('./src/format');\n" : 'module.exports = {};\n';
+      reply(r, JSON.stringify({ file_path: file, content }));
+    });
+  }).listen(0);
+  const main = mockFor('main'), mac = mockFor('mac');
+  await new Promise(r => setTimeout(r, 100));
+  const url = s => `http://127.0.0.1:${s.address().port}/v1`;
+  const before = await (await fetch(BASE + '/api/settings')).json();
+  const ws = path.join(home, 'workspace');
+  const waitFor = async (id, statuses) => {
+    for (let i = 0; i < 200; i++) {
+      const p = (await (await fetch(BASE + '/api/projects')).json()).find(x => x.id === id);
+      if (statuses.includes(p.status) && !p.running) return p;
+      await new Promise(r => setTimeout(r, 100));
+    }
+    throw new Error('project never finished');
+  };
+  try {
+    await post('/api/settings', { provider: 'local', baseUrl: url(main), model: 'm', attempts: 1, autoApply: false, machines: [{ name: 'Mac', baseUrl: url(mac) }] });
+    assert.equal((await post('/api/foreman', { goal: '' })).status, 400);
+    const plan = await (await post('/api/foreman', { goal: 'A CLI that turns CSV into JSON' })).json();
+    assert.deepEqual(plan.orders.map(o => o.needs), [[], [], ['src/parse.js', 'src/format.js']]); // unknown needs dropped
+
+    const created = await post('/api/projects', { name: plan.project, goal: 'A CLI that turns CSV into JSON', orders: plan.orders, lines: [{ baseUrl: url(mac), model: 'm2' }, { baseUrl: 'http://evil.example/v1' }] });
+    assert.equal(created.status, 201);
+    const { id, lines } = await created.json();
+    assert.deepEqual(lines.map(l => l.name), ['Main line', 'Mac']); // unsaved machines are ignored
+    const p = await waitFor(id, ['staged']);
+
+    assert.equal(peak, 2, 'independent files build at the same time');
+    assert.ok(calls.some(c => c.name === 'mac' && c.model === 'm2'), 'the Mac line uses its own server and model');
+    const cli = calls.find(c => c.goal.includes('cli.js'));
+    assert.match(cli.user, /--- src\/parse\.js/, 'a builder sees the files it needs');
+    assert.equal(plans, 2, 'the failed cli.js made the foreman re-plan');
+    assert.deepEqual(p.orders.map(o => [o.file, o.status]), [['src/parse.js', 'done'], ['src/format.js', 'done'], ['main.js', 'done']]);
+    assert.match(calls.filter(c => c.goal.includes('format.js')).pop().user, /indent with 2 spaces/, 'the inspector sent format.js back');
+    assert.ok(p.inspection.passed);
+    assert.ok(p.inspection.checks.some(c => c.command === 'links in main.js' && c.exitCode === 0));
+    assert.ok(!fs.existsSync(path.join(ws, 'main.js')), 'nothing is written before you apply');
+
+    assert.equal((await post(`/api/projects/${id}/apply`, {})).status, 200);
+    assert.equal(fs.readFileSync(path.join(ws, 'src', 'parse.js'), 'utf8'), 'module.exports = {};\n');
+    assert.equal((await post(`/api/projects/${id}/undo`, {})).status, 200);
+    assert.ok(!fs.existsSync(path.join(ws, 'main.js')));
+    assert.equal((await post(`/api/projects/${id}/remove`, {})).status, 200);
+    assert.equal((await fetch(`${BASE}/api/projects/${id}`)).status, 404);
+  } finally {
+    main.close(); mac.close();
+    await post('/api/settings', { baseUrl: before.baseUrl, model: before.model, attempts: before.attempts, autoApply: before.autoApply, machines: [] });
+  }
+});
+
+test('a project set to pause waits for you when an order fails', async () => {
+  const http = require('node:http');
   const mock = http.createServer((q, r) => {
     let b = ''; q.on('data', d => b += d); q.on('end', () => {
-      const msgs = JSON.parse(b).messages, sys = msgs.map(m => m.content).join(' ');
-      let text = 'ok';
-      if (/foreman/.test(sys)) text = 'Sure! {"project": "csv2json", "orders": ["Create src/parse.js that exports parseCsv(text)", "Create cli.js that uses src/parse.js", "Create README.md"]}';
-      if (/code generator/.test(sys)) { builderPrompt = msgs[msgs.length - 1].content; text = JSON.stringify({ file_path: 'cli.js', content: 'console.log(1)\n' }); }
+      const sys = JSON.parse(b).messages[0].content;
+      const text = /code reviewer/.test(sys) ? '{"verdict": "revise", "issues": ["wrong"]}' : /final inspector/.test(sys) ? '{"verdict": "approve"}' : '{"file_path": "a.txt", "content": "a"}';
       r.end(JSON.stringify({ choices: [{ message: { content: text } }], usage: {} }));
     });
   }).listen(0);
   await new Promise(r => setTimeout(r, 100));
   const before = await (await fetch(BASE + '/api/settings')).json();
+  const state = async id => (await (await fetch(BASE + '/api/projects')).json()).find(x => x.id === id);
   try {
-    await post('/api/settings', { provider: 'local', baseUrl: `http://127.0.0.1:${mock.address().port}/v1`, model: 'm' });
-    assert.equal((await post('/api/foreman', { goal: '' })).status, 400);
-    const plan = await (await post('/api/foreman', { goal: 'A CLI that turns CSV into JSON' })).json();
-    assert.equal(plan.project, 'csv2json');
-    assert.equal(plan.orders.length, 3);
-
-    const project = { id: 'proj_t1', name: plan.project, orders: plan.orders, index: 1 };
-    const t = await (await post('/api/tasks', { goal: plan.orders[1], project })).json();
-    assert.equal(t.project.index, 1);
-    assert.equal((await post(`/api/tasks/${t.id}/propose`, {})).status, 200);
-    assert.match(builderPrompt, /order 2 of 3 in the project "csv2json"/);
-    assert.match(builderPrompt, /1\. Create src\/parse\.js/);
+    await post('/api/settings', { provider: 'local', baseUrl: `http://127.0.0.1:${mock.address().port}/v1`, model: 'm', attempts: 1, autoApply: false });
+    const { id } = await (await post('/api/projects', { name: 't', onFail: 'pause', orders: [{ file: 'a.txt', goal: 'Create a.txt' }, { file: 'b.txt', goal: 'Create b.txt', needs: ['a.txt'] }] })).json();
+    let p;
+    for (let i = 0; i < 50 && (!p || p.running); i++) { await new Promise(r => setTimeout(r, 100)); p = await state(id); }
+    assert.equal(p.status, 'paused');
+    assert.deepEqual(p.orders.map(o => o.status), ['failed', 'waiting'], 'b.txt needs a.txt, so it never started');
+    assert.equal((await post(`/api/projects/${id}/skip`, {})).status, 200);
+    for (let i = 0; i < 50 && (p.status !== 'staged' || p.running); i++) { await new Promise(r => setTimeout(r, 100)); p = await state(id); }
+    assert.equal(p.status, 'paused', 'b.txt fails too and pauses again');
+    assert.equal((await post(`/api/projects/${id}/stop`, {})).status, 200);
+    assert.equal((await state(id)).status, 'stopped');
   } finally {
     mock.close();
-    await post('/api/settings', { baseUrl: before.baseUrl, model: before.model });
+    await post('/api/settings', { baseUrl: before.baseUrl, model: before.model, attempts: before.attempts, autoApply: before.autoApply });
   }
 });

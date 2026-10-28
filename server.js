@@ -122,8 +122,9 @@ async function modelFetch(st, url, opts) {
   for (let attempt = 0; ; attempt++) {
     let r;
     try {
-      r = await fetch(url, { ...opts, signal: AbortSignal.timeout(limit) });
+      r = await fetch(url, { ...opts, signal: opts.signal ? AbortSignal.any([opts.signal, AbortSignal.timeout(limit)]) : AbortSignal.timeout(limit) });
     } catch (e) {
+      if (e.name === 'AbortError') throw e; // the Foreman stopped this line
       const code = e.cause && e.cause.code;
       if (e.name === 'TimeoutError') throw new Error(`The model took longer than ${limit / 1000}s to answer. Raise "Model time limit" in Settings, lower Max tokens, or use a smaller model.`);
       const unreachable = () => new Error(st.provider === 'local' || st.provider === 'custom'
@@ -145,10 +146,11 @@ async function modelFetch(st, url, opts) {
 }
 
 // Call the configured OpenAI-compatible model server (LM Studio or Ollama) and record usage in the ledger.
-async function callLMStudio(messages, role = 'default', taskId = null) {
+async function callLMStudio(messages, role = 'default', taskId = null, line = {}) {
   const st = { ...loadSettings() };
   // Per-worker tuning: each worker can override provider, model, temperature, token limit, top-p and add instructions.
-  const rc = (st.roleConfig || {})[role] || {};
+  // A Foreman line on a LAN machine replaces the worker's server and model.
+  const rc = { ...((st.roleConfig || {})[role] || {}), ...(line.baseUrl ? { baseUrl: line.baseUrl, model: line.model, provider: undefined } : {}) };
   // LAN Foundry: a worker can run on another machine's LM Studio or Ollama server.
   if (rc.baseUrl) { st.provider = 'local'; st.baseUrl = rc.baseUrl; }
   if (!rc.baseUrl && rc.provider && rc.provider !== st.provider) {
@@ -172,7 +174,7 @@ async function callLMStudio(messages, role = 'default', taskId = null) {
     if (st.provider === 'anthropic') {
       const system = messages.filter(m => m.role === 'system').map(m => m.content).join('\n\n');
       const r = await modelFetch(st, PROVIDERS.anthropic.base + '/messages', {
-        method: 'POST',
+        method: 'POST', signal: line.signal,
         headers: { 'Content-Type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01' },
         body: JSON.stringify({ model, system, max_tokens: st.maxTokens, temperature: Math.min(st.temperature, 1), messages: messages.filter(m => m.role !== 'system') })
       });
@@ -184,7 +186,7 @@ async function callLMStudio(messages, role = 'default', taskId = null) {
       // OpenAI's newer models only take max_completion_tokens and their default temperature.
       const body = st.provider === 'openai' ? { model, messages, max_completion_tokens: st.maxTokens } : { model, messages, temperature: st.temperature, max_tokens: st.maxTokens, ...(rc.topP != null ? { top_p: rc.topP } : {}) };
       const r = await modelFetch(st, providerBase(st) + '/chat/completions', {
-        method: 'POST',
+        method: 'POST', signal: line.signal,
         headers: { 'Content-Type': 'application/json', ...(key ? { Authorization: `Bearer ${key}` } : {}) },
         body: JSON.stringify(body)
       });
@@ -196,7 +198,7 @@ async function callLMStudio(messages, role = 'default', taskId = null) {
     logUsage({ ts: new Date().toISOString(), task: taskId, role, provider: rc.baseUrl ? 'lan' : st.provider, model, prompt_tokens: usage.prompt_tokens || 0, completion_tokens: usage.completion_tokens || 0, ms: Date.now() - started });
     return text;
   } catch (err) {
-    console.error('Model call failed:', err.message);
+    if (err.name !== 'AbortError') console.error('Model call failed:', err.message);
     throw err;
   }
 }
@@ -263,7 +265,6 @@ const server = http.createServer(async (req, res) => {
           const task = {
             id: taskId,
             goal: data.goal || '',
-            project: cleanProject(data.project),
             status: 'pending',
             createdAt: new Date().toISOString(),
             plan: null,
@@ -321,22 +322,32 @@ const server = http.createServer(async (req, res) => {
     } catch (e) { res.writeHead(400); return res.end(JSON.stringify({ error: e.message })); }
   }
 
-  // FOREMAN: break a big goal into ordered one-file work orders that fit together
+  // FOREMAN: plan a project, then run it (see "Foreman" below)
   if (pathname === '/api/foreman' && method === 'POST') {
     try {
       const b = await readJsonBody(req);
-      const goal = String(b.goal || '').trim();
-      if (!goal || goal.length > 4000) throw new Error('Describe the project on the work order first.');
-      const raw = await callLMStudio(withSkills([
-        { role: 'system', content: 'You are the foreman of a software factory. Workers build exactly ONE file per work order. Break the project into the smallest set of work orders (at most 8) in build order: shared modules first, then the files that use them, then tests, then docs. Each work order must name its file path and say what it does and which other project files it uses, e.g. "Create src/parse.js that exports parseCsv(text)". Reuse existing files from the file list instead of recreating them. Output ONLY JSON: {"project": "<short name>", "orders": ["<work order>", ...]}' },
-        { role: 'user', content: `Project: ${goal}\n\n${workspaceContext(goal)}` + (await extraContext(goal)) }
-      ], skillsFor('planner', goal)), 'planner');
-      const text = raw.replace(/<think>[\s\S]*?<\/think>/g, '');
-      let plan;
-      try { plan = JSON.parse(text.slice(text.indexOf('{'), text.lastIndexOf('}') + 1)); } catch { throw new Error('The foreman did not return a plan. Try again, or use a stronger model for the Planner.'); }
-      const orders = (Array.isArray(plan.orders) ? plan.orders : []).map(o => String(typeof o === 'string' ? o : (o && o.goal) || '').trim().slice(0, 1000)).filter(Boolean).slice(0, 8);
-      if (!orders.length) throw new Error('The foreman returned no work orders. Make the project description more specific.');
-      res.writeHead(200); return res.end(JSON.stringify({ project: String(plan.project || goal).slice(0, 80), orders }));
+      const plan = await foremanPlan(String(b.goal || '').trim());
+      res.writeHead(200); return res.end(JSON.stringify(plan));
+    } catch (e) { res.writeHead(400); return res.end(JSON.stringify({ error: e.message })); }
+  }
+  if (pathname === '/api/projects' && method === 'GET') {
+    res.writeHead(200); return res.end(JSON.stringify(Object.values(PROJECTS).sort((a, b) => b.createdAt.localeCompare(a.createdAt)).map(projectSummary)));
+  }
+  if (pathname === '/api/projects' && method === 'POST') {
+    try {
+      const p = createProject(await readJsonBody(req));
+      res.writeHead(201); return res.end(JSON.stringify(projectSummary(p)));
+    } catch (e) { res.writeHead(400); return res.end(JSON.stringify({ error: e.message })); }
+  }
+  if (pathname.startsWith('/api/projects/')) {
+    const [, , , id, action] = pathname.split('/');
+    const p = PROJECTS[id];
+    if (!p) { res.writeHead(404); return res.end(JSON.stringify({ error: 'Project not found' })); }
+    if (method === 'GET' && !action) { res.writeHead(200); return res.end(JSON.stringify(p)); }
+    try {
+      if (method !== 'POST') throw new Error('Method not allowed');
+      const out = await projectAction(p, action);
+      res.writeHead(200); return res.end(JSON.stringify(out || projectSummary(p)));
     } catch (e) { res.writeHead(400); return res.end(JSON.stringify({ error: e.message })); }
   }
 
@@ -1035,6 +1046,336 @@ server.on('error', err => {
   else console.error('Server error:', err.message);
 });
 
+// ---------- Foreman: plans a project and runs it to the end ----------
+// Orders build at the same time on several lines (the main line plus LAN machines) as soon as the files they need
+// are done. A failed order makes the Foreman re-plan the rest or pause for you; a final inspection checks the files
+// together and sends broken ones back; the whole project is applied, and undone, as one.
+const PROJECTS_FILE = path.join(DATA_DIR, 'projects.json');
+const PROJECTS = (() => { try { return JSON.parse(fs.readFileSync(PROJECTS_FILE, 'utf8')); } catch { return {}; } })();
+const RUNNING = new Map(); // project id -> AbortController
+const ACTIVE = ['building', 'testing', 'reviewing'];
+const MAX_REPLANS = 2, MAX_INSPECTIONS = 2;
+const saveProjects = () => writeJsonAtomic(PROJECTS_FILE, PROJECTS);
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+// Projects that were mid-run when the app closed come back paused.
+for (const p of Object.values(PROJECTS)) {
+  if (p.status === 'running' || p.status === 'inspecting') { p.status = 'paused'; p.note = 'The app closed mid-run. Press Resume to carry on.'; }
+  for (const o of p.orders || []) if (ACTIVE.includes(o.status)) o.status = 'waiting';
+}
+
+const FOREMAN_PROMPT = 'You are the foreman of a software factory. Workers build exactly ONE file per work order, and orders that do not depend on each other are built at the same time. Break the project into the smallest set of work orders (at most 8) in build order: shared modules first, then the files that use them, then tests, then docs. For each order give "file" (its path), "goal" (what to build, naming the exports, functions and data formats other files rely on) and "needs" (the project files it imports or must match; they must come earlier in the list). Reuse existing files from the file list instead of recreating them. Output ONLY JSON: {"project": "<short name>", "orders": [{"file": "src/parse.js", "goal": "Create src/parse.js that exports parseCsv(text), returning an array of row objects", "needs": []}, {"file": "cli.js", "goal": "Create cli.js that reads a CSV file named on the command line and prints JSON using parseCsv from src/parse.js", "needs": ["src/parse.js"]}]}';
+
+// Orders as {goal, file, needs}. Plain strings still work (each then waits for all earlier ones).
+// needs may only name earlier orders or files already built, so the plan can never wait on itself.
+function cleanOrders(list, built = []) {
+  const out = [];
+  for (const o of (Array.isArray(list) ? list : []).slice(0, 8)) {
+    const goal = String(typeof o === 'string' ? o : (o && o.goal) || '').trim().slice(0, 1000);
+    const file = String((o && o.file) || (goal.match(/[\w./-]+\.[a-z0-9]{1,6}\b/i) || [''])[0]).trim().replace(/^\.?\//, '').slice(0, 200);
+    if (!goal || (file && (built.includes(file) || out.some(x => x.file === file)))) continue;
+    const earlier = [...built, ...out.map(x => x.file)].filter(Boolean);
+    const needs = o && Array.isArray(o.needs) ? o.needs.map(f => String(f).replace(/^\.?\//, '')).filter(f => earlier.includes(f)) : out.map(x => x.file).filter(Boolean);
+    out.push({ goal, file, needs: [...new Set(needs)] });
+  }
+  return out;
+}
+
+async function foremanPlan(goal, extra = '', built = [], signal) {
+  if (!goal || goal.length > 4000) throw new Error('Describe the project on the work order first.');
+  const raw = await callLMStudio(withSkills([
+    { role: 'system', content: FOREMAN_PROMPT },
+    { role: 'user', content: `Project: ${goal}\n\n${workspaceContext(goal)}` + (await extraContext(goal)) + extra }
+  ], skillsFor('planner', goal)), 'planner', null, { signal });
+  const text = raw.replace(/<think>[\s\S]*?<\/think>/g, '');
+  let plan;
+  try { plan = JSON.parse(text.slice(text.indexOf('{'), text.lastIndexOf('}') + 1)); } catch { throw new Error('The foreman did not return a plan. Try again, or use a stronger model for the Planner.'); }
+  const orders = cleanOrders(plan.orders, built);
+  if (!orders.length && !built.length) throw new Error('The foreman returned no work orders. Make the project description more specific.');
+  return { project: String(plan.project || goal).slice(0, 80), orders };
+}
+
+function projectFilesText(files, budget = 30000) {
+  let out = '';
+  for (const f of files) {
+    const t = String(f.content || '').slice(0, 12000);
+    if (t.length > budget) break;
+    budget -= t.length;
+    out += `\n\n--- ${f.file_path}\n${t}`;
+  }
+  return out ? '\n\nProject files built so far (not in the workspace yet; use their names and exports exactly):' + out : '';
+}
+
+function plog(p, msg, level = 'info') {
+  p.updatedAt = new Date().toISOString();
+  p.log.push({ at: p.updatedAt, level, msg });
+  if (p.log.length > 300) p.log.splice(0, p.log.length - 300);
+  saveProjects();
+}
+
+const projectSummary = p => ({ ...p, running: RUNNING.has(p.id), orders: p.orders.map(({ content, feedback, ...o }) => ({ ...o, size: content ? content.length : 0 })), log: p.log.slice(-40) });
+const addOrders = (p, list) => list.forEach(o => p.orders.push({ id: 'o' + (++p.seq), ...o, status: 'waiting', attempts: 0 }));
+const isReady = (p, o) => o.needs.every(f => { const d = p.orders.find(x => x.file === f); return !d || d.status === 'done' || d.status === 'skipped'; });
+
+function createProject(b) {
+  const orders = cleanOrders(b.orders);
+  if (!orders.length) throw new Error('Add at least one work order.');
+  const st = loadSettings();
+  const lines = [{ name: 'Main line' }]; // uses Worker tuning, like a normal work order
+  for (const l of Array.isArray(b.lines) ? b.lines.slice(0, 8) : []) {
+    const m = (st.machines || []).find(m => m.baseUrl === (l && l.baseUrl)); // only machines saved under LAN Foundry
+    if (m && !lines.some(x => x.baseUrl === m.baseUrl)) lines.push({ name: m.name, baseUrl: m.baseUrl, model: String(l.model || '').slice(0, 200) });
+  }
+  const id = 'proj_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  const p = PROJECTS[id] = {
+    id, name: String(b.name || 'Project').slice(0, 80), goal: String(b.goal || '').slice(0, 4000), status: 'running', note: '',
+    onFail: b.onFail === 'pause' ? 'pause' : 'replan', lines, seq: 0, replans: 0, inspections: 0, createdAt: new Date().toISOString(), orders: [], log: []
+  };
+  addOrders(p, orders);
+  plog(p, `Project "${p.name}": ${orders.length} work order${orders.length > 1 ? 's' : ''} on ${lines.map(l => l.name).join(' + ')}.`);
+  runProject(p);
+  return p;
+}
+
+async function runProject(p) {
+  if (RUNNING.has(p.id)) return;
+  const ctl = new AbortController();
+  RUNNING.set(p.id, ctl);
+  p.status = 'running'; p.note = '';
+  try {
+    for (;;) {
+      await Promise.all(p.lines.map(line => runLine(p, line, ctl.signal)));
+      if (ctl.signal.aborted) return; // pause or stop already set the status
+      const failed = p.orders.find(o => o.status === 'failed');
+      if (failed) { if (await recover(p, failed, ctl.signal)) continue; return; }
+      if (p.orders.some(o => o.status === 'waiting')) throw new Error('Some work orders wait on files no order builds. Edit the plan and start again.');
+      if (await inspect(p, ctl.signal)) continue;
+      return finish(p);
+    }
+  } catch (e) {
+    if (e.name !== 'AbortError') { p.status = 'paused'; p.note = e.message; plog(p, 'Foreman paused: ' + e.message, 'error'); }
+  } finally { RUNNING.delete(p.id); saveProjects(); }
+}
+
+// One line takes the next order whose files are ready, builds it, and repeats. Stops when an order fails.
+async function runLine(p, line, signal) {
+  while (!signal.aborted && !p.orders.some(o => o.status === 'failed')) {
+    const o = p.orders.find(o => o.status === 'waiting' && isReady(p, o));
+    if (!o) {
+      if (!p.orders.some(x => ACTIVE.includes(x.status))) return;
+      await sleep(250); // another line is building a file this one needs
+      continue;
+    }
+    o.status = 'building'; o.line = line.name; // claimed before any await, so two lines never take the same order
+    await buildOrder(p, o, line, signal);
+  }
+}
+
+async function buildOrder(p, o, line, signal) {
+  const task = { id: `${p.id}_${o.id}`, goal: o.goal, project: { name: p.name, index: p.orders.indexOf(o), orders: p.orders.map(x => x.goal) } };
+  const files = p.orders.filter(x => x !== o && x.status === 'done').sort((a, b) => o.needs.includes(b.file) - o.needs.includes(a.file)).map(x => ({ file_path: x.file, content: x.content }));
+  const max = Math.max(1, Math.min(10, Number(loadSettings().attempts) || 3));
+  let feedback = o.feedback || '', previous = o.content ? `\n\nYour previous draft (${o.file}):\n${o.content.slice(0, 12000)}` : '';
+  plog(p, `${o.file || 'Order ' + o.id}: building on ${line.name}${feedback ? ' with the inspector\'s notes' : ''}.`);
+  try {
+    for (let attempt = 1; attempt <= max; attempt++) {
+      o.attempts++; o.status = 'building'; saveProjects();
+      const prop = parseBuilderOutput(await callLMStudio(await builderMessages(task, feedback, previous, files), 'builder', task.id, { ...line, signal }));
+      if (o.file) prop.file_path = o.file; // the plan fixed the name other files rely on
+      o.status = 'testing'; saveProjects();
+      const test = await testProposal(prop, task, files);
+      o.status = 'reviewing'; saveProjects();
+      const review = await reviewProposal(task, { ...prop, test }, files, signal); // a failed test always means "revise"
+      Object.assign(o, { tests: test.status, verdict: review.verdict, issues: review.issues, notes: review.notes });
+      if (review.verdict !== 'revise') {
+        Object.assign(o, { status: 'done', file: prop.file_path, content: prop.content, feedback: '' });
+        plog(p, `${o.file}: done on ${line.name}${attempt > 1 ? ` (attempt ${attempt})` : ''}.`, 'success');
+        return;
+      }
+      feedback = [...review.issues, ...test.checks.filter(c => c.exitCode !== 0).map(c => `${c.command} failed:\n${c.output}`)].join('\n');
+      previous = `\n\nYour previous draft (${prop.file_path}):\n${String(prop.content || '').slice(0, 12000)}`;
+      if (attempt < max) plog(p, `${prop.file_path}: back to the Builder. ${review.issues[0] || 'Tests failed.'}`, 'warn');
+    }
+    Object.assign(o, { status: 'failed', feedback });
+    plog(p, `${o.file}: failed after ${max} attempts.`, 'error');
+  } catch (e) {
+    if (e.name === 'AbortError' || signal.aborted) { o.status = 'waiting'; return; }
+    Object.assign(o, { status: 'failed', error: e.message });
+    plog(p, `${o.file || 'Order ' + o.id}: ${e.message}`, 'error');
+  }
+}
+
+// A failed order: re-plan the remaining work (a model that stopped answering pauses instead), or pause for the user.
+async function recover(p, o, signal) {
+  if (p.onFail === 'replan' && !o.error && p.replans < MAX_REPLANS) {
+    p.replans++;
+    plog(p, `Re-planning the rest of the project around ${o.file} (${p.replans} of ${MAX_REPLANS}).`, 'warn');
+    const built = p.orders.filter(x => x.status === 'done' || x.status === 'skipped').map(x => x.file).filter(Boolean);
+    const extra = `\n\nThis is a RE-PLAN. Already built, keep and do not plan again: ${built.join(', ') || 'nothing'}.\nThis work order failed every attempt:\n${o.goal}\nIts problems:\n${String(o.feedback || '').slice(0, 3000)}\nPlan only the work still needed to finish the project. Make the failed part simpler or split it up.`;
+    try {
+      const plan = await foremanPlan(p.goal || p.name, extra, built, signal);
+      p.orders = p.orders.filter(x => x.status === 'done' || x.status === 'skipped');
+      addOrders(p, plan.orders);
+      plog(p, plan.orders.length ? `New plan: ${plan.orders.map(x => x.file || x.goal.slice(0, 40)).join(', ')}.` : 'New plan: nothing left to build.');
+      return true;
+    } catch (e) {
+      if (e.name === 'AbortError') throw e;
+      plog(p, 'Re-plan failed: ' + e.message, 'error');
+    }
+  }
+  p.status = 'paused';
+  p.note = o.error ? `${o.file || 'A work order'} stopped: ${o.error}` : `${o.file} failed every attempt. Retry it, skip it, or stop the project.`;
+  plog(p, p.note, 'warn');
+  return false;
+}
+
+// Relative imports and page links must point at a file that exists in the project or the workspace.
+// shortcut: JS/TS and HTML only; Python imports aren't checked (the inspector reads them).
+function linkChecks(runDir, files) {
+  const out = [];
+  for (const f of files) {
+    const ext = path.extname(f.file_path).toLowerCase();
+    const re = /^\.[cm]?[jt]sx?$/.test(ext) ? /(?:require\(\s*|import\s*\(\s*|from\s+|import\s+)['"](\.{1,2}\/[^'"]+)['"]/g
+      : /^\.html?$/.test(ext) ? /(?:src|href)\s*=\s*["']((?!https?:|\/|#|data:|mailto:|tel:|javascript:)[^"'?#{}$]+)/gi : null;
+    if (!re) continue;
+    const refs = [...String(f.content || '').matchAll(re)].map(m => m[1]);
+    if (!refs.length) continue;
+    const missing = [...new Set(refs.filter(ref => {
+      const base = path.resolve(runDir, path.dirname(f.file_path), ref);
+      return ['', '.js', '.mjs', '.cjs', '.ts', '.tsx', '.jsx', '.json', '/index.js', '/index.html'].every(e => { try { return !fs.statSync(base + e).isFile(); } catch { return true; } });
+    }))];
+    out.push({ command: `links in ${f.file_path}`, file: f.file_path, exitCode: missing.length ? 1 : 0, output: missing.length ? `Points at files that don't exist: ${missing.join(', ')}` : 'every link resolves' });
+  }
+  return out;
+}
+
+async function reviewProject(p, files, failed, signal) {
+  const raw = await callLMStudio(withSkills([
+    { role: 'system', content: 'You are the final inspector of a software project that was built one file at a time. Check that the files work TOGETHER: every import or link points at a file that exists, names and exports match how the other files use them, data formats agree, and the project does what was asked. Report only real defects, each against the file that must change. No style nitpicks. Output ONLY JSON: {"verdict": "approve" or "revise", "issues": [{"file": "<path>", "problem": "<what is wrong and how to fix it>"}], "notes": ["optional suggestions"]}' },
+    { role: 'user', content: `Project: ${p.goal || p.name}\n\n${workspaceContext('')}` + projectFilesText(files, 60000) + `\n\nFailed checks:\n${failed.map(c => `$ ${c.command}\n${c.output}`).join('\n').slice(0, 6000) || 'none'}` }
+  ], skillsFor('reviewer', p.goal)), 'reviewer', p.id, { signal });
+  let j = {};
+  try { const t = raw.replace(/<think>[\s\S]*?<\/think>/g, ''); j = JSON.parse(t.slice(t.indexOf('{'), t.lastIndexOf('}') + 1)); } catch {}
+  const issues = (Array.isArray(j.issues) ? j.issues : []).map(i => typeof i === 'string'
+    ? { file: (files.find(f => i.includes(f.file_path)) || {}).file_path || '', problem: i }
+    : { file: String((i && i.file) || '').replace(/^\.?\//, ''), problem: String((i && i.problem) || '') }).filter(i => i.problem);
+  const verdict = failed.length ? 'revise' : j.verdict === 'revise' ? 'revise' : j.verdict === 'approve' ? 'approve' : 'unknown';
+  return { verdict, issues, notes: Array.isArray(j.notes) ? j.notes.map(String) : [] };
+}
+
+// Every file together: syntax checks, links between files, the workspace's own tests, then the inspector.
+// Files with problems go back to their Builder with the notes (twice at most); returns true when it sent work back.
+async function inspect(p, signal) {
+  const files = p.orders.filter(o => o.status === 'done').map(o => ({ file_path: o.file, content: o.content }));
+  if (!files.length) return false;
+  p.status = 'inspecting';
+  plog(p, `Final inspection: ${files.length} file${files.length > 1 ? 's' : ''} together.`);
+  const checks = [];
+  const runDir = testRun(files);
+  try {
+    for (const f of files) { const c = await checkFile(runDir, f.file_path, f.content); if (c) checks.push({ ...c, file: f.file_path }); }
+    checks.push(...linkChecks(runDir, files));
+    const t = await npmTest(runDir);
+    if (t) checks.push(t);
+  } finally { fs.rmSync(runDir, { recursive: true, force: true }); }
+  const failed = checks.filter(c => c.exitCode !== 0);
+  const review = await reviewProject(p, files, failed, signal);
+  const problems = {};
+  for (const c of failed) if (c.file) (problems[c.file] ||= []).push(`${c.command} failed:\n${c.output}`);
+  for (const i of review.issues) if (files.some(f => f.file_path === i.file)) (problems[i.file] ||= []).push(i.problem);
+  const passed = !failed.length && review.verdict !== 'revise';
+  p.inspection = { passed, verdict: review.verdict, issues: review.issues, notes: review.notes, at: new Date().toISOString(),
+    checks: checks.map(c => ({ command: c.command, file: c.file, exitCode: c.exitCode, output: c.exitCode ? String(c.output).slice(0, 2000) : '' })) };
+  const fix = Object.keys(problems);
+  if (passed) { plog(p, 'Final inspection passed.', 'success'); return false; }
+  if (!fix.length || p.inspections >= MAX_INSPECTIONS) { plog(p, 'Final inspection still found problems. Read them before applying.', 'warn'); return false; }
+  p.inspections++;
+  for (const f of fix) Object.assign(p.orders.find(o => o.file === f && o.status === 'done'), { status: 'waiting', feedback: problems[f].join('\n') });
+  plog(p, `Final inspection sent ${fix.join(', ')} back to the line.`, 'warn');
+  p.status = 'running';
+  return true;
+}
+
+function finish(p) {
+  const done = p.orders.filter(o => o.status === 'done');
+  if (!done.length) { p.status = 'failed'; p.note = 'Nothing was built.'; plog(p, p.note, 'error'); return; }
+  p.status = 'staged';
+  const clean = p.inspection && p.inspection.passed && !p.orders.some(o => o.status === 'skipped');
+  plog(p, `Project staged: ${done.length} file${done.length > 1 ? 's' : ''} ready.`, 'success');
+  if (clean && loadSettings().autoApply) try { applyProject(p); } catch (e) { plog(p, 'Auto-apply failed: ' + e.message, 'error'); }
+}
+
+// Write every file of a staged project, backing up what it replaces; undo puts all of them back.
+function applyProject(p) {
+  if (p.status !== 'staged') throw new Error('Only a finished, staged project can be applied.');
+  const files = p.orders.filter(o => o.status === 'done');
+  const targets = files.map(o => {
+    const target = path.resolve(WORKSPACE_DIR, o.file || '');
+    if (!target.startsWith(WORKSPACE_DIR + path.sep)) throw new Error(`Invalid file path: ${o.file}`);
+    for (let c = target; c.startsWith(WORKSPACE_DIR + path.sep); c = path.dirname(c)) if (isSymlink(c)) throw new Error(`Symlink detected in ${o.file}`);
+    return target;
+  });
+  const backupDir = path.join(DATA_DIR, 'backups');
+  fs.mkdirSync(backupDir, { recursive: true });
+  p.applied = [];
+  try {
+    files.forEach((o, i) => {
+      let backup = null;
+      if (fs.existsSync(targets[i])) { backup = path.join(backupDir, `backup_${p.id}_${o.id}_${Date.now()}`); fs.copyFileSync(targets[i], backup); }
+      fs.mkdirSync(path.dirname(targets[i]), { recursive: true });
+      fs.writeFileSync(targets[i], o.content, 'utf8');
+      p.applied.push({ path: o.file, backup, hash: sha1(Buffer.from(o.content, 'utf8')) });
+    });
+  } finally {
+    if (p.applied.length) p.status = 'applied'; // even a partial write is recorded, so undo can put it back
+    saveProjects();
+  }
+  const committed = loadSettings().gitCommit ? gitCommit(p.applied.map(a => a.path), p.name) : null;
+  plog(p, `Applied ${files.length} file${files.length > 1 ? 's' : ''} to the workspace${committed ? ` and committed ${committed}` : ''}.`, 'success');
+}
+
+function undoProject(p) {
+  if (p.status !== 'applied' || !p.applied) throw new Error('This project has nothing applied to undo.');
+  const changed = p.applied.filter(a => { const t = path.resolve(WORKSPACE_DIR, a.path); return !fs.existsSync(t) || sha1(fs.readFileSync(t)) !== a.hash; });
+  if (changed.length) throw new Error(`${changed.map(a => a.path).join(', ')} changed since the project was applied, so undo would lose those edits.`);
+  for (const a of p.applied) { const t = path.resolve(WORKSPACE_DIR, a.path); if (a.backup) fs.copyFileSync(a.backup, t); else fs.unlinkSync(t); }
+  p.status = 'undone'; delete p.applied;
+  plog(p, 'Undone: the workspace is back the way it was.', 'success');
+}
+
+async function projectAction(p, action) {
+  const ctl = RUNNING.get(p.id);
+  if (action === 'pause') {
+    if (!ctl) throw new Error('This project is not running.');
+    p.status = 'paused'; p.note = 'Press Resume to carry on.'; ctl.abort();
+    return plog(p, 'Paused by you.');
+  }
+  if (action === 'stop') {
+    if (['applied', 'undone', 'stopped', 'failed'].includes(p.status)) throw new Error('This project is already finished.');
+    p.status = 'stopped'; p.note = ''; if (ctl) ctl.abort();
+    return plog(p, 'Stopped. Nothing was applied.', 'warn');
+  }
+  if (action === 'resume' || action === 'skip') {
+    if (p.status !== 'paused') throw new Error('Only a paused project can resume.');
+    if (ctl) throw new Error('Still finishing the last step. Try again in a moment.');
+    for (const o of p.orders.filter(o => o.status === 'failed')) {
+      if (action === 'skip') { o.status = 'skipped'; plog(p, `${o.file}: skipped by you.`, 'warn'); }
+      else Object.assign(o, { status: 'waiting', error: '' });
+    }
+    plog(p, 'Resumed.');
+    runProject(p);
+    return;
+  }
+  if (action === 'apply') return applyProject(p);
+  if (action === 'undo') return undoProject(p);
+  if (action === 'remove') {
+    if (ctl) throw new Error('Stop the project first.');
+    delete PROJECTS[p.id]; saveProjects();
+    return { ok: true };
+  }
+  throw new Error('Unknown action');
+}
+
 const watchers = require('./watchers').createWatchers(path.join(DATA_DIR, 'watchers.json'), {
   // Optional: ask the model to explain an alert, using the latest reading.
   onAlert(alert, w, st) {
@@ -1124,9 +1465,44 @@ function runCheck(command, args, cwd, useShell) {
 }
 
 // Test a proposal in a throwaway copy of the workspace; the real workspace is never touched.
-async function testProposal(proposal, task) {
-  const runDir = path.join(DATA_DIR, 'testruns', `run_${Date.now()}`);
+// Syntax-level check for one file in a test run; null when nothing applies to its type.
+async function checkFile(runDir, rel, content) {
+  const ext = path.extname(rel).toLowerCase();
+  if (['.js', '.cjs', '.mjs'].includes(ext)) return runCheck(process.execPath, ['--check', rel], runDir, false);
+  if (ext === '.py') {
+    const c = await runCheck(pythonCmd(), ['-m', 'py_compile', rel], runDir, false);
+    return /ENOENT/.test(c.output) ? null : c; // no Python installed: skip rather than fail the work
+  }
+  if (ext === '.json') {
+    try { JSON.parse(content); return { command: 'JSON.parse', exitCode: 0, output: 'valid JSON' }; }
+    catch (e) { return { command: 'JSON.parse', exitCode: 1, output: e.message }; }
+  }
+  return null;
+}
+
+// npm test only if the APPROVED workspace package.json defines it, so the model can't inject a test command.
+async function npmTest(runDir) {
+  const pkgPath = path.join(WORKSPACE_DIR, 'package.json');
+  if (!fs.existsSync(pkgPath) || !perms().runTests) return null;
+  const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8').replace(/^\uFEFF/, ''));
+  return pkg.scripts && pkg.scripts.test ? runCheck('npm', ['test'], runDir, true) : null;
+}
+
+// Copy the workspace into a throwaway folder with extra files written on top; the real workspace is never touched.
+function testRun(files) {
+  const runDir = path.join(DATA_DIR, 'testruns', `run_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`);
   fs.cpSync(WORKSPACE_DIR, runDir, { recursive: true });
+  for (const f of files) {
+    const target = path.resolve(runDir, f.file_path || '');
+    if (!target.startsWith(runDir + path.sep)) { fs.rmSync(runDir, { recursive: true, force: true }); throw new Error(`Invalid file path: ${f.file_path}`); }
+    fs.mkdirSync(path.dirname(target), { recursive: true });
+    fs.writeFileSync(target, f.content || '', 'utf8');
+  }
+  return runDir;
+}
+
+async function testProposal(proposal, task, files = []) {
+  const runDir = testRun(files);
   try {
     const target = path.resolve(runDir, proposal.file_path || '');
     if (!target.startsWith(runDir + path.sep)) throw new Error('Invalid file path in proposal');
@@ -1137,23 +1513,10 @@ async function testProposal(proposal, task) {
     const rel = path.relative(runDir, target).split(path.sep).join('/');
     if (task && fs.existsSync(path.join(WORKSPACE_DIR, rel)) && !String(task.goal || '').toLowerCase().includes(path.basename(rel).toLowerCase()))
       checks.push({ command: 'scope check', exitCode: 1, output: `This rewrites the existing file ${rel}, but the goal never mentions it. Write a new file instead (or the user must name ${rel} in the goal).` });
-    const ext = path.extname(target).toLowerCase();
-    if (['.js', '.cjs', '.mjs'].includes(ext)) {
-      checks.push(await runCheck(process.execPath, ['--check', path.relative(runDir, target)], runDir, false));
-    } else if (ext === '.py') {
-      const c = await runCheck(pythonCmd(), ['-m', 'py_compile', path.relative(runDir, target)], runDir, false);
-      if (!/ENOENT/.test(c.output)) checks.push(c); // no Python installed: skip rather than fail the work
-    } else if (ext === '.json') {
-      try { JSON.parse(proposal.content); checks.push({ command: 'JSON.parse', exitCode: 0, output: 'valid JSON' }); }
-      catch (e) { checks.push({ command: 'JSON.parse', exitCode: 1, output: e.message }); }
-    }
-
-    // npm test only if the APPROVED workspace package.json defines it, so the model can't inject a test command.
-    const pkgPath = path.join(WORKSPACE_DIR, 'package.json');
-    if (fs.existsSync(pkgPath)) {
-      const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8').replace(/^\uFEFF/, ''));
-      if (pkg.scripts && pkg.scripts.test && perms().runTests) checks.push(await runCheck('npm', ['test'], runDir, true));
-    }
+    const c = await checkFile(runDir, rel, proposal.content || '');
+    if (c) checks.push(c);
+    const t = await npmTest(runDir);
+    if (t) checks.push(t);
 
     const status = checks.length === 0 ? 'no_checks' : (checks.every(c => c.exitCode === 0) ? 'passed' : 'failed');
     return { status, checks, ranAt: new Date().toISOString() };
@@ -1162,7 +1525,7 @@ async function testProposal(proposal, task) {
   }
 }
 
-async function reviewProposal(task, proposal) {
+async function reviewProposal(task, proposal, files = [], signal) {
   const existing = path.resolve(WORKSPACE_DIR, proposal.file_path || '');
   const before = existing.startsWith(WORKSPACE_DIR + path.sep) && safeFileExists(existing) ? fs.readFileSync(existing, 'utf8') : '';
   const diff = generateDiff(before, proposal.content || '');
@@ -1173,8 +1536,8 @@ async function reviewProposal(task, proposal) {
 
   const raw = await callLMStudio(withSkills([
     { role: 'system', content: 'You are a code reviewer. Choose "revise" ONLY for blocking defects: wrong file, broken code or failed tests, the goal not met, invented or false content, or a real security problem. Judge only this one file: the other files of a project are built by separate tasks, so never ask for files outside this goal. Style tweaks and nice-to-haves go in "notes" and must not block approval. Output ONLY JSON: {"verdict": "approve" or "revise", "issues": ["blocking problems only"], "notes": ["optional suggestions"]}' },
-    { role: 'user', content: `Goal: ${task.goal}\n\n${workspaceContext('')}\n\nFile: ${proposal.file_path}\n\nNew file content (judge THIS):\n${String(proposal.content || '').slice(0, 12000)}\n\nDiff against the current file (context only; '-' removed, '+' added):\n${diff.slice(0, 8000)}\n\nTest results:\n${testSummary.slice(0, 4000)}` }
-  ], skillsFor('reviewer', task.goal)), 'reviewer', task.id);
+    { role: 'user', content: `Goal: ${task.goal}\n\n${workspaceContext('')}\n\nFile: ${proposal.file_path}\n\nNew file content (judge THIS):\n${String(proposal.content || '').slice(0, 12000)}\n\nDiff against the current file (context only; '-' removed, '+' added):\n${diff.slice(0, 8000)}\n\nTest results:\n${testSummary.slice(0, 4000)}` + projectFilesText(files) }
+  ], skillsFor('reviewer', task.goal)), 'reviewer', task.id, { signal });
 
   let verdict = 'unknown';
   let issues = [];
@@ -1424,10 +1787,10 @@ function isLocalHost(host) {
   return host === `127.0.0.1:${PORT}` || host === `localhost:${PORT}` || host === `[::1]:${PORT}`;
 }
 
-async function builderMessages(task, feedback = '', previous = '') {
+async function builderMessages(task, feedback = '', previous = '', files = []) {
   return withSkills([
     { role: 'system', content: 'You are a code generator. Output ONLY valid JSON, no markdown blocks. Format: {"file_path": "<relative path inside the workspace>", "content": "<complete file contents>"}. To change an existing file, use its exact path from the file list. Base everything on the goal and the existing files shown. Never invent features, technologies, URLs, or contact details that are not given.' },
-    { role: 'user', content: 'Goal: ' + task.goal + (task.project ? `\n\nThis file is order ${task.project.index + 1} of ${task.project.orders.length} in the project "${task.project.name}". The whole project, in build order (earlier files already exist in the workspace):\n` + task.project.orders.map((o, i) => `${i + 1}. ${o}`).join('\n') + '\nMatch the names, exports and formats the other orders describe.' : '') + (task.plan ? '\n\nPlan:\n' + task.plan : '') + '\n\n' + workspaceContext(task.goal + ' ' + (task.project ? task.project.orders.join(' ') : '')) + (await extraContext(task.goal)) + previous + (feedback ? '\n\nYour previous draft was rejected. Fix these problems and return the corrected complete file:\n' + feedback : '') }
+    { role: 'user', content: 'Goal: ' + task.goal + (task.project ? `\n\nThis file is order ${task.project.index + 1} of ${task.project.orders.length} in the project "${task.project.name}". The whole project:\n` + task.project.orders.map((o, i) => `${i + 1}. ${o}`).join('\n') + '\nMatch the names, exports and formats the other orders describe.' : '') + projectFilesText(files) + (task.plan ? '\n\nPlan:\n' + task.plan : '') + '\n\n' + workspaceContext(task.goal + ' ' + (task.project ? task.project.orders.join(' ') : '')) + (await extraContext(task.goal)) + previous + (feedback ? '\n\nYour previous draft was rejected. Fix these problems and return the corrected complete file:\n' + feedback : '') }
   ], skillsFor('builder', task.goal));
 }
 
@@ -1446,25 +1809,19 @@ function parseBuilderOutput(response) {
   return parsed;
 }
 
-function cleanProject(p) {
-  if (!p || typeof p !== 'object' || !Array.isArray(p.orders)) return undefined;
-  const orders = p.orders.map(o => String(o).slice(0, 1000)).slice(0, 8);
-  const index = Number.isInteger(p.index) && p.index >= 0 && p.index < orders.length ? p.index : 0;
-  return { id: /^[\w-]{1,40}$/.test(p.id || '') ? p.id : 'proj_' + Date.now().toString(36), name: String(p.name || 'Project').slice(0, 80), index, orders };
-}
-
 function sha1(buf) { return require('crypto').createHash('sha1').update(buf).digest('hex'); }
 
 // Optional: commit each applied change when the workspace is a git repo. Fixed git arguments, never a shell.
-function gitCommit(relPath, goal) {
+function gitCommit(relPaths, goal) {
+  const paths = [].concat(relPaths);
   const { execFileSync } = require('child_process');
   const git = (...args) => execFileSync('git', ['-C', WORKSPACE_DIR, ...args], { timeout: 15000, stdio: 'pipe', windowsHide: true }).toString().trim();
   try {
     if (git('rev-parse', '--is-inside-work-tree') !== 'true') return null;
-    git('add', '--', relPath);
-    const msg = `Freeze Foundry: ${String(goal || relPath).replace(/\s+/g, ' ').slice(0, 72)}`;
-    try { git('commit', '-m', msg, '--', relPath); }
-    catch { git('-c', 'user.name=Freeze Foundry', '-c', 'user.email=factory@freezefoundry.local', 'commit', '-m', msg, '--', relPath); } // no git identity set
+    git('add', '--', ...paths);
+    const msg = `Freeze Foundry: ${String(goal || paths[0]).replace(/\s+/g, ' ').slice(0, 72)}`;
+    try { git('commit', '-m', msg, '--', ...paths); }
+    catch { git('-c', 'user.name=Freeze Foundry', '-c', 'user.email=factory@freezefoundry.local', 'commit', '-m', msg, '--', ...paths); } // no git identity set
     return git('rev-parse', '--short', 'HEAD');
   } catch (e) { console.warn('git commit skipped:', e.message.split('\n')[0]); return null; }
 }

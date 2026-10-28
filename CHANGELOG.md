@@ -2,6 +2,15 @@
 
 Everything that changed in Freeze Foundry, newest first.
 
+## 0.12.0 · 2026-10-28
+
+- **The Foreman runs whole projects.** It used to plan and queue; now it runs the project to the end on its own, even if you switch pages.
+- **Parallel lines.** Each work order lists the files it needs and starts as soon as they're built. Orders that don't depend on each other build at the same time: one on the main line, others on LAN Foundry machines, each with its own model.
+- **The Foreman reacts to failure.** When an order fails every attempt, nothing else starts. The Foreman re-plans the remaining work around the problem (twice at most), or pauses so you can Retry, Skip or Stop. A model server that stops answering always pauses.
+- **Final inspection.** With every file built, the Tester checks them together, including imports and page links that point at missing files, and the Reviewer reads the whole project. Files with problems go back to their Builder with the notes.
+- **One approval, one undo.** Nothing touches the workspace until the project is done. Apply writes every file with backups (and one git commit if that's on); Undo restores them all. Auto-apply ships a project that passes inspection.
+- **Project board.** The left drawer shows every file's progress and line, the floor lights up the stations a project is using, and a project that was running when the app closed comes back paused.
+
 ## 0.11.0 · 2026-10-28
 
 - **Foreman.** Whole projects from one goal: the Foreman splits it into up to 8 one-file work orders in build order, you edit the plan, and every Builder sees the whole project so the files fit together. The queue tags each order with its project, and you get a summary when the last one finishes.
