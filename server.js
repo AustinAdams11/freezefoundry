@@ -91,6 +91,35 @@ function backupFile(sourcePath, backupPath) {
   fs.copyFileSync(sourcePath, backupPath);
 }
 
+// fetch for model servers: a time limit, up to two retries on rate limits, server errors and dropped connections,
+// and errors that say what to do instead of "fetch failed".
+async function modelFetch(st, url, opts) {
+  const limit = (st.requestTimeoutSec || 600) * 1000;
+  for (let attempt = 0; ; attempt++) {
+    let r;
+    try {
+      r = await fetch(url, { ...opts, signal: AbortSignal.timeout(limit) });
+    } catch (e) {
+      const code = e.cause && e.cause.code;
+      if (e.name === 'TimeoutError') throw new Error(`The model took longer than ${limit / 1000}s to answer. Raise "Model time limit" in Settings, lower Max tokens, or use a smaller model.`);
+      const unreachable = () => new Error(st.provider === 'local' || st.provider === 'custom'
+        ? `Can't reach the model server at ${String(url).replace(/\/(chat\/completions|messages)$/, '')}. Start it (LM Studio: Developer tab > Start server; Ollama: run "ollama serve"), or check the address on the Models page.`
+        : `Can't reach ${PROVIDERS[st.provider].label} (${code || e.message}). Check your internet connection.`);
+      if (code === 'ECONNREFUSED' || code === 'ENOTFOUND') throw unreachable(); // nothing listening: retrying won't help
+      if (attempt >= 2) throw unreachable();
+      await new Promise(res => setTimeout(res, 1500 * (attempt + 1)));
+      continue;
+    }
+    if ((r.status === 429 || r.status >= 500) && attempt < 2) {
+      const wait = Math.min(20, Number(r.headers.get('retry-after')) || 2 * (attempt + 1));
+      console.warn(`Model server returned ${r.status}; retrying in ${wait}s`);
+      await new Promise(res => setTimeout(res, wait * 1000));
+      continue;
+    }
+    return r;
+  }
+}
+
 // Call the configured OpenAI-compatible model server (LM Studio or Ollama) and record usage in the ledger.
 async function callLMStudio(messages, role = 'default', taskId = null) {
   const st = { ...loadSettings() };
@@ -115,7 +144,7 @@ async function callLMStudio(messages, role = 'default', taskId = null) {
     let text, usage;
     if (st.provider === 'anthropic') {
       const system = messages.filter(m => m.role === 'system').map(m => m.content).join('\n\n');
-      const r = await fetch(PROVIDERS.anthropic.base + '/messages', {
+      const r = await modelFetch(st, PROVIDERS.anthropic.base + '/messages', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01' },
         body: JSON.stringify({ model, system, max_tokens: st.maxTokens, temperature: Math.min(st.temperature, 1), messages: messages.filter(m => m.role !== 'system') })
@@ -127,7 +156,7 @@ async function callLMStudio(messages, role = 'default', taskId = null) {
     } else {
       // OpenAI's newer models only take max_completion_tokens and their default temperature.
       const body = st.provider === 'openai' ? { model, messages, max_completion_tokens: st.maxTokens } : { model, messages, temperature: st.temperature, max_tokens: st.maxTokens, ...(rc.topP != null ? { top_p: rc.topP } : {}) };
-      const r = await fetch(providerBase(st) + '/chat/completions', {
+      const r = await modelFetch(st, providerBase(st) + '/chat/completions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...(key ? { Authorization: `Bearer ${key}` } : {}) },
         body: JSON.stringify(body)
@@ -251,6 +280,38 @@ const server = http.createServer(async (req, res) => {
       }
     });
     return;
+  }
+
+  // Outcome of a task as the UI saw it (running, answered, staged, failed, cancelled); drives queue recovery after a restart.
+  if (pathname.startsWith('/api/tasks/') && pathname.endsWith('/status') && method === 'POST') {
+    try {
+      const b = await readJsonBody(req);
+      const tasks = loadTasks(), task = tasks[pathname.split('/')[3]];
+      if (!task) throw new Error('Task not found');
+      if (!['running', 'answered', 'staged', 'failed', 'cancelled', 'done'].includes(b.status)) throw new Error('Unknown status');
+      task.status = b.status;
+      if (typeof b.outcome === 'string') task.outcome = b.outcome.slice(0, 500);
+      task.updatedAt = new Date().toISOString();
+      saveTasks(tasks);
+      res.writeHead(200); return res.end(JSON.stringify({ ok: true }));
+    } catch (e) { res.writeHead(400); return res.end(JSON.stringify({ error: e.message })); }
+  }
+
+  // Put the workspace back the way it was before a change was applied (only if nobody edited the file since).
+  if (pathname.startsWith('/api/tasks/') && pathname.endsWith('/undo') && method === 'POST') {
+    try {
+      const tasks = loadTasks(), task = tasks[pathname.split('/')[3]];
+      const a = task && task.applied;
+      if (!a) throw new Error('This task has no applied change to undo.');
+      const target = path.resolve(WORKSPACE_DIR, a.path);
+      if (!target.startsWith(WORKSPACE_DIR + path.sep)) throw new Error('Invalid file path');
+      const current = fs.existsSync(target) ? fs.readFileSync(target) : null;
+      if (!current || sha1(current) !== a.hash) throw new Error(`${a.path} has changed since it was applied, so undo would lose those edits. Restore it from ${a.backup ? 'data/backups' : 'your own copy'} by hand.`);
+      if (a.backup) fs.copyFileSync(a.backup, target); else fs.unlinkSync(target);
+      task.status = 'undone'; task.updatedAt = new Date().toISOString(); delete task.applied;
+      saveTasks(tasks);
+      res.writeHead(200); return res.end(JSON.stringify({ ok: true, path: a.path, restored: !!a.backup }));
+    } catch (e) { res.writeHead(400); return res.end(JSON.stringify({ error: e.message })); }
   }
 
   if (pathname.startsWith('/api/tasks/') && pathname.endsWith('/plan')) {
@@ -458,6 +519,7 @@ if (pathname.startsWith('/api/tasks/') && pathname.endsWith('/approve')) {
         }
         
         const backupPath = path.join(backupDir, `backup_${taskId}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}.json`);
+        const existed = fs.existsSync(targetPath);
         backupFile(targetPath, backupPath);
 
         // Write new content
@@ -470,8 +532,14 @@ if (pathname.startsWith('/api/tasks/') && pathname.endsWith('/approve')) {
         // Remove proposal file
         fs.unlinkSync(proposalFile);
 
+        task.status = 'applied';
+        task.updatedAt = new Date().toISOString();
+        task.applied = { path: relativePath, backup: existed ? backupPath : null, hash: sha1(Buffer.from(proposal.content, 'utf8')), at: task.updatedAt };
+        saveTasks(tasks);
+        const committed = loadSettings().gitCommit ? gitCommit(relativePath, task.goal) : null;
+
         res.writeHead(200);
-        res.end(JSON.stringify({ task: taskId, status: 'approved', path: relativePath }));
+        res.end(JSON.stringify({ task: taskId, status: 'approved', path: relativePath, committed }));
       } catch (err) {
         console.error('Error approving task:', err.message);
         res.writeHead(500);
@@ -543,6 +611,7 @@ if (pathname.startsWith('/api/tasks/') && pathname.endsWith('/approve')) {
         fs.unlinkSync(proposalFile);
 
         res.writeHead(200);
+        try { const all = loadTasks(); if (all[taskId]) { all[taskId].status = 'rejected'; all[taskId].updatedAt = new Date().toISOString(); saveTasks(all); } } catch {}
         res.end(JSON.stringify({ task: taskId, status: 'rejected' }));
       } catch (err) {
         console.error('Error rejecting task:', err.message);
@@ -568,6 +637,8 @@ if (pathname.startsWith('/api/tasks/') && pathname.endsWith('/approve')) {
         if (typeof b.autoApply === 'boolean') st.autoApply = b.autoApply;
         if (typeof b.setupDone === 'boolean') st.setupDone = b.setupDone;
         if (Number.isInteger(b.attempts) && b.attempts >= 1 && b.attempts <= 10) st.attempts = b.attempts;
+        if (Number.isInteger(b.requestTimeoutSec) && b.requestTimeoutSec >= 30 && b.requestTimeoutSec <= 3600) st.requestTimeoutSec = b.requestTimeoutSec;
+        if (typeof b.gitCommit === 'boolean') st.gitCommit = b.gitCommit;
         if (typeof b.pythonPath === 'string' && b.pythonPath.length <= 300 && !/[\r\n]/.test(b.pythonPath)) st.pythonPath = b.pythonPath.trim();
         if (typeof b.temperature === 'number' && b.temperature >= 0 && b.temperature <= 2) st.temperature = b.temperature;
         if (Number.isInteger(b.maxTokens) && b.maxTokens >= 256 && b.maxTokens <= 32768) st.maxTokens = b.maxTokens;
@@ -696,7 +767,7 @@ if (pathname.startsWith('/api/tasks/') && pathname.endsWith('/approve')) {
 
   if (pathname === '/api/open-folder' && method === 'POST') {
     const { which } = await readJsonBody(req).catch(() => ({}));
-    const dir = { models: loadSettings().modelsDir, workspace: WORKSPACE_DIR, data: DATA_DIR, skills: SKILLS_DIR }[which];
+    const dir = { models: loadSettings().modelsDir, workspace: WORKSPACE_DIR, data: DATA_DIR, skills: SKILLS_DIR, logs: path.join(DATA_DIR, 'logs') }[which];
     if (!dir) { res.writeHead(400); return res.end(JSON.stringify({ error: 'Unknown folder' })); }
     fs.mkdirSync(dir, { recursive: true });
     const opener = process.platform === 'win32' ? 'explorer' : process.platform === 'darwin' ? 'open' : 'xdg-open';
@@ -1133,7 +1204,7 @@ const LEDGER_FILE = path.join(DATA_DIR, 'ledger.jsonl');
 const DEFAULT_SETTINGS = {
   provider: 'local', baseUrl: 'http://127.0.0.1:1234/v1', model: MODEL_NAME, roleModels: {}, roleConfig: {},
   modelsDir: path.join(os.homedir(), '.lmstudio', 'models'), attempts: 3, autoApply: true, setupDone: false,
-  temperature: 0.7, maxTokens: 4096, permissions: { readFiles: true, runTests: true, sources: true, internet: false, runScripts: false }, ui: { accent: '#a855f7', theme: 'system', pace: 'normal', sounds: true, notifications: true, reduceMotion: false, scale: 1 }
+  temperature: 0.7, maxTokens: 4096, requestTimeoutSec: 600, gitCommit: false, permissions: { readFiles: true, runTests: true, sources: true, internet: false, runScripts: false }, ui: { accent: '#a855f7', theme: 'system', pace: 'normal', sounds: true, notifications: true, reduceMotion: false, scale: 1 }
 };
 
 const APP_VERSION = require('./package.json').version;
@@ -1318,6 +1389,34 @@ function setKey(provider, key) {
 
 // ---------- Permissions, sources, web pages ----------
 function perms() { return loadSettings().permissions; }
+
+function sha1(buf) { return require('crypto').createHash('sha1').update(buf).digest('hex'); }
+
+// Optional: commit each applied change when the workspace is a git repo. Fixed git arguments, never a shell.
+function gitCommit(relPath, goal) {
+  const { execFileSync } = require('child_process');
+  const git = (...args) => execFileSync('git', ['-C', WORKSPACE_DIR, ...args], { timeout: 15000, stdio: 'pipe', windowsHide: true }).toString().trim();
+  try {
+    if (git('rev-parse', '--is-inside-work-tree') !== 'true') return null;
+    git('add', '--', relPath);
+    const msg = `Freeze Foundry: ${String(goal || relPath).replace(/\s+/g, ' ').slice(0, 72)}`;
+    try { git('commit', '-m', msg, '--', relPath); }
+    catch { git('-c', 'user.name=Freeze Foundry', '-c', 'user.email=factory@freezefoundry.local', 'commit', '-m', msg, '--', relPath); } // no git identity set
+    return git('rev-parse', '--short', 'HEAD');
+  } catch (e) { console.warn('git commit skipped:', e.message.split('\n')[0]); return null; }
+}
+
+// Tasks saved before statuses were tracked stay "pending" forever; mark them once so queue recovery ignores them.
+(() => {
+  try {
+    const st = loadSettings();
+    if (st.taskStatusV2) return;
+    const tasks = loadTasks();
+    for (const t of Object.values(tasks)) if (t.status === 'pending') t.status = 'unknown';
+    saveTasks(tasks);
+    writeJsonAtomic(SETTINGS_FILE, { ...st, taskStatusV2: true });
+  } catch (e) { console.warn('task migration skipped:', e.message); }
+})();
 
 let scriptRun = null;
 // shortcut: uses Python from PATH (or the pythonPath setting); no virtualenv picker yet.

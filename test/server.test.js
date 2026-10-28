@@ -142,3 +142,79 @@ test('watchers read HTTP and cgminer-style TCP APIs and raise alerts', async () 
     assert.equal((await (await fetch(BASE + '/api/watchers')).json()).watchers.length, 0);
   } finally { web.close(); miner.close(); }
 });
+
+test('approve records the change, undo restores or removes it, statuses persist', async () => {
+  const s = await (await fetch(BASE + '/api/settings')).json();
+  const stage = async (goal, file, content) => {
+    const t = await (await post('/api/tasks', { goal })).json();
+    const pid = `${t.id}_1`;
+    fs.mkdirSync(path.join(home, 'data', 'proposals'), { recursive: true });
+    fs.writeFileSync(path.join(home, 'data', 'proposals', `proposal_${pid}.json`), JSON.stringify({ proposal_id: pid, file_path: file, content }));
+    return { t, pid };
+  };
+  // a new file: undo deletes it
+  const a = await stage('Create notes/new.txt', 'notes/new.txt', 'hello');
+  assert.equal((await post(`/api/tasks/${a.t.id}/approve`, { proposal_id: a.pid })).status, 200);
+  assert.equal(fs.readFileSync(path.join(s.workspace, 'notes/new.txt'), 'utf8'), 'hello');
+  assert.equal((await post(`/api/tasks/${a.t.id}/undo`, {})).status, 200);
+  assert.equal(fs.existsSync(path.join(s.workspace, 'notes/new.txt')), false);
+
+  // an existing file: undo restores the old content, but refuses if it was edited after applying
+  fs.writeFileSync(path.join(s.workspace, 'keep.txt'), 'v1');
+  const b = await stage('Update keep.txt', 'keep.txt', 'v2');
+  await post(`/api/tasks/${b.t.id}/approve`, { proposal_id: b.pid });
+  fs.writeFileSync(path.join(s.workspace, 'keep.txt'), 'v2 plus my edit');
+  assert.equal((await post(`/api/tasks/${b.t.id}/undo`, {})).status, 400);
+  fs.writeFileSync(path.join(s.workspace, 'keep.txt'), 'v2');
+  assert.equal((await post(`/api/tasks/${b.t.id}/undo`, {})).status, 200);
+  assert.equal(fs.readFileSync(path.join(s.workspace, 'keep.txt'), 'utf8'), 'v1');
+
+  const c = await (await post('/api/tasks', { goal: 'x' })).json();
+  assert.equal((await post(`/api/tasks/${c.id}/status`, { status: 'running' })).status, 200);
+  assert.equal((await post(`/api/tasks/${c.id}/status`, { status: 'hacked' })).status, 400);
+  const tasks = await (await fetch(BASE + '/api/tasks')).json();
+  assert.equal(tasks[a.t.id].status, 'undone');
+  assert.equal(tasks[c.id].status, 'running');
+});
+
+test('an unreachable model server gives a clear, actionable error', async () => {
+  const s = await (await fetch(BASE + '/api/settings')).json();
+  const net = require('node:net');
+  const free = await new Promise(r => { const sv = net.createServer().listen(0, () => { const p = sv.address().port; sv.close(() => r(p)); }); });
+  await post('/api/settings', { provider: 'local', baseUrl: `http://127.0.0.1:${free}/v1` });
+  const t = await (await post('/api/tasks', { goal: 'Create a.js' })).json();
+  const r = await post(`/api/tasks/${t.id}/plan`, { task: t.goal });
+  assert.ok(r.status >= 400);
+  assert.match((await r.json()).error, /Can't reach the model server/);
+  await post('/api/settings', { baseUrl: s.baseUrl });
+});
+
+test('watcher alerts are POSTed to a webhook', async () => {
+  const http = require('node:http');
+  let got;
+  const hook = http.createServer((q, r) => { let b = ''; q.on('data', d => b += d); q.on('end', () => { got = JSON.parse(b); r.end('ok'); }); }).listen(0);
+  const dev = http.createServer((q, r) => r.end(JSON.stringify({ temp: 99 }))).listen(0);
+  await new Promise(r => setTimeout(r, 100));
+  try {
+    const w = await (await post('/api/watchers', { name: 'Hot', kind: 'http', url: `http://127.0.0.1:${dev.address().port}/`, fields: 'temp', rule: { op: '>', path: 'temp', value: 80 }, webhook: `http://127.0.0.1:${hook.address().port}/off` })).json();
+    for (let i = 0; i < 30 && !got; i++) await new Promise(r => setTimeout(r, 100));
+    assert.equal(got.watcher, 'Hot');
+    assert.match(got.message, /temp is 99/);
+    await post('/api/watchers/delete', { id: w.id });
+  } finally { hook.close(); dev.close(); }
+});
+
+test('applied changes are committed when the workspace is a git repo and the option is on', async () => {
+  const { execFileSync } = require('node:child_process');
+  const s = await (await fetch(BASE + '/api/settings')).json();
+  try { execFileSync('git', ['--version']); } catch { return; } // no git on this machine
+  execFileSync('git', ['init', '-q', s.workspace]);
+  await post('/api/settings', { gitCommit: true });
+  const t = await (await post('/api/tasks', { goal: 'Create hello.md' })).json();
+  const pid = `${t.id}_1`;
+  fs.writeFileSync(path.join(home, 'data', 'proposals', `proposal_${pid}.json`), JSON.stringify({ proposal_id: pid, file_path: 'hello.md', content: '# hi' }));
+  const r = await (await post(`/api/tasks/${t.id}/approve`, { proposal_id: pid })).json();
+  assert.ok(r.committed, 'expected a commit hash');
+  assert.match(execFileSync('git', ['-C', s.workspace, 'log', '-1', '--format=%s']).toString(), /Freeze Foundry: Create hello\.md/);
+  await post('/api/settings', { gitCommit: false });
+});

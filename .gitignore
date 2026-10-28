@@ -6,3 +6,5 @@ skills/
 _to_delete/
 *.log
 .DS_Store
+repomix-output*
+*.tmp
