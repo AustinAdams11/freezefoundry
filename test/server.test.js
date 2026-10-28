@@ -251,3 +251,36 @@ test('saves are atomic and the server keeps a log', async () => {
   assert.match(fs.readFileSync(path.join(home, 'data', 'logs', 'server.log'), 'utf8'), /server running at/);
   await post('/api/settings', { attempts: 3 });
 });
+
+test('the foreman plans a project and every builder sees the whole plan', async () => {
+  const http = require('node:http');
+  let builderPrompt = '';
+  const mock = http.createServer((q, r) => {
+    let b = ''; q.on('data', d => b += d); q.on('end', () => {
+      const msgs = JSON.parse(b).messages, sys = msgs.map(m => m.content).join(' ');
+      let text = 'ok';
+      if (/foreman/.test(sys)) text = 'Sure! {"project": "csv2json", "orders": ["Create src/parse.js that exports parseCsv(text)", "Create cli.js that uses src/parse.js", "Create README.md"]}';
+      if (/code generator/.test(sys)) { builderPrompt = msgs[msgs.length - 1].content; text = JSON.stringify({ file_path: 'cli.js', content: 'console.log(1)\n' }); }
+      r.end(JSON.stringify({ choices: [{ message: { content: text } }], usage: {} }));
+    });
+  }).listen(0);
+  await new Promise(r => setTimeout(r, 100));
+  const before = await (await fetch(BASE + '/api/settings')).json();
+  try {
+    await post('/api/settings', { provider: 'local', baseUrl: `http://127.0.0.1:${mock.address().port}/v1`, model: 'm' });
+    assert.equal((await post('/api/foreman', { goal: '' })).status, 400);
+    const plan = await (await post('/api/foreman', { goal: 'A CLI that turns CSV into JSON' })).json();
+    assert.equal(plan.project, 'csv2json');
+    assert.equal(plan.orders.length, 3);
+
+    const project = { id: 'proj_t1', name: plan.project, orders: plan.orders, index: 1 };
+    const t = await (await post('/api/tasks', { goal: plan.orders[1], project })).json();
+    assert.equal(t.project.index, 1);
+    assert.equal((await post(`/api/tasks/${t.id}/propose`, {})).status, 200);
+    assert.match(builderPrompt, /order 2 of 3 in the project "csv2json"/);
+    assert.match(builderPrompt, /1\. Create src\/parse\.js/);
+  } finally {
+    mock.close();
+    await post('/api/settings', { baseUrl: before.baseUrl, model: before.model });
+  }
+});

@@ -503,6 +503,12 @@
         .report-row .row button { padding: 3px 10px; font-size: 11px; }
     
 
+    
+        .fm-orders { display: grid; gap: 8px; max-height: 50vh; overflow: auto; }
+        .fm-order { display: grid; grid-template-columns: 28px minmax(0, 1fr) auto; gap: 8px; align-items: start; }
+        .fm-order .n { font: 700 14px var(--mono); color: var(--accent); padding-top: 8px; }
+        .fm-order textarea { min-height: 44px; resize: vertical; width: 100%; box-sizing: border-box; background: var(--bg-input); color: var(--text-main); border: 1px solid var(--border-color); border-radius: 8px; padding: 8px 10px; font: 13px/1.5 var(--mono); }
+        .task-item .proj { font-size: 10px; letter-spacing: .06em; text-transform: uppercase; color: var(--accent); }
     </style>
 </head>
 <body>
@@ -587,6 +593,7 @@
                 <button onclick="app.stopTask()" id="btn-stop" class="ghost" hidden title="Stop the current work order (Esc twice)">Stop</button>
                 <button onclick="app.rejectChanges()" id="btn-reject" class="danger" disabled>Reject</button>
                 <button onclick="app.applyChanges()" id="btn-apply" class="success" disabled>Apply change</button>
+                <button class="ghost" id="btn-foreman" onclick="app.foremanPlan()" title="Big goal? The Foreman splits it into ordered one-file work orders">&#9874; Foreman</button>
                 <button class="send" onclick="app.submitTask()">Send to intake &#10140;</button>
             </div>
         </div>
@@ -769,6 +776,15 @@
         <li><b>Use blueprints.</b> The chips above the ticket fill in a proven template: CLI tool, web page, Apify Actor project, PyTorch model, script or README.</li>
         <li><b>Queue a night's work.</b> One goal per line runs top to bottom.</li>
       </ul>
+
+      <h2 id="g-foreman" data-toc="Foreman: projects">Foreman: whole projects</h2>
+      <p>Each work order builds one file. For anything bigger, write the whole project on the ticket ("a CLI that converts CSV to JSON, with tests and a README") and press <b>&#9874; Foreman</b> instead of Send.</p>
+      <ol>
+        <li>The Foreman plans up to 8 one-file work orders in build order: shared code first, then what uses it, then tests and docs.</li>
+        <li>Review the plan. Edit any order, remove ones you don't want, or add your own.</li>
+        <li><b>Queue project</b> sends them down the line. Every Builder sees the whole plan and the files already built, so names and formats match across files.</li>
+      </ol>
+      <p class="hint">The Foreman uses the Planner's model. A stronger model there gives better plans. When the last order finishes, the console sums up how many files shipped.</p>
 
       <h2 id="g-approve" data-toc="Approvals and the queue">Approvals, Auto-apply and the queue</h2>
       <p>With <b>Auto-apply</b> off, every finished change waits in <b>Staged changes</b>. Click it to see the diff, then apply or reject. With it on, a change applies itself only when tests didn't fail <i>and</i> the Reviewer approved; everything else waits for you.</p>
@@ -964,6 +980,16 @@ roles: [builder, reviewer]
 </div>
 
 <div class="toasts" id="toasts"></div>
+
+<div id="foreman-modal" class="modal" hidden>
+    <div class="modal-box" style="width: min(760px, 94vw)">
+        <h2 id="fm-title">Foreman's plan</h2>
+        <p class="hint">One file per work order, in build order. Edit, reorder by retyping, remove or add orders, then queue the project. Every Builder sees the whole plan, so the files fit together.</p>
+        <div id="fm-orders" class="fm-orders"></div>
+        <div class="row"><button class="ghost" onclick="app.addForemanOrder('')">+ Add a work order</button></div>
+        <div class="modal-actions"><button class="ghost" onclick="document.getElementById('foreman-modal').hidden = true">Cancel</button><button onclick="app.queueProject()">Queue project</button></div>
+    </div>
+</div>
 
 <div id="setup-modal" class="modal" hidden>
     <div class="modal-box">
@@ -2368,6 +2394,15 @@ class App {
 
     record(task, outcome) {
         this.report.push({ time: new Date().toLocaleString(), goal: task.goal, outcome, id: task.id || null });
+        if (task.project) {
+            const done = (this.projectOutcomes ||= {})[task.project.id] = [...(this.projectOutcomes[task.project.id] || []), outcome];
+            if (done.length === task.project.orders.length) {
+                const shipped = done.filter(o => /^applied/.test(o)).length;
+                const msg = `Project "${task.project.name}" finished: ${shipped} of ${done.length} files shipped${shipped < done.length ? '. Check the Report for the rest.' : '.'}`;
+                this.logToConsole(msg, shipped === done.length ? 'success' : 'warn');
+                this.toast(msg);
+            }
+        }
         const status = /^applied/.test(outcome) ? null : /^rejected/.test(outcome) ? null : /^answered/.test(outcome) ? 'answered'
             : /^cancelled/.test(outcome) ? 'cancelled' : /^error|^apply failed/.test(outcome) ? 'failed' : /staged/.test(outcome) ? 'staged' : 'done';
         if (status && task.id) fetch(`/api/tasks/${task.id}/status`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status, outcome }) }).catch(() => {});
@@ -2407,6 +2442,60 @@ class App {
         this.renderTaskList();
         this.logToConsole(`Restored ${waiting.length} work order${waiting.length > 1 ? 's' : ''} from last session. Press Send to intake with an empty ticket to resume, or Clear to drop them.`, 'info');
         this.toast(`${waiting.length} unfinished work order${waiting.length > 1 ? 's' : ''} restored`);
+    }
+
+    // ---------- Foreman: one big goal becomes an ordered project of one-file work orders ----------
+    async foremanPlan() {
+        const goal = document.getElementById('goal-input').value.trim();
+        if (!goal) return this.toast('Describe the whole project on the work order, then press Foreman');
+        const btn = document.getElementById('btn-foreman');
+        btn.disabled = true; btn.textContent = 'Planning...';
+        this.logToConsole('Foreman is planning the project...', 'info');
+        try {
+            const r = await fetch('/api/foreman', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ goal }) });
+            const d = await r.json().catch(() => ({}));
+            if (!r.ok) throw new Error(d.error || 'The Foreman could not plan this');
+            this.foreman = { name: d.project, goal };
+            document.getElementById('fm-title').textContent = `Foreman's plan: ${d.project}`;
+            document.getElementById('fm-orders').innerHTML = '';
+            d.orders.forEach(o => this.addForemanOrder(o));
+            document.getElementById('foreman-modal').hidden = false;
+            this.logToConsole(`Foreman planned ${d.orders.length} work orders.`, 'success');
+        } catch (e) {
+            this.toast(e.message); this.logToConsole('Foreman: ' + e.message, 'error');
+        } finally { btn.disabled = false; btn.innerHTML = '&#9874; Foreman'; }
+    }
+
+    addForemanOrder(text) {
+        const box = document.getElementById('fm-orders');
+        if (box.children.length >= 8) return this.toast('Up to 8 work orders per project');
+        const row = document.createElement('div');
+        row.className = 'fm-order';
+        row.innerHTML = '<span class="n"></span><textarea></textarea><button class="ghost" title="Remove">&times;</button>';
+        row.querySelector('textarea').value = text;
+        row.querySelector('button').onclick = () => { row.remove(); this.numberForemanOrders(); };
+        box.appendChild(row);
+        this.numberForemanOrders();
+    }
+
+    numberForemanOrders() { document.querySelectorAll('#fm-orders .n').forEach((n, i) => { n.textContent = i + 1; }); }
+
+    async queueProject() {
+        const orders = [...document.querySelectorAll('#fm-orders textarea')].map(t => t.value.trim()).filter(Boolean);
+        if (!orders.length) return this.toast('Add at least one work order');
+        const project = { id: 'proj_' + Date.now().toString(36), name: this.foreman.name, orders };
+        document.getElementById('foreman-modal').hidden = true;
+        for (let i = 0; i < orders.length; i++) {
+            const r = await fetch('/api/tasks', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ goal: orders[i], project: { ...project, index: i } }) });
+            const task = await r.json().catch(() => null);
+            if (!r.ok || !task || !task.id) { this.toast('Could not queue the project'); return; }
+            this.taskQueue.push(task);
+        }
+        document.getElementById('goal-input').value = '';
+        this.renderTaskList();
+        this.toast(`Project "${project.name}": ${orders.length} work orders queued`);
+        this.logToConsole(`Foreman queued "${project.name}" (${orders.length} work orders).`, 'success');
+        this.processNextTask();
     }
 
     retryGoal(goal) {
@@ -2936,7 +3025,7 @@ class App {
                     <span class="task-id">#${escapeHtml(String(task.id || task.task_id || task.taskId || 'NEW').slice(-4))}</span>
                     <span class="task-status" style="background:${statusColor}; color:#000">${statusText}</span>
                 </div>
-                <div style="font-size: 0.85rem; color: #ccc;">${escapeHtml(String(task.goal || task.title || 'Untitled task').substring(0, 40))}...</div>
+                <div style="font-size: 0.85rem; color: #ccc;">${task.project ? `<div class="proj">${escapeHtml(task.project.name)} &middot; ${task.project.index + 1}/${task.project.orders.length}</div>` : ''}${escapeHtml(String(task.goal || task.title || 'Untitled task').substring(0, 40))}...</div>
             `;
             
             div.onclick = () => {

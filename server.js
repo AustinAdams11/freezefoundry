@@ -263,6 +263,7 @@ const server = http.createServer(async (req, res) => {
           const task = {
             id: taskId,
             goal: data.goal || '',
+            project: cleanProject(data.project),
             status: 'pending',
             createdAt: new Date().toISOString(),
             plan: null,
@@ -317,6 +318,25 @@ const server = http.createServer(async (req, res) => {
       task.status = 'undone'; task.updatedAt = new Date().toISOString(); delete task.applied;
       saveTasks(tasks);
       res.writeHead(200); return res.end(JSON.stringify({ ok: true, path: a.path, restored: !!a.backup }));
+    } catch (e) { res.writeHead(400); return res.end(JSON.stringify({ error: e.message })); }
+  }
+
+  // FOREMAN: break a big goal into ordered one-file work orders that fit together
+  if (pathname === '/api/foreman' && method === 'POST') {
+    try {
+      const b = await readJsonBody(req);
+      const goal = String(b.goal || '').trim();
+      if (!goal || goal.length > 4000) throw new Error('Describe the project on the work order first.');
+      const raw = await callLMStudio(withSkills([
+        { role: 'system', content: 'You are the foreman of a software factory. Workers build exactly ONE file per work order. Break the project into the smallest set of work orders (at most 8) in build order: shared modules first, then the files that use them, then tests, then docs. Each work order must name its file path and say what it does and which other project files it uses, e.g. "Create src/parse.js that exports parseCsv(text)". Reuse existing files from the file list instead of recreating them. Output ONLY JSON: {"project": "<short name>", "orders": ["<work order>", ...]}' },
+        { role: 'user', content: `Project: ${goal}\n\n${workspaceContext(goal)}` + (await extraContext(goal)) }
+      ], skillsFor('planner', goal)), 'planner');
+      const text = raw.replace(/<think>[\s\S]*?<\/think>/g, '');
+      let plan;
+      try { plan = JSON.parse(text.slice(text.indexOf('{'), text.lastIndexOf('}') + 1)); } catch { throw new Error('The foreman did not return a plan. Try again, or use a stronger model for the Planner.'); }
+      const orders = (Array.isArray(plan.orders) ? plan.orders : []).map(o => String(typeof o === 'string' ? o : (o && o.goal) || '').trim().slice(0, 1000)).filter(Boolean).slice(0, 8);
+      if (!orders.length) throw new Error('The foreman returned no work orders. Make the project description more specific.');
+      res.writeHead(200); return res.end(JSON.stringify({ project: String(plan.project || goal).slice(0, 80), orders }));
     } catch (e) { res.writeHead(400); return res.end(JSON.stringify({ error: e.message })); }
   }
 
@@ -1407,7 +1427,7 @@ function isLocalHost(host) {
 async function builderMessages(task, feedback = '', previous = '') {
   return withSkills([
     { role: 'system', content: 'You are a code generator. Output ONLY valid JSON, no markdown blocks. Format: {"file_path": "<relative path inside the workspace>", "content": "<complete file contents>"}. To change an existing file, use its exact path from the file list. Base everything on the goal and the existing files shown. Never invent features, technologies, URLs, or contact details that are not given.' },
-    { role: 'user', content: 'Goal: ' + task.goal + (task.plan ? '\n\nPlan:\n' + task.plan : '') + '\n\n' + workspaceContext(task.goal) + (await extraContext(task.goal)) + previous + (feedback ? '\n\nYour previous draft was rejected. Fix these problems and return the corrected complete file:\n' + feedback : '') }
+    { role: 'user', content: 'Goal: ' + task.goal + (task.project ? `\n\nThis file is order ${task.project.index + 1} of ${task.project.orders.length} in the project "${task.project.name}". The whole project, in build order (earlier files already exist in the workspace):\n` + task.project.orders.map((o, i) => `${i + 1}. ${o}`).join('\n') + '\nMatch the names, exports and formats the other orders describe.' : '') + (task.plan ? '\n\nPlan:\n' + task.plan : '') + '\n\n' + workspaceContext(task.goal + ' ' + (task.project ? task.project.orders.join(' ') : '')) + (await extraContext(task.goal)) + previous + (feedback ? '\n\nYour previous draft was rejected. Fix these problems and return the corrected complete file:\n' + feedback : '') }
   ], skillsFor('builder', task.goal));
 }
 
@@ -1424,6 +1444,13 @@ function parseBuilderOutput(response) {
     }
   } catch { console.log('JSON parsing skipped, using raw response as content.'); }
   return parsed;
+}
+
+function cleanProject(p) {
+  if (!p || typeof p !== 'object' || !Array.isArray(p.orders)) return undefined;
+  const orders = p.orders.map(o => String(o).slice(0, 1000)).slice(0, 8);
+  const index = Number.isInteger(p.index) && p.index >= 0 && p.index < orders.length ? p.index : 0;
+  return { id: /^[\w-]{1,40}$/.test(p.id || '') ? p.id : 'proj_' + Date.now().toString(36), name: String(p.name || 'Project').slice(0, 80), index, orders };
 }
 
 function sha1(buf) { return require('crypto').createHash('sha1').update(buf).digest('hex'); }
