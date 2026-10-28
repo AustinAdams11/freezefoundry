@@ -507,8 +507,35 @@
         .fm-orders { display: grid; gap: 8px; max-height: 50vh; overflow: auto; }
         .fm-order { display: grid; grid-template-columns: 28px minmax(0, 1fr) auto; gap: 8px; align-items: start; }
         .fm-order .n { font: 700 14px var(--mono); color: var(--accent); padding-top: 8px; }
-        .fm-order textarea { min-height: 44px; resize: vertical; width: 100%; box-sizing: border-box; background: var(--bg-input); color: var(--text-main); border: 1px solid var(--border-color); border-radius: 8px; padding: 8px 10px; font: 13px/1.5 var(--mono); }
-        .task-item .proj { font-size: 10px; letter-spacing: .06em; text-transform: uppercase; color: var(--accent); }
+        .fm-order .fields { display: grid; gap: 4px; min-width: 0; }
+        .fm-order textarea, .fm-order input { width: 100%; box-sizing: border-box; background: var(--bg-input); color: var(--text-main); border: 1px solid var(--border-color); border-radius: 8px; padding: 6px 10px; font: 13px/1.5 var(--mono); }
+        .fm-order textarea { min-height: 44px; resize: vertical; }
+        .fm-order .fm-file { font-weight: 700; color: var(--accent); }
+        .fm-order .fm-needs { font-size: 11px; color: var(--text-muted); }
+        .fm-opts { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; margin-top: 12px; }
+        .fm-opts h3 { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--text-muted); margin: 0 0 6px; }
+        .modal-box .fm-line { display: flex; flex-direction: row; gap: 8px; align-items: center; margin-bottom: 6px; font-size: 13px; color: var(--text-main); }
+        .fm-line select { flex: 1; min-width: 0; }
+        .proj-card { background: var(--bg-raise); border: 1px solid var(--border-color); border-radius: 10px; padding: 10px; margin-bottom: 8px; display: grid; gap: 6px; font-size: 12px; }
+        .proj-card.running, .proj-card.inspecting { border-color: var(--accent); }
+        .proj-card.paused { border-color: var(--warning); }
+        .proj-head { display: flex; justify-content: space-between; gap: 6px; align-items: center; }
+        .proj-head b { color: var(--text-main); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .proj-bar { height: 4px; border-radius: 2px; background: var(--border-color); overflow: hidden; }
+        .proj-bar i { display: block; height: 100%; background: var(--accent); transition: width .4s; }
+        .proj-meta, .proj-note { color: var(--text-muted); font-size: 11px; }
+        .proj-note { color: var(--warning); }
+        .proj-orders { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+        .proj-orders li { display: grid; grid-template-columns: 12px minmax(0, 1fr) auto; gap: 6px; align-items: center; font: 11px var(--mono); cursor: pointer; padding: 2px 4px; border-radius: 4px; }
+        .proj-orders li:hover { background: var(--bg-input); }
+        .proj-orders .f { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-main); }
+        .proj-orders .l { color: var(--text-muted); }
+        .st { width: 8px; height: 8px; border-radius: 50%; background: var(--border-color); }
+        .st.building, .st.testing, .st.reviewing { background: var(--accent); animation: pulse 1s infinite; }
+        .st.done { background: var(--success); } .st.failed { background: var(--error); } .st.skipped { background: var(--warning); }
+        .proj-card .row button { padding: 4px 9px; font-size: 11px; }
+        @keyframes pulse { 50% { opacity: .35; } }
+        @media (prefers-reduced-motion: reduce) { .st { animation: none !important; } }
     </style>
 </head>
 <body>
@@ -546,6 +573,8 @@
     <div class="floor-area"><div class="floor-wrap"><canvas id="floor-canvas" width="640" height="300"></canvas><canvas id="floor-light"></canvas></div></div>
 
     <section class="drawer drawer-left" id="task-queue-panel">
+        <div class="panel-header" id="proj-head" hidden><span>&#9874; Foreman projects</span></div>
+        <div class="panel-content" id="proj-list" hidden style="flex: 0 1 auto; max-height: 45%;"></div>
         <div class="panel-header"><span>Queue</span><button class="ghost mini" onclick="app.resetQueue()">Clear</button></div>
         <div class="panel-content" id="task-list" style="flex: 0 1 auto; max-height: 35%;"></div>
         <div class="panel-header"><span>Staged changes</span><span class="row" style="gap: 4px;"><button class="ghost mini" onclick="app.refreshStaged()">Refresh</button><button class="ghost mini" onclick="app.discardAllStaged()">Discard all</button></span></div>
@@ -782,9 +811,15 @@
       <ol>
         <li>The Foreman plans up to 8 one-file work orders in build order: shared code first, then what uses it, then tests and docs.</li>
         <li>Review the plan. Edit any order, remove ones you don't want, or add your own.</li>
-        <li><b>Queue project</b> sends them down the line. Every Builder sees the whole plan and the files already built, so names and formats match across files.</li>
+        <li>Pick the <b>lines</b>. The main line uses your Worker tuning; tick a LAN Foundry machine and choose its model to add a second line. Orders that don't depend on each other build at the same time, one per line.</li>
+        <li><b>Start project.</b> The Foreman runs it on its own, even if you switch pages: every Builder sees the whole plan and the files built so far, so names and formats match.</li>
       </ol>
-      <p class="hint">The Foreman uses the Planner's model. A stronger model there gives better plans. When the last order finishes, the console sums up how many files shipped.</p>
+      <ul>
+        <li><b>When an order fails</b> every attempt, nothing else starts. The Foreman re-plans the remaining work around the problem (twice at most), or, if you chose <i>Pause and ask me</i>, waits for you to Retry, Skip or Stop. A model server that stops answering always pauses.</li>
+        <li><b>Final inspection.</b> When every file is built, the Tester checks them together (syntax, imports and page links that point at missing files, your workspace's tests) and the Reviewer reads the whole project. Files with problems go back to their Builder with the notes.</li>
+        <li><b>One approval.</b> Nothing touches your workspace until the project is done. Apply writes every file at once with backups; Undo puts them all back. With Auto-apply on, a project that passes inspection applies itself.</li>
+      </ul>
+      <p class="hint">The Foreman plans with the Planner's model and inspects with the Reviewer's, so a stronger model there pays off. Projects show up in the left drawer with each file's progress; click a file to read it. A project that was running when the app closed comes back paused.</p>
 
       <h2 id="g-approve" data-toc="Approvals and the queue">Approvals, Auto-apply and the queue</h2>
       <p>With <b>Auto-apply</b> off, every finished change waits in <b>Staged changes</b>. Click it to see the diff, then apply or reject. With it on, a change applies itself only when tests didn't fail <i>and</i> the Reviewer approved; everything else waits for you.</p>
@@ -984,10 +1019,14 @@ roles: [builder, reviewer]
 <div id="foreman-modal" class="modal" hidden>
     <div class="modal-box" style="width: min(760px, 94vw)">
         <h2 id="fm-title">Foreman's plan</h2>
-        <p class="hint">One file per work order, in build order. Edit, reorder by retyping, remove or add orders, then queue the project. Every Builder sees the whole plan, so the files fit together.</p>
+        <p class="hint">One file per work order. An order starts as soon as the files it needs are built, so independent files build at the same time on different lines. Edit anything, then start. The Foreman runs it to the end: it re-plans around failures, inspects all the files together, and stages the whole project for one approval.</p>
         <div id="fm-orders" class="fm-orders"></div>
-        <div class="row"><button class="ghost" onclick="app.addForemanOrder('')">+ Add a work order</button></div>
-        <div class="modal-actions"><button class="ghost" onclick="document.getElementById('foreman-modal').hidden = true">Cancel</button><button onclick="app.queueProject()">Queue project</button></div>
+        <div class="row"><button class="ghost" onclick="app.addForemanOrder({})">+ Add a work order</button></div>
+        <div class="fm-opts">
+            <div><h3>Lines</h3><div id="fm-lines"></div></div>
+            <div><h3>If an order fails</h3><select id="fm-onfail"><option value="replan">Re-plan the rest (up to twice)</option><option value="pause">Pause and ask me</option></select></div>
+        </div>
+        <div class="modal-actions"><button class="ghost" onclick="document.getElementById('foreman-modal').hidden = true">Cancel</button><button onclick="app.startProject()">Start project</button></div>
     </div>
 </div>
 
@@ -2394,15 +2433,6 @@ class App {
 
     record(task, outcome) {
         this.report.push({ time: new Date().toLocaleString(), goal: task.goal, outcome, id: task.id || null });
-        if (task.project) {
-            const done = (this.projectOutcomes ||= {})[task.project.id] = [...(this.projectOutcomes[task.project.id] || []), outcome];
-            if (done.length === task.project.orders.length) {
-                const shipped = done.filter(o => /^applied/.test(o)).length;
-                const msg = `Project "${task.project.name}" finished: ${shipped} of ${done.length} files shipped${shipped < done.length ? '. Check the Report for the rest.' : '.'}`;
-                this.logToConsole(msg, shipped === done.length ? 'success' : 'warn');
-                this.toast(msg);
-            }
-        }
         const status = /^applied/.test(outcome) ? null : /^rejected/.test(outcome) ? null : /^answered/.test(outcome) ? 'answered'
             : /^cancelled/.test(outcome) ? 'cancelled' : /^error|^apply failed/.test(outcome) ? 'failed' : /staged/.test(outcome) ? 'staged' : 'done';
         if (status && task.id) fetch(`/api/tasks/${task.id}/status`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status, outcome }) }).catch(() => {});
@@ -2444,7 +2474,7 @@ class App {
         this.toast(`${waiting.length} unfinished work order${waiting.length > 1 ? 's' : ''} restored`);
     }
 
-    // ---------- Foreman: one big goal becomes an ordered project of one-file work orders ----------
+    // ---------- Foreman: plans a project, then the server runs it to the end ----------
     async foremanPlan() {
         const goal = document.getElementById('goal-input').value.trim();
         if (!goal) return this.toast('Describe the whole project on the work order, then press Foreman');
@@ -2459,6 +2489,7 @@ class App {
             document.getElementById('fm-title').textContent = `Foreman's plan: ${d.project}`;
             document.getElementById('fm-orders').innerHTML = '';
             d.orders.forEach(o => this.addForemanOrder(o));
+            this.renderForemanLines();
             document.getElementById('foreman-modal').hidden = false;
             this.logToConsole(`Foreman planned ${d.orders.length} work orders.`, 'success');
         } catch (e) {
@@ -2466,13 +2497,15 @@ class App {
         } finally { btn.disabled = false; btn.innerHTML = '&#9874; Foreman'; }
     }
 
-    addForemanOrder(text) {
+    addForemanOrder(o) {
         const box = document.getElementById('fm-orders');
         if (box.children.length >= 8) return this.toast('Up to 8 work orders per project');
         const row = document.createElement('div');
         row.className = 'fm-order';
-        row.innerHTML = '<span class="n"></span><textarea></textarea><button class="ghost" title="Remove">&times;</button>';
-        row.querySelector('textarea').value = text;
+        row.innerHTML = '<span class="n"></span><div class="fields"><input class="fm-file" placeholder="file path, e.g. src/parse.js" aria-label="File"><textarea aria-label="What to build"></textarea><input class="fm-needs" placeholder="needs: files this one uses (comma separated)" aria-label="Needs"></div><button class="ghost" title="Remove">&times;</button>';
+        row.querySelector('.fm-file').value = o.file || '';
+        row.querySelector('textarea').value = o.goal || '';
+        row.querySelector('.fm-needs').value = (o.needs || []).length ? 'needs: ' + o.needs.join(', ') : '';
         row.querySelector('button').onclick = () => { row.remove(); this.numberForemanOrders(); };
         box.appendChild(row);
         this.numberForemanOrders();
@@ -2480,22 +2513,164 @@ class App {
 
     numberForemanOrders() { document.querySelectorAll('#fm-orders .n').forEach((n, i) => { n.textContent = i + 1; }); }
 
-    async queueProject() {
-        const orders = [...document.querySelectorAll('#fm-orders textarea')].map(t => t.value.trim()).filter(Boolean);
+    // Main line plus one optional line per LAN Foundry machine, each with its own model.
+    renderForemanLines() {
+        const box = document.getElementById('fm-lines');
+        box.innerHTML = '<label class="fm-line"><input type="checkbox" checked disabled> Main line <span style="color: var(--text-muted)">(Worker tuning)</span></label>';
+        const machines = (this.settings && this.settings.machines) || [];
+        if (!machines.length) box.insertAdjacentHTML('beforeend', '<div class="hint">Add computers under Settings &gt; LAN Foundry to build on more than one line.</div>');
+        machines.forEach(m => {
+            const row = document.createElement('label');
+            row.className = 'fm-line';
+            row.innerHTML = '<input type="checkbox"><span></span><select disabled><option value="">pick a model</option></select>';
+            row.querySelector('span').textContent = m.name;
+            const [check, , sel] = row.children;
+            check.onchange = async () => {
+                sel.disabled = !check.checked;
+                if (!check.checked || sel.options.length > 1) return;
+                const d = await fetch('/api/machines/models?url=' + encodeURIComponent(m.baseUrl)).then(r => r.json()).catch(e => ({ error: e.message }));
+                if (!d.models) { this.toast(`${m.name}: ${d.error || 'no answer'}`); check.checked = false; sel.disabled = true; return; }
+                d.models.forEach(id => sel.add(new Option(id, id)));
+                if (d.models.length) sel.selectedIndex = 1;
+            };
+            row.dataset.url = m.baseUrl;
+            box.appendChild(row);
+        });
+    }
+
+    async startProject() {
+        const orders = [...document.querySelectorAll('#fm-orders .fm-order')].map(r => ({
+            file: r.querySelector('.fm-file').value.trim(),
+            goal: r.querySelector('textarea').value.trim(),
+            needs: r.querySelector('.fm-needs').value.replace(/^\s*needs:/i, '').split(',').map(s => s.trim()).filter(Boolean)
+        })).filter(o => o.goal);
         if (!orders.length) return this.toast('Add at least one work order');
-        const project = { id: 'proj_' + Date.now().toString(36), name: this.foreman.name, orders };
+        const lines = [...document.querySelectorAll('#fm-lines .fm-line[data-url]')].filter(r => r.querySelector('input').checked)
+            .map(r => ({ baseUrl: r.dataset.url, model: r.querySelector('select').value }));
+        if (lines.some(l => !l.model)) return this.toast('Pick a model for every machine you ticked');
+        const r = await fetch('/api/projects', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: this.foreman.name, goal: this.foreman.goal, orders, lines, onFail: document.getElementById('fm-onfail').value }) });
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok) return this.toast(d.error || 'Could not start the project');
         document.getElementById('foreman-modal').hidden = true;
-        for (let i = 0; i < orders.length; i++) {
-            const r = await fetch('/api/tasks', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ goal: orders[i], project: { ...project, index: i } }) });
-            const task = await r.json().catch(() => null);
-            if (!r.ok || !task || !task.id) { this.toast('Could not queue the project'); return; }
-            this.taskQueue.push(task);
-        }
         document.getElementById('goal-input').value = '';
-        this.renderTaskList();
-        this.toast(`Project "${project.name}": ${orders.length} work orders queued`);
-        this.logToConsole(`Foreman queued "${project.name}" (${orders.length} work orders).`, 'success');
-        this.processNextTask();
+        this.toast(`Project "${d.name}" started`);
+        this.sfx('start');
+        this.pollProjects();
+    }
+
+    async pollProjects() {
+        const list = await fetch('/api/projects').then(r => r.json()).catch(() => null);
+        if (!Array.isArray(list)) return;
+        this.projSeen ||= {};
+        for (const p of list) {
+            const seen = this.projSeen[p.id];
+            const fresh = seen ? p.log.filter(l => l.at > seen.at) : this.projPolled ? p.log : []; // projects from before this window opened stay quiet
+            fresh.forEach(l => this.logToConsole(`Foreman (${p.name}): ${l.msg}`, l.level));
+            if (seen && seen.status !== p.status) this.projectChanged(p);
+            this.projSeen[p.id] = { status: p.status, at: p.log.length ? p.log[p.log.length - 1].at : '' };
+        }
+        this.projPolled = true;
+        this.mirrorFloor(list);
+        const key = JSON.stringify(list.map(p => [p.id, p.status, p.running, p.note, p.replans, p.inspection && p.inspection.at, p.orders.map(o => [o.status, o.file, o.line])]));
+        if (key !== this.projKey) { this.projKey = key; this.projects = list; this.renderProjects(); }
+    }
+
+    projectChanged(p) {
+        const msg = { staged: `Project "${p.name}" is ready to apply`, applied: `Project "${p.name}" applied`, paused: `Project "${p.name}" paused: ${p.note}`, failed: `Project "${p.name}" failed` }[p.status];
+        if (!msg) return;
+        this.toast(msg.slice(0, 160));
+        this.sfx(p.status === 'paused' || p.status === 'failed' ? 'error' : 'ready');
+        if (p.status === 'applied') this.refreshFiles();
+        if (this.ui().notifications !== false && document.hidden) try { new Notification('Freeze Foundry', { body: msg }); } catch {}
+    }
+
+    // While a project runs and the floor is free, light up the stations its lines are using.
+    mirrorFloor(list) {
+        const role = { building: 'builder', testing: 'tester', reviewing: 'reviewer' };
+        const p = list.find(p => p.running);
+        if (this.currentTask || this.busy) return;
+        if (!p) {
+            if (this.mirroring) { this.mirroring = false; Object.values(this.workers).forEach(w => w.reset()); if (this.floor.visible) this.moveCrate('dock'); }
+            return;
+        }
+        this.mirroring = true;
+        const busy = {};
+        p.orders.filter(o => role[o.status]).forEach(o => (busy[role[o.status]] ||= []).push(`${o.file || o.goal.slice(0, 40)} on ${o.line}`));
+        if (p.status === 'inspecting') busy.reviewer = [`Final inspection of "${p.name}": every file together`];
+        for (const [r, w] of Object.entries(this.workers)) {
+            if (busy[r]) { if (w.status !== 'running') w.setStatus('running'); w.show(busy[r].join('\n')); }
+            else if (w.status === 'running') w.setStatus('success');
+        }
+        const lead = busy.reviewer && p.status === 'inspecting' ? 'reviewer' : Object.keys(busy)[0];
+        if (lead && lead !== this.crateAt) this.moveCrate(lead);
+    }
+
+    renderProjects() {
+        const list = (this.projects || []).slice(0, 6);
+        const box = document.getElementById('proj-list');
+        document.getElementById('proj-head').hidden = box.hidden = !list.length;
+        box.innerHTML = '';
+        const label = { running: 'Building', inspecting: 'Inspecting', paused: 'Paused', staged: 'Ready to apply', applied: 'Applied', undone: 'Undone', stopped: 'Stopped', failed: 'Failed' };
+        list.forEach(p => {
+            const done = p.orders.filter(o => o.status === 'done').length;
+            const card = document.createElement('div');
+            card.className = `proj-card ${p.status}`;
+            card.innerHTML = `<div class="proj-head"><b></b><span class="pill ${p.status === 'applied' || p.status === 'staged' ? 'ok' : p.status === 'paused' || p.status === 'failed' ? 'bad' : ''}">${label[p.status] || escapeHtml(p.status)}</span></div>
+                <div class="proj-bar"><i style="width:${p.orders.length ? Math.round(100 * done / p.orders.length) : 0}%"></i></div>
+                <div class="proj-meta"></div><ol class="proj-orders"></ol><div class="proj-note"></div><div class="row"></div>`;
+            card.querySelector('b').textContent = p.name;
+            card.querySelector('.proj-meta').textContent = `${done} of ${p.orders.length} files · ${p.lines.map(l => l.name).join(' + ')}${p.replans ? ` · re-planned ${p.replans}×` : ''}${p.inspection ? (p.inspection.passed ? ' · inspection passed' : ' · inspection found problems') : ''}`;
+            card.querySelector('.proj-note').textContent = p.status === 'paused' || p.status === 'failed' ? p.note || '' : '';
+            p.orders.forEach(o => {
+                const li = document.createElement('li');
+                li.innerHTML = `<span class="st ${escapeHtml(o.status)}" title="${escapeHtml(o.status)}"></span><span class="f"></span><span class="l"></span>`;
+                li.querySelector('.f').textContent = o.file || o.goal;
+                li.querySelector('.l').textContent = o.status === 'waiting' ? (o.needs.length ? 'waits' : '') : o.status === 'done' || o.status === 'skipped' || o.status === 'failed' ? o.status : `${o.status} · ${o.line}`;
+                li.onclick = () => this.showProjectFile(p, o);
+                card.querySelector('ol').appendChild(li);
+            });
+            const act = (text, action, cls = 'ghost') => {
+                const b = document.createElement('button');
+                b.className = cls; b.textContent = text;
+                b.onclick = () => action === 'log' ? this.showProjectLog(p) : action === 'inspection' ? this.showInspection(p) : this.projectAction(p, action);
+                card.querySelector('.row').appendChild(b);
+            };
+            const failed = p.orders.some(o => o.status === 'failed');
+            if (p.running) { act('Pause', 'pause'); act('Stop', 'stop', 'danger'); }
+            else if (p.status === 'paused') { act(failed ? 'Retry' : 'Resume', 'resume', 'success'); if (failed) act('Skip it', 'skip'); act('Stop', 'stop', 'danger'); }
+            else if (p.status === 'staged') { act('Apply', 'apply', 'success'); act('Discard', 'stop', 'danger'); }
+            else if (p.status === 'applied') act('Undo', 'undo');
+            if (!p.running && !['staged', 'paused'].includes(p.status)) act('Remove', 'remove');
+            if (p.inspection) act('Inspection', 'inspection');
+            act('Log', 'log');
+            box.appendChild(card);
+        });
+    }
+
+    async projectAction(p, action) {
+        const r = await fetch(`/api/projects/${p.id}/${action}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok) { this.toast(d.error || 'That did not work'); this.logToConsole(`Foreman: ${d.error || r.status}`, 'error'); }
+        if (action === 'remove' && this.projSeen) delete this.projSeen[p.id];
+        this.pollProjects();
+    }
+
+    async showProjectFile(p, o) {
+        const full = await fetch(`/api/projects/${p.id}`).then(r => r.json()).catch(() => null);
+        const order = full && full.orders.find(x => x.id === o.id);
+        if (!order) return;
+        const notes = [...(order.issues || []).map(i => '- ' + i), ...(order.notes || []).map(n => 'note: ' + n), order.error ? 'error: ' + order.error : ''].filter(Boolean).join('\n');
+        this.showDetail(`${order.file || 'Work order'} (${order.status})`, `${order.goal}${order.needs.length ? `\nNeeds: ${order.needs.join(', ')}` : ''}${notes ? '\n\n' + notes : ''}${order.content ? '\n\n' + order.content : ''}`);
+    }
+
+    showProjectLog(p) { this.showDetail(`Foreman log: ${p.name}`, p.log.map(l => `${new Date(l.at).toLocaleTimeString()}  ${l.msg}`).join('\n')); }
+
+    showInspection(p) {
+        const i = p.inspection;
+        this.showDetail(`Final inspection: ${p.name}`, [`${i.passed ? 'PASSED' : 'PROBLEMS FOUND'} (reviewer: ${i.verdict})`, '',
+            ...i.checks.map(c => `$ ${c.command} -> exit ${c.exitCode}${c.output ? '\n' + c.output : ''}`), '',
+            ...i.issues.map(x => `- ${x.file || 'project'}: ${x.problem}`), ...i.notes.map(n => 'note: ' + n)].join('\n'));
     }
 
     retryGoal(goal) {
@@ -2666,6 +2841,8 @@ class App {
         this.renderBlueprints();
         this.refreshWatch();
         setInterval(() => this.refreshWatch(), 10000);
+        this.pollProjects();
+        setInterval(() => this.pollProjects(), 1500);
         this.restoreQueue();
         document.addEventListener('keydown', e => {
             if (e.key !== 'Escape') return;
@@ -3025,7 +3202,7 @@ class App {
                     <span class="task-id">#${escapeHtml(String(task.id || task.task_id || task.taskId || 'NEW').slice(-4))}</span>
                     <span class="task-status" style="background:${statusColor}; color:#000">${statusText}</span>
                 </div>
-                <div style="font-size: 0.85rem; color: #ccc;">${task.project ? `<div class="proj">${escapeHtml(task.project.name)} &middot; ${task.project.index + 1}/${task.project.orders.length}</div>` : ''}${escapeHtml(String(task.goal || task.title || 'Untitled task').substring(0, 40))}...</div>
+                <div style="font-size: 0.85rem; color: #ccc;">${escapeHtml(String(task.goal || task.title || 'Untitled task').substring(0, 40))}...</div>
             `;
             
             div.onclick = () => {
