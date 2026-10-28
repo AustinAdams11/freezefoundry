@@ -1,5 +1,9 @@
 # Freeze Foundry
 
+<p align="center"><img src="docs/demo.gif" alt="A work order riding the Freeze Foundry conveyor: Planner, Builder, Tester and Reviewer pass it, and the file ships to the workspace." width="900"></p>
+
+<p align="center"><b><a href="https://freezefoundry.com">freezefoundry.com</a></b> · <a href="../../releases/latest">Download</a> · <a href="https://freezefoundry.com/docs">Docs</a> · <a href="CHANGELOG.md">Changelog</a> · <a href="https://github.com/sponsors/AustinAdams11">Sponsor</a></p>
+
 A local-first AI software factory. Type a goal; four workers running on **your own local model** (Planner, Builder, Tester, Reviewer) plan it, write the code, test it and review it, and nothing is written to disk until it passes your approval. All of it plays out on an animated pixel-art factory floor.
 
 Runs on your own local model through [LM Studio](https://lmstudio.ai) or [Ollama](https://ollama.com), or on Claude, OpenAI or Gemini if you add a key.
