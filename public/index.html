@@ -861,6 +861,9 @@ roles: [builder, reviewer]
         <tr><td>Windows SmartScreen warning</td><td>More info, then Run anyway. The installer isn't code-signed yet.</td></tr>
       </table>
 
+      <h2 id="g-support" data-toc="Support the project">Support the project</h2>
+      <p>Freeze Foundry is free and open source. If it saves you time, you can <a href="https://github.com/sponsors/AustinAdams11" target="_blank">sponsor it on GitHub</a>, star the <a href="https://github.com/AustinAdams11/freezefoundry" target="_blank">repository</a>, or report bugs and ideas as issues.</p>
+
       <h2 id="changelog" data-toc="What's new">What's new</h2>
       <div id="changelog-body"><p class="hint">Loading...</p></div>
     </article>
@@ -954,6 +957,9 @@ roles: [builder, reviewer]
 </div>
 
 <script>
+// Escape text before it goes into HTML (model names, server errors and goals can contain anything).
+const escapeHtml = t => String(t ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
 /**
  * Freeze Foundry - Core Application Logic
  * Implements the 4-worker pipeline with real file system interaction.
@@ -2221,9 +2227,9 @@ class App {
             if (this.setupI !== 2) return;
             const models = d.models || [];
             body.innerHTML = '<h2>Pick a model</h2>' + (models.length
-                ? `<label class="hint" style="display:flex;flex-direction:column;gap:5px">Model for all workers <select id="setup-model">${models.map(m => `<option ${m.id === this.settings.model ? 'selected' : ''}>${m.id}</option>`).join('')}</select></label>
+                ? `<label class="hint" style="display:flex;flex-direction:column;gap:5px">Model for all workers <select id="setup-model">${models.map(m => `<option ${m.id === this.settings.model ? 'selected' : ''} value="${escapeHtml(m.id)}">${escapeHtml(m.id)}</option>`).join('')}</select></label>
                    <p class="hint">You can give each worker its own model later on the Models page.</p>`
-                : `<p class="hint">${r.ok ? 'No models are installed yet.' : (d.error || 'The model server is not reachable.')} Download one in LM Studio's Discover tab, or from the Models page here once setup is done. A 7&ndash;9B coding model such as Qwen is a good start.</p>`);
+                : `<p class="hint">${r.ok ? 'No models are installed yet.' : escapeHtml(d.error || 'The model server is not reachable.')} Download one in LM Studio's Discover tab, or from the Models page here once setup is done. A 7&ndash;9B coding model such as Qwen is a good start.</p>`);
         }
         if (i === 3) body.innerHTML = `<h2>You're ready</h2>
             <p>Type a goal in the box under the factory floor, one goal per line, and press Submit. Watch the workers carry it down the line; click any office to read its output.</p>
@@ -2375,7 +2381,7 @@ class App {
             div.className = 'staged-item';
             const pill = (txt, ok) => txt ? `<span class="pill ${ok ? 'ok' : 'bad'}">${txt}</span>` : '';
             div.innerHTML = `<div class="goal"></div><div class="meta"></div>
-                <div class="row">${pill(p.test && 'tests ' + p.test, p.test !== 'failed')}${pill(p.verdict && 'review ' + p.verdict, p.verdict === 'approve')}</div>
+                <div class="row">${pill(p.test && 'tests ' + escapeHtml(p.test), p.test !== 'failed')}${pill(p.verdict && 'review ' + escapeHtml(p.verdict), p.verdict === 'approve')}</div>
                 <div class="row"><button class="ghost" data-a="diff">Diff</button><button class="success" data-a="apply">Apply</button><button class="danger" data-a="reject">Reject</button></div>`;
             div.querySelector('.goal').textContent = p.goal || '(no goal recorded)';
             div.querySelector('.meta').textContent = p.file_path;
@@ -2841,10 +2847,10 @@ class App {
 
             div.innerHTML = `
                 <div class="task-header">
-                    <span class="task-id">#${String(task.id || task.task_id || task.taskId || 'NEW').slice(-4)}</span>
+                    <span class="task-id">#${escapeHtml(String(task.id || task.task_id || task.taskId || 'NEW').slice(-4))}</span>
                     <span class="task-status" style="background:${statusColor}; color:#000">${statusText}</span>
                 </div>
-                <div style="font-size: 0.85rem; color: #ccc;">${String(task.goal || task.title || 'Untitled task').substring(0, 40)}...</div>
+                <div style="font-size: 0.85rem; color: #ccc;">${escapeHtml(String(task.goal || task.title || 'Untitled task').substring(0, 40))}...</div>
             `;
             
             div.onclick = () => {
