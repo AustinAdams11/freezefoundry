@@ -7,6 +7,7 @@ Runs on your own local model through [LM Studio](https://lmstudio.ai) or [Ollama
 ## Features
 
 - **Four-worker pipeline** with real checks: the Tester runs `node --check`, JSON validation and your workspace's `npm test` in a throwaway copy; the Reviewer judges the diff and test results, and failed work goes back to the Builder with the feedback.
+- **Undo, retry and stop**: roll back any applied change, retry failed goals from the Report, stop a run mid-way; unfinished work orders survive a restart. Optional git commit per applied change.
 - **Approval gate**: see the diff, then apply or reject. Every applied change keeps a backup.
 - **Overnight queue**: one goal per line; with Auto-apply on, changes that pass tests and review are applied and everything else waits in *Staged changes* and the run report.
 - **Skills**: reusable instructions in the open Agent Skills format (`skills/<name>/SKILL.md`), switched on by trigger words in a goal and scoped to specific workers. Starter skills included.
@@ -17,7 +18,7 @@ Runs on your own local model through [LM Studio](https://lmstudio.ai) or [Ollama
 - **Permissions**: choose whether the AI may read workspace files, run tests, use sources and reach the internet.
 - **Training bay (PyTorch)**: the PyTorch blueprint has the workers write a training script; approve it, click **Run** on the `.py` file and watch its output and loss curve live. Off until you allow "Run Python scripts" in Permissions; uses your own Python with torch installed. Works on NVIDIA (CUDA), Apple Silicon (MPS), AMD Radeon (ROCm build of PyTorch, Windows or Linux) and CPU.
 - **Worker tuning**: give the Planner, Builder and Reviewer each their own provider, model, temperature, top-p, token limit and standing instructions, e.g. plan with Claude and build on your local GPU.
-- **Watch**: poll miners (Antminer/cgminer API on port 4028, Bitaxe/AxeOS), servers or any JSON API on a timer. Chart a value, alert when a rule trips or a device goes offline, and optionally have the model explain the alert.
+- **Watch**: poll miners (Antminer/cgminer API on port 4028, Bitaxe/AxeOS), servers or any JSON API on a timer. Chart a value, alert when a rule trips or a device goes offline, POST the alert to a webhook (smart plug, Home Assistant, Discord, ntfy), and optionally have the model explain it.
 - **Ship to Apify**: build a complete Apify Actor from a blueprint and publish it to your Apify account in one click.
 - **Guide and changelog**: a built-in manual for every page of the app and a What's new log ([CHANGELOG.md](CHANGELOG.md)), with a dot on the Guide button after updates.
 - **Light and dark themes**: Frost and Forge, switched from the top bar or set to follow your system.
