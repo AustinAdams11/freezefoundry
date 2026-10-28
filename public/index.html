@@ -501,6 +501,18 @@
         .report-row { padding: 8px 2px; border-bottom: 1px solid var(--border-color); display: grid; gap: 4px; white-space: normal; }
         .report-row .when { color: var(--text-muted); font-size: 11px; }
         .report-row .row button { padding: 3px 10px; font-size: 11px; }
+    
+        .as-entry { display: grid; grid-template-columns: 200px minmax(0, 1fr) auto; gap: 8px; margin-top: 8px; }
+        .as-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        .as-table th { text-align: left; color: var(--text-muted); font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: .05em; padding: 6px 8px; border-bottom: 1px solid var(--border-color); }
+        .as-table td { padding: 8px; border-bottom: 1px solid var(--border-color); vertical-align: top; }
+        .as-table tr.win td { background: color-mix(in srgb, var(--accent) 10%, transparent); }
+        .as-table .rank { font: 700 18px var(--mono); }
+        .as-table .score { font: 700 16px var(--mono); }
+        .as-table button { padding: 3px 10px; font-size: 11px; }
+        .as-past { display: flex; justify-content: space-between; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--border-color); cursor: pointer; }
+        .as-past:hover { color: var(--text-main); }
+        @media (max-width: 900px) { .as-entry { grid-template-columns: 1fr; } }
     </style>
 </head>
 <body>
@@ -528,6 +540,7 @@
     <button data-view="models" onclick="app.showView('models')"><span>&#129504;</span>Models</button>
     <button data-view="skills" onclick="app.showView('skills')"><span>&#129513;</span>Skills</button>
     <button data-view="sources" onclick="app.showView('sources')"><span>&#128218;</span>Sources</button>
+    <button data-view="assay" onclick="app.showView('assay')" title="Assay: compare models on the same work order"><span>&#9878;&#65039;</span>Assay</button>
     <button data-view="watch" onclick="app.showView('watch')"><span>&#128225;</span>Watch</button>
     <button data-view="ship" onclick="app.showView('ship')"><span>&#128640;</span>Ship</button>
     <button data-view="settings" onclick="app.showView('settings')"><span>&#9881;&#65039;</span>Settings</button>
@@ -623,6 +636,13 @@
         <div class="row"><button onclick="app.saveModels()">Save models</button></div>
     </div>
     <div class="card">
+        <h2>LAN Foundry: machines</h2>
+        <div class="hint">Run workers on other computers in your home: a big planning model on your Mac, the Builder on your gaming PC's GPU. On each machine, start LM Studio's server with <b>Serve on Local Network</b> turned on, or start Ollama with <code>OLLAMA_HOST=0.0.0.0</code>. Then add it here and pick it under <b>Runs on</b> in Worker tuning, or in the Assay.</div>
+        <div id="machine-list" class="list">No machines yet.</div>
+        <div class="row"><button class="ghost" id="scan-btn" onclick="app.scanMachines()">Scan my network</button><input id="m-name" placeholder="Name, e.g. Mac" style="max-width:160px"><input id="m-url" placeholder="http://192.168.1.20:1234"><button onclick="app.addMachine()">Add machine</button></div>
+        <div id="scan-out" class="hint"></div>
+    </div>
+    <div class="card">
         <h2>Worker tuning</h2>
         <div class="hint">Give each worker its own provider, model, temperature and instructions. Leave a field blank to use the defaults (Settings &gt; Generation). Example: plan with Claude at 0.3, build locally at 0.2, review with a second local model.</div>
         <div id="tuning"></div>
@@ -678,6 +698,27 @@
         <div id="src-msg" class="hint"></div>
     </div>
     <div id="sources-list"></div>
+</section>
+
+<section class="view" id="view-assay" hidden>
+    <h1>Assay</h1>
+    <p class="sub">An assay office tests ore for purity. This one tests models: the same work order goes to each model, the same Tester and Reviewer judge every result, and you get a leaderboard of what codes best on your hardware. Nothing is written until you stage a winner.</p>
+    <div class="card">
+        <h2>New assay</h2>
+        <label>Work order (one file, like a normal goal) <textarea id="as-goal" rows="2" placeholder="Create tools/csv2json.js that converts a CSV file to JSON with a --pretty flag"></textarea></label>
+        <div id="as-entries"></div>
+        <div class="row"><button class="ghost" id="as-add" onclick="app.addAssayEntry()">+ Add a model</button><span class="spacer"></span><button id="as-run" onclick="app.runAssay()">Run assay</button></div>
+        <div class="hint">2 to 6 models. They run one at a time so timings are fair and your GPU only holds one model. Machines from LAN Foundry appear in the list, so you can pit your Mac against your PC. Scoring: tests 40, review 50, speed up to 10.</div>
+    </div>
+    <div class="card" id="as-results-card" hidden>
+        <h2 id="as-title">Results</h2>
+        <div id="as-results"></div>
+        <div class="row"><button class="ghost" onclick="app.saveAssayCard()">Save results card</button><span id="as-msg" class="hint"></span></div>
+    </div>
+    <div class="card">
+        <h2>Past assays</h2>
+        <div id="as-history" class="hint">None yet.</div>
+    </div>
 </section>
 
 <section class="view" id="view-watch" hidden>
@@ -802,6 +843,24 @@ roles: [builder, reviewer]
         <li>Internet: fetch pages linked in a goal (off by default)</li>
         <li>Run Python scripts: the Run button in the training bay (off by default)</li>
       </ul>
+
+      <h2 id="g-assay" data-toc="Assay">Assay: which model codes best</h2>
+      <p>An assay office tests ore for purity; the <b>Assay</b> page tests models. Give it one work order and 2&ndash;6 models (on this computer or on LAN machines). Each model builds the file, the Tester checks it in a throwaway copy, and your usual Reviewer judges it. Models run one at a time so timings are fair.</p>
+      <table>
+        <tr><th>Points</th><th>For</th></tr>
+        <tr><td>40</td><td>Tests passed (30 when no checks apply to the file type)</td></tr>
+        <tr><td>50</td><td>Reviewer approved (15 for "revise")</td></tr>
+        <tr><td>up to 10</td><td>Speed, relative to the fastest finisher</td></tr>
+      </table>
+      <p><b>View</b> shows a result's code and the Reviewer's notes. <b>Stage</b> turns it into a normal staged change you can apply from the Factory page. <b>Save results card</b> exports a PNG of the leaderboard to share.</p>
+
+      <h2 id="g-lan" data-toc="LAN Foundry">LAN Foundry: workers on other machines</h2>
+      <ol>
+        <li>On the other computer, start a model server that listens on your network: in LM Studio, turn on <b>Serve on Local Network</b> in the Developer tab; for Ollama, start it with <code>OLLAMA_HOST=0.0.0.0</code>.</li>
+        <li>On the Models page, press <b>Scan my network</b> or add the machine by address, like <code>http://192.168.1.20:1234</code>.</li>
+        <li>In <b>Worker tuning</b>, set a worker's <b>Runs on</b> to that machine and type its model name. The console shows "Dispatching BUILDER on PC (LAN)" when it's used.</li>
+      </ol>
+      <p class="hint">Your code and prompts travel over your home network to that machine. Only add machines you control.</p>
 
       <h2 id="g-watch" data-toc="Watch">Watch</h2>
       <p>Watchers check a device or API on a timer while the app is open, chart the first value you track, and alert you when a rule trips.</p>
@@ -1560,7 +1619,7 @@ class App {
 
     showView(name) {
         document.getElementById('view-factory').hidden = name !== 'factory';
-        ['models', 'skills', 'sources', 'watch', 'ship', 'settings', 'guide'].forEach(v => { document.getElementById('view-' + v).hidden = name !== v; });
+        ['models', 'skills', 'sources', 'assay', 'watch', 'ship', 'settings', 'guide'].forEach(v => { document.getElementById('view-' + v).hidden = name !== v; });
         document.querySelectorAll('.rail [data-view]').forEach(b => b.classList.toggle('active', b.dataset.view === name));
         if (name === 'models') {
             document.getElementById('set-base').value = (this.settings && this.settings.baseUrl) || '';
@@ -1574,13 +1633,16 @@ class App {
         if (name === 'ship') this.refreshShip();
         if (name === 'watch') this.refreshWatch();
         if (name === 'guide') this.openGuide();
+        if (name === 'assay') this.openAssay();
+        if (name === 'models') this.renderMachines();
         if (name === 'models') this.renderTuning();
     }
 
     // ---------- Worker tuning ----------
     renderTuning() {
         const rc = (this.settings && this.settings.roleConfig) || {};
-        const provs = [['', '(default provider)'], ['local', 'Local (LM Studio / Ollama)'], ['anthropic', 'Claude'], ['openai', 'OpenAI'], ['gemini', 'Gemini'], ['openrouter', 'OpenRouter'], ['custom', 'Custom server']];
+        const machines = (this.settings && this.settings.machines) || [];
+        const provs = [['', '(default provider)'], ...machines.map((m, i) => [`lan:${i}`, `${m.name} (LAN)`]), ['local', 'Local (LM Studio / Ollama)'], ['anthropic', 'Claude'], ['openai', 'OpenAI'], ['gemini', 'Gemini'], ['openrouter', 'OpenRouter'], ['custom', 'Custom server']];
         const box = document.getElementById('tuning');
         box.innerHTML = '';
         ['planner', 'builder', 'reviewer'].forEach(role => {
@@ -1598,6 +1660,8 @@ class App {
               </div>
               <textarea data-k="instructions" placeholder="Extra instructions for the ${role}, e.g. 'Prefer small functions and explain trade-offs in comments.'"></textarea>`;
             d.querySelectorAll('[data-k]').forEach(el => { if (c[el.dataset.k] != null) el.value = c[el.dataset.k]; });
+            const mi = machines.findIndex(m => m.baseUrl === c.baseUrl);
+            if (c.baseUrl && mi >= 0) d.querySelector('[data-k="provider"]').value = `lan:${mi}`;
             d.querySelectorAll('.presets button').forEach(b => b.onclick = () => { d.querySelector('[data-k="temperature"]').value = b.dataset.t; });
             box.appendChild(d);
         });
@@ -1608,14 +1672,200 @@ class App {
         document.querySelectorAll('#tuning .tune').forEach(d => {
             const v = k => d.querySelector(`[data-k="${k}"]`).value.trim();
             const n = k => (v(k) === '' ? undefined : Number(v(k)));
-            roleConfig[d.dataset.role] = { provider: v('provider') || undefined, model: v('model') || undefined, temperature: n('temperature'), topP: n('topP'), maxTokens: n('maxTokens'), instructions: v('instructions') || undefined };
+            const lan = /^lan:(\d+)$/.exec(v('provider')), m = lan && (this.settings.machines || [])[Number(lan[1])];
+            roleConfig[d.dataset.role] = { provider: m ? undefined : v('provider') || undefined, baseUrl: m ? m.baseUrl : undefined, model: v('model') || undefined, temperature: n('temperature'), topP: n('topP'), maxTokens: n('maxTokens'), instructions: v('instructions') || undefined };
         });
-        const bad = Object.entries(roleConfig).find(([, c]) => c.provider && c.provider !== this.settings.provider && !c.model);
+        const bad = Object.entries(roleConfig).find(([, c]) => ((c.provider && c.provider !== this.settings.provider) || c.baseUrl) && !c.model);
         const msg = document.getElementById('tuning-msg');
-        if (bad) { msg.textContent = `The ${bad[0]} uses a different provider, so type its model name.`; return; }
+        if (bad) { msg.textContent = `The ${bad[0]} runs on a different provider or machine, so type its model name.`; return; }
         this.settings = await fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ roleConfig }) }).then(r => r.json());
         msg.textContent = 'Saved.';
         this.toast('Worker tuning saved');
+    }
+
+    // ---------- LAN Foundry ----------
+    renderMachines() {
+        const box = document.getElementById('machine-list'), list = (this.settings && this.settings.machines) || [];
+        box.innerHTML = list.length ? '' : 'No machines yet. Scan your network or add one by address.';
+        list.forEach((m, i) => {
+            const row = document.createElement('div');
+            row.className = 'row';
+            row.innerHTML = '<b></b><code></code><span class="spacer"></span><span class="hint" data-s></span><button class="ghost" data-a="test">Test</button><button class="ghost" data-a="del">Remove</button>';
+            row.querySelector('b').textContent = m.name;
+            row.querySelector('code').textContent = m.baseUrl;
+            row.querySelector('[data-a=test]').onclick = async () => {
+                const st = row.querySelector('[data-s]'); st.textContent = 'Checking...';
+                const d = await fetch('/api/machines/models?url=' + encodeURIComponent(m.baseUrl)).then(r => r.json()).catch(e => ({ error: e.message }));
+                st.textContent = d.error ? 'Not reachable' : `${d.models.length} model${d.models.length === 1 ? '' : 's'}`;
+                if (d.error) this.toast(d.error);
+            };
+            row.querySelector('[data-a=del]').onclick = () => this.saveMachines(list.filter((_, j) => j !== i));
+            box.appendChild(row);
+        });
+    }
+
+    async saveMachines(machines) {
+        await this.postSettings({ machines });
+        this.renderMachines();
+        this.renderTuning();
+    }
+
+    async addMachine(name, url) {
+        name = name || document.getElementById('m-name').value.trim();
+        url = url || document.getElementById('m-url').value.trim();
+        if (!url) return this.toast('Type the machine\'s address, like http://192.168.1.20:1234');
+        if (!/^https?:\/\//.test(url)) url = 'http://' + url;
+        const d = await fetch('/api/machines/models?url=' + encodeURIComponent(url)).then(r => r.json()).catch(e => ({ error: e.message }));
+        if (d.error) this.toast(d.error + ' Saved anyway; Test it once it\'s running.');
+        await this.saveMachines([...((this.settings && this.settings.machines) || []), { name: name || 'Machine', baseUrl: url }]);
+        document.getElementById('m-name').value = ''; document.getElementById('m-url').value = '';
+        if (!d.error) this.toast(`${name || 'Machine'} added with ${d.models.length} models`);
+    }
+
+    async scanMachines() {
+        const btn = document.getElementById('scan-btn'), out = document.getElementById('scan-out');
+        btn.disabled = true; out.textContent = 'Looking for LM Studio and Ollama on your network (a few seconds)...';
+        const d = await fetch('/api/machines/scan').then(r => r.json()).catch(e => ({ error: e.message }));
+        btn.disabled = false;
+        if (d.error) { out.textContent = 'Scan failed: ' + d.error; return; }
+        const known = new Set(((this.settings && this.settings.machines) || []).map(m => m.baseUrl));
+        const found = d.found.filter(f => !f.thisMachine);
+        out.innerHTML = '';
+        out.append(found.length ? `Found ${found.length} model server${found.length > 1 ? 's' : ''} on ${d.subnets.join(', ')}.x:` : `Nothing found on ${d.subnets.join(', ') || 'your network'}. Make sure the other machine's server listens on the local network.`);
+        found.forEach(f => {
+            const row = document.createElement('div');
+            row.className = 'row';
+            row.innerHTML = '<b></b><span></span><span class="spacer"></span><button class="ghost">Add</button>';
+            row.querySelector('b').textContent = `${f.kind} at ${f.host}`;
+            row.querySelector('span').textContent = `${f.models.length} models: ${f.models.slice(0, 3).join(', ')}${f.models.length > 3 ? '...' : ''}`;
+            const b = row.querySelector('button');
+            if (known.has(f.baseUrl)) { b.disabled = true; b.textContent = 'Added'; }
+            b.onclick = () => this.addMachine(`${f.kind} ${f.host.split('.').pop()}`, f.baseUrl);
+            out.appendChild(row);
+        });
+    }
+
+    // ---------- Assay ----------
+    async openAssay() {
+        if (!document.querySelector('#as-entries .as-entry')) { this.addAssayEntry(); this.addAssayEntry(); }
+        const list = await fetch('/api/assay').then(r => r.json()).catch(() => []);
+        const box = document.getElementById('as-history');
+        box.innerHTML = list.length ? '' : 'None yet.';
+        list.forEach(a => {
+            const row = document.createElement('div');
+            row.className = 'as-past';
+            row.innerHTML = '<span></span><span class="hint"></span>';
+            row.firstChild.textContent = a.goal;
+            row.lastChild.textContent = `${a.status === 'done' ? 'Winner: ' + (a.winner || 'none') : a.status} · ${a.count} models · ${new Date(a.createdAt).toLocaleString()}`;
+            row.onclick = () => this.showAssay(a.id);
+            box.appendChild(row);
+        });
+        const running = list.find(a => a.status === 'running');
+        if (running) this.showAssay(running.id);
+    }
+
+    addAssayEntry() {
+        const box = document.getElementById('as-entries');
+        if (box.children.length >= 6) return this.toast('Up to 6 models per assay');
+        const machines = (this.settings && this.settings.machines) || [];
+        const row = document.createElement('div');
+        row.className = 'as-entry';
+        const listId = 'as-models-' + Date.now() + box.children.length;
+        row.innerHTML = `<select><option value="">This computer</option>${machines.map((m, i) => `<option value="${i}">${escapeHtml(m.name)} (LAN)</option>`).join('')}</select><input placeholder="Model, e.g. qwen/qwen3.5-9b" list="${listId}"><button class="ghost" title="Remove">&times;</button><datalist id="${listId}"></datalist>`;
+        const [sel, input] = row.querySelectorAll('select, input');
+        const fill = async () => {
+            const m = machines[sel.value];
+            const d = await fetch(m ? '/api/machines/models?url=' + encodeURIComponent(m.baseUrl) : '/api/models').then(r => r.json()).catch(() => ({}));
+            const ids = (d.models || []).map(x => typeof x === 'string' ? x : x.id);
+            row.querySelector('datalist').innerHTML = ids.map(id => `<option value="${escapeHtml(id)}">`).join('');
+            if (!input.value && ids.length) input.value = ids[Math.min(box.children.length - 1, ids.length - 1)] || ids[0];
+        };
+        sel.onchange = () => { input.value = ''; fill(); };
+        row.querySelector('button').onclick = () => row.remove();
+        box.appendChild(row);
+        fill();
+    }
+
+    async runAssay() {
+        const machines = (this.settings && this.settings.machines) || [];
+        const entries = [...document.querySelectorAll('#as-entries .as-entry')].map(row => {
+            const sel = row.querySelector('select'), model = row.querySelector('input').value.trim(), m = machines[sel.value];
+            return { model, baseUrl: m ? m.baseUrl : undefined, machine: m ? m.name : 'This computer', label: `${model}${m ? ' @ ' + m.name : ''}` };
+        }).filter(e => e.model);
+        const r = await fetch('/api/assay', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ goal: document.getElementById('as-goal').value, entries }) });
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok) return this.toast(d.error || 'Could not start the assay');
+        this.logToConsole(`Assay started: ${entries.length} models on "${d.goal}"`, 'info');
+        this.showAssay(d.id);
+    }
+
+    async showAssay(id) {
+        clearInterval(this.assayPoll);
+        const draw = async () => {
+            const a = await fetch('/api/assay/' + id).then(r => r.json()).catch(() => null);
+            if (!a || a.error) return;
+            this.assay = a;
+            document.getElementById('as-results-card').hidden = false;
+            document.getElementById('as-title').textContent = a.status === 'running' ? 'Assaying...' : a.status === 'done' ? 'Results' : 'Assay ' + a.status;
+            const rows = [...a.results].map((r, i) => ({ ...r, i })).sort((x, y) => (x.rank || 99) - (y.rank || 99));
+            const pill = (txt, ok) => txt ? `<span class="pill ${ok ? 'ok' : 'bad'}">${escapeHtml(txt)}</span>` : '';
+            document.getElementById('as-results').innerHTML = `<div class="hint" style="margin-bottom:8px">${escapeHtml(a.goal)}</div><table class="as-table"><thead><tr><th>#</th><th>Model</th><th>Status</th><th>Tests</th><th>Review</th><th>Time</th><th>Score</th><th></th></tr></thead><tbody>${rows.map(r => `
+                <tr class="${r.rank === 1 && a.status === 'done' ? 'win' : ''}"><td class="rank">${r.rank || '·'}</td><td><b>${escapeHtml(r.model)}</b><div class="hint">${escapeHtml(r.machine || 'This computer')}</div></td>
+                <td>${escapeHtml(r.status)}${r.error ? `<div class="hint">${escapeHtml(r.error.slice(0, 120))}</div>` : ''}</td>
+                <td>${pill(r.test, r.test !== 'failed')}</td><td>${pill(r.verdict, r.verdict === 'approve')}</td>
+                <td>${r.ms ? (r.ms / 1000).toFixed(1) + 's' : ''}</td><td class="score">${r.score != null ? r.score : ''}</td>
+                <td>${r.status === 'done' ? `<button class="ghost" data-show="${r.i}">View</button> <button class="ghost" data-stage="${r.i}">Stage</button>` : ''}</td></tr>`).join('')}</tbody></table>`;
+            document.querySelectorAll('#as-results [data-show]').forEach(b => b.onclick = () => {
+                const r = a.results[b.dataset.show];
+                this.showDetail(`${r.model}: ${r.file_path}`, `${r.content}\n\n--- Reviewer: ${r.verdict}\n${(r.issues || []).map(x => '- ' + x).join('\n')}${r.testOutput ? '\n--- Tests\n' + r.testOutput : ''}`);
+            });
+            document.querySelectorAll('#as-results [data-stage]').forEach(b => b.onclick = async () => {
+                const d = await fetch(`/api/assay/${a.id}/stage`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ index: Number(b.dataset.stage) }) }).then(r => r.json());
+                if (d.error) return this.toast(d.error);
+                this.toast(`Staged ${d.file_path}. Apply it from Staged changes on the Factory page.`);
+                this.refreshStaged();
+            });
+            if (a.status !== 'running') {
+                clearInterval(this.assayPoll);
+                if (a.status === 'done' && !this.assayToasted?.[a.id]) {
+                    (this.assayToasted ||= {})[a.id] = true;
+                    const w = a.results.find(r => r.rank === 1);
+                    if (w) { this.toast(`Assay winner: ${w.model} (${w.score})`); this.logToConsole(`Assay done. Winner: ${w.label} with ${w.score} points.`, 'success'); }
+                    this.openAssay();
+                }
+            }
+        };
+        await draw();
+        if (this.assay && this.assay.status === 'running') this.assayPoll = setInterval(draw, 1500);
+    }
+
+    // A shareable PNG of the leaderboard, styled like a foundry assay certificate.
+    saveAssayCard() {
+        const a = this.assay;
+        if (!a || a.status !== 'done') return this.toast('Finish an assay first');
+        const rows = [...a.results].sort((x, y) => x.rank - y.rank);
+        const W = 1200, H = 260 + rows.length * 70, c = document.createElement('canvas');
+        c.width = W; c.height = H;
+        const g = c.getContext('2d');
+        g.fillStyle = '#16131c'; g.fillRect(0, 0, W, H);
+        g.fillStyle = '#ff9d00'; g.fillRect(0, 0, W, 8);
+        g.fillStyle = '#ece9f2'; g.font = '700 44px system-ui, sans-serif'; g.fillText('Assay certificate', 60, 90);
+        g.fillStyle = '#8e879e'; g.font = '22px system-ui, sans-serif';
+        g.fillText(a.goal.length > 90 ? a.goal.slice(0, 87) + '...' : a.goal, 60, 135);
+        g.fillText(new Date(a.finishedAt || a.createdAt).toLocaleDateString() + '  ·  Freeze Foundry', 60, 170);
+        rows.forEach((r, i) => {
+            const y = 230 + i * 70;
+            if (i === 0) { g.fillStyle = 'rgba(255,157,0,0.12)'; g.fillRect(40, y - 44, W - 80, 62); }
+            g.fillStyle = i === 0 ? '#ff9d00' : '#ece9f2'; g.font = '700 34px ui-monospace, monospace'; g.fillText(String(r.rank), 60, y);
+            g.fillStyle = '#ece9f2'; g.font = '600 26px system-ui, sans-serif'; g.fillText(r.model.length > 38 ? r.model.slice(0, 36) + '...' : r.model, 120, y - 8);
+            g.fillStyle = '#8e879e'; g.font = '18px system-ui, sans-serif'; g.fillText(`${r.machine || 'This computer'}  ·  tests ${r.test || '-'}  ·  review ${r.verdict || '-'}  ·  ${r.ms ? (r.ms / 1000).toFixed(1) + 's' : '-'}`, 120, y + 16);
+            g.fillStyle = i === 0 ? '#ff9d00' : '#ece9f2'; g.font = '700 36px ui-monospace, monospace'; g.textAlign = 'right'; g.fillText(String(r.score), W - 60, y); g.textAlign = 'left';
+        });
+        const link = document.createElement('a');
+        link.download = `assay-${a.id}.png`;
+        link.href = c.toDataURL('image/png');
+        link.click();
+        this.toast('Results card saved');
     }
 
     // ---------- Watch ----------
@@ -2758,7 +3008,9 @@ class App {
             
             await this.moveCrate(role);
             worker.setStatus('running');
-            this.logToConsole(`Dispatching ${role.toUpperCase()}...`);
+            const rc = ((this.settings && this.settings.roleConfig) || {})[role] || {};
+            const host = rc.baseUrl && ((this.settings.machines || []).find(m => m.baseUrl === rc.baseUrl) || {}).name;
+            this.logToConsole(`Dispatching ${role.toUpperCase()}${host ? ` on ${host} (LAN)` : ''}...`);
 
             try {
                 const result = await action();

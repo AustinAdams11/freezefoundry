@@ -2,6 +2,14 @@
 
 Everything that changed in Freeze Foundry, newest first.
 
+## 0.11.0 · 2026-10-28
+
+- **Assay.** Test which model codes best on your hardware: one work order, 2 to 6 models, the same Tester and Reviewer for each, and a leaderboard scored on tests, review and speed. View any result's code, stage the winner as a normal change, or save a results card to share.
+- **LAN Foundry.** Run workers on other computers in your home. Scan your network for LM Studio and Ollama servers or add one by address, then pick it under Runs on in Worker tuning, or as an Assay contestant. Plan on your Mac, build on your gaming PC.
+- **Fixed: crash-safe saves and the server log** were listed in 0.10.0 but never actually shipped. They're in now: tasks, settings, keys and sources are written atomically, and `data/logs/server.log` records every error.
+- **Sponsor** the project from the Guide or GitHub; the README opens with a demo of a real run.
+- CI uses the Node 24 versions of its GitHub Actions.
+
 ## 0.10.1 · 2026-10-28
 
 - **Security pass.** The local server now rejects requests whose `Host` isn't localhost (stops DNS-rebinding attacks from websites) and sends anti-framing and no-sniff headers. Model names, server errors and goals are escaped before they reach the screen. The app window can no longer navigate to outside pages and refuses camera, microphone and location permissions. An unused file route without path checks was removed.
