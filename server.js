@@ -1027,6 +1027,7 @@ if (pathname.startsWith('/api/tasks/') && pathname.endsWith('/approve')) {
           '.json': 'application/json; charset=utf-8',
           '.svg': 'image/svg+xml',
           '.png': 'image/png',
+          '.jpg': 'image/jpeg',
           '.ico': 'image/x-icon'
         };
         res.writeHead(200, {

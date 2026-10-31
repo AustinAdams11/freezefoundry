@@ -547,9 +547,9 @@
         .bank-stats span { font-size: 12px; color: var(--text-muted); }
         .goal-bar { height: 6px; border-radius: 6px; background: var(--border-color); overflow: hidden; }
         .goal-bar i { display: block; height: 100%; background: linear-gradient(90deg, #ffbe3d, #ff8a1f); }
-        .town-wrap { position: relative; max-width: 960px; aspect-ratio: 16 / 9; border-radius: 8px; overflow: hidden; border: 2px solid #334155; background: #0f172a; box-shadow: 0 20px 50px rgba(0,0,0,0.85); }
+        .town-wrap { position: relative; max-width: 1100px; aspect-ratio: 2576 / 1438; border-radius: 8px; overflow: hidden; border: 2px solid #334155; background: #0f172a; box-shadow: 0 20px 50px rgba(0,0,0,0.85); }
         #town-canvas { display: block; width: 100%; height: 100%; image-rendering: -moz-crisp-edges; image-rendering: -webkit-crisp-edges; image-rendering: pixelated; image-rendering: crisp-edges; background-color: #5b718c; cursor: pointer; }
-        .frost-bar, .frost-foot { max-width: 960px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 0 8px; }
+        .frost-bar, .frost-foot { max-width: 1100px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 0 8px; }
         .frost-bar { margin-bottom: 12px; } .frost-foot { margin-top: 12px; font-size: 12px; color: #94a3b8; }
         .frost-title { display: flex; align-items: center; gap: 12px; font: 13px/1.4 'Press Start 2P', ui-monospace, monospace; letter-spacing: .05em; text-transform: uppercase; color: #fef3c7; }
         .frost-dot { width: 12px; height: 12px; border-radius: 50%; background: #fbbf24; box-shadow: 0 0 8px #fbbf24; animation: pulse-dot 2s cubic-bezier(.4,0,.6,1) infinite; }
@@ -791,10 +791,10 @@
         <div class="row"><button class="ghost" id="frost-snow" onclick="this.textContent = app.town.scene.cycleSnow()">Snow: Heavy</button><button class="frost-cart" onclick="app.town.scene.dispatchCart()">+ Dispatch Cart</button><button class="frost-save" onclick="app.saveTownPng()">Save PNG</button></div>
     </div>
     <div class="town-wrap">
-        <canvas id="town-canvas" width="960" height="540" aria-label="Frostpeak: six mines in snowy mountains around a central foundry"></canvas>
+        <canvas id="town-canvas" width="1288" height="719" aria-label="Frostpeak: six mines in snowy mountains around a central foundry"></canvas>
         <div class="town-overlay" id="town-overlay"></div>
     </div>
-    <div class="frost-foot"><div>6 Active Mountain Mines &bull; Central Smelting Foundry &bull; 320&times;180 Native Pixel Grid</div><div id="statsReadout" class="frost-ore">Ore Smelted: 1,420 Tons</div></div>
+    <div class="frost-foot"><div>6 Active Mountain Mines &bull; Central Smelting Foundry</div><div id="statsReadout" class="frost-ore">Ore Smelted: 1,420 Tons</div></div>
     <div class="town-cols">
         <div class="card">
             <h2>Episodes</h2>
