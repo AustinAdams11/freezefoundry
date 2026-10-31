@@ -359,17 +359,17 @@ test('a project set to pause waits for you when an order fails', async () => {
   }
 });
 
-test('the Town crew makes an episode: scout, writer, fact desk, post office, recording, approval, link', async () => {
+test('the Town crew makes an episode: prospector, miner, inspector, dispatcher, recording, approval, link', async () => {
   const http = require('node:http');
   let checks = 0;
   const mock = http.createServer((q, r) => {
     let b = ''; q.on('data', d => b += d); q.on('end', () => {
       const sys = JSON.parse(b).messages[0].content;
       let text = '{}';
-      if (/You are Pip/.test(sys)) text = '{"topic": "Tallest buildings", "angle": "Height doubled in 20 years."}';
-      if (/You are Quill/.test(sys)) text = JSON.stringify({ title: 'The 5 tallest buildings', unit: 'm', items: [['Burj Khalifa', 828], ['Merdeka 118', 679], ['Shanghai Tower', 632], ['Abraj Al-Bait', 601], ['Ping An', 599]].map(([label, value]) => ({ label, value, icon: '🏙️', fact: 'Tall.' })), outro: 'Would you go up?' });
-      if (/You are Ledger/.test(sys)) text = ++checks === 1 ? '{"verdict": "revise", "issues": ["Ping An: 599 m is right, keep it"]}' : '{"verdict": "approve", "issues": []}';
-      if (/You are Stamp/.test(sys)) text = '{"title": "Number one is twice the Eiffel Tower #Shorts", "description": "Ranked.", "tags": ["buildings"]}';
+      if (/You are the Prospector/.test(sys)) text = '{"topic": "Tallest buildings", "angle": "Height doubled in 20 years."}';
+      if (/You are the Miner/.test(sys)) text = JSON.stringify({ title: 'The 5 tallest buildings', unit: 'm', items: [['Burj Khalifa', 828], ['Merdeka 118', 679], ['Shanghai Tower', 632], ['Abraj Al-Bait', 601], ['Ping An', 599]].map(([label, value]) => ({ label, value, icon: '🏙️', fact: 'Tall.' })), outro: 'Would you go up?' });
+      if (/You are the Inspector/.test(sys)) text = ++checks === 1 ? '{"verdict": "revise", "issues": ["Ping An: 599 m is right, keep it"]}' : '{"verdict": "approve", "issues": []}';
+      if (/You are the Dispatcher/.test(sys)) text = '{"title": "Number one is twice the Eiffel Tower #Shorts", "description": "Ranked.", "tags": ["buildings"]}';
       r.end(JSON.stringify({ choices: [{ message: { content: text } }], usage: {} }));
     });
   }).listen(0);

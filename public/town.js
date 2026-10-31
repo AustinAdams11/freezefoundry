@@ -35,7 +35,7 @@ function FrostpeakScene(canvas) {
   const foundryStop = cum[7] + (1300 - 690); // the yard in front of the furnace
 
   let snowMode = 2, oreSmelted = 1420, frame = 0, running = false;
-  const busy = {};
+  const busy = {}, view = { highlight: null };
   const carts = [];
   const oreColors = ['#ff9d2e', '#ff6b1a', '#ffd147', '#38bdf8'];
   function createCart(i, start) {
@@ -82,6 +82,12 @@ function FrostpeakScene(canvas) {
       glow(m.lantern[0], m.lantern[1], on ? 70 : 36, '255,190,80', (on ? 0.55 : 0.32) * flick);
       if (on) glow(m.x, m.y - 50, 80, '255,170,70', 0.18 * flick);
     });
+    // The worker hovered in the key gets a pulsing ring of light at its mine (or over the foundry).
+    if (view.highlight) {
+      const m = mines.find(x => x.id === view.highlight), pulse = 0.5 + 0.5 * Math.sin(frame * 0.2);
+      const [hx, hy, hr] = m ? [m.x, m.y - 60, 150] : view.highlight === 'studio' ? [1290, 1120, 360] : [0, 0, 0];
+      if (hr) glow(hx, hy, hr, '255,225,150', 0.25 + 0.2 * pulse);
+    }
     ctx.globalCompositeOperation = 'source-over';
 
     // Stack smoke and flames.
@@ -138,7 +144,7 @@ function FrostpeakScene(canvas) {
   }
 
   return {
-    GW: IW, GH: IH, mines, busy,
+    GW: IW, GH: IH, mines, busy, view,
     start() { if (!running) { running = true; draw(); } },
     stop() { running = false; },
     cycleSnow() { snowMode = (snowMode + 1) % 3; return ['Snow: Off', 'Snow: Light', 'Snow: Heavy'][snowMode]; },
@@ -165,7 +171,8 @@ class TownMap {
   }
   set busy(map) { Object.keys(this.scene.busy).forEach(k => delete this.scene.busy[k]); Object.assign(this.scene.busy, map); }
   get busy() { return this.scene.busy; }
-  tagSpot(id) { const h = this.houses[id]; return { x: h.x, y: h.foundry ? 1350 : h.y + 18 }; }
+  set highlight(id) { this.scene.view.highlight = id; }
+  tagSpot(id) { const h = this.houses[id]; return { x: h.x, y: h.foundry ? 1290 : h.y + 18 }; }
   send(from, to, text) { this.say(to, text); }
   say(id, text) {
     const h = this.houses[id];

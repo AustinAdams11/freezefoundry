@@ -1,17 +1,19 @@
-// Studio: a town of AI agents that makes Shorts. Each agent has a house and a job, like the workers on the factory line:
-// Scout picks a topic, Writer writes it, Fact Desk checks it (and sends it back), Post Office writes the title and tags,
-// Studio records the video, and the Observatory follows view counts and tells the Scout what works. The Bank adds it up.
+// Studio: Frostpeak Mining Co., a crew of AI agents that makes Shorts, each working its own mine like the workers on the
+// factory line: the Prospector picks a topic, the Miner writes it, the Inspector checks it (and sends it back), the
+// Dispatcher writes the title and tags, the Smelter records the video, and the Surveyor follows view counts and tells the
+// Prospector what works. The Vault adds it up.
 const fs = require('fs');
 const path = require('path');
 const { shows, clean } = require('./public/studio/shows.js');
 
+// Mining titles for the crew of Frostpeak Mining Co.; icon and color tie each mine's sign to the key under the scene.
 const CREW = [
-  { id: 'scout', name: 'Pip', house: 'Lookout', job: 'picks the next topic', role: 'planner' },
-  { id: 'writer', name: 'Quill', house: 'Writer\'s Cottage', job: 'writes the Short', role: 'builder' },
-  { id: 'checker', name: 'Ledger', house: 'Fact Desk', job: 'checks every number', role: 'reviewer' },
-  { id: 'publisher', name: 'Stamp', house: 'Post Office', job: 'writes the title and tags', role: 'builder' },
-  { id: 'studio', name: 'Reel', house: 'Studio', job: 'animates and records', role: null },
-  { id: 'analyst', name: 'Lens', house: 'Observatory', job: 'tracks views and finds what works', role: 'planner' }
+  { id: 'scout', name: 'Prospector', icon: '🧭', color: '#7dd3fc', job: 'finds the next vein: picks the topic', role: 'planner' },
+  { id: 'writer', name: 'Miner', icon: '⛏️', color: '#c084fc', job: 'digs out the story: writes the Short', role: 'builder' },
+  { id: 'checker', name: 'Inspector', icon: '🔍', color: '#34d399', job: 'grades the ore: checks every number', role: 'reviewer' },
+  { id: 'publisher', name: 'Dispatcher', icon: '🚂', color: '#ff9d2e', job: 'ships it out: title, description and tags', role: 'builder' },
+  { id: 'studio', name: 'Smelter', icon: '🔥', color: '#ff6a5a', job: 'smelts the ingot: records the video', role: null },
+  { id: 'analyst', name: 'Surveyor', icon: '📐', color: '#60a5fa', job: 'surveys the claims: tracks views', role: 'planner' }
 ];
 const DEFAULTS = { auto: false, everyHours: 6, maxWaiting: 3, topics: '', rpm: 0.05, goal: 10000, show: 'ranked' };
 const ACTIVE = ['scouting', 'writing', 'checking', 'titling', 'rendering'];
@@ -63,10 +65,10 @@ function createStudio({ dataDir, callModel, getKey, writeJsonAtomic, port, attem
   async function scout(ep) {
     const past = Object.values(S.episodes).filter(e => e.topic && e.id !== ep.id).sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 40).map(e => e.topic);
     const raw = await ask('scout',
-      'You are Pip, the scout for a YouTube Shorts channel run by AI agents. Pick ONE topic for the next Short. Pick something people are curious about and that has real, well-known numbers (speeds, sizes, weights, distances, records, prices, populations). Never repeat a past topic. Output ONLY JSON: {"topic": "<the topic, a few words>", "angle": "<one sentence: what makes it surprising>"}',
+      'You are the Prospector for a YouTube Shorts channel run by AI agents. Pick ONE topic for the next Short. Pick something people are curious about and that has real, well-known numbers (speeds, sizes, weights, distances, records, prices, populations). Never repeat a past topic. Output ONLY JSON: {"topic": "<the topic, a few words>", "angle": "<one sentence: what makes it surprising>"}',
       `Show: ${shows[ep.show].name}. ${shows[ep.show].describe}\n\nPast topics (do not repeat): ${past.join('; ') || 'none yet'}\n\n` +
       (S.settings.topics.trim() ? `Topic ideas from the owner (prefer these):\n${S.settings.topics.trim()}\n\n` : '') +
-      (S.memory.lessons.length ? `What the Observatory learned from view counts:\n- ${S.memory.lessons.join('\n- ')}` : 'No view data yet.'));
+      (S.memory.lessons.length ? `What the Surveyor learned from view counts:\n- ${S.memory.lessons.join('\n- ')}` : 'No view data yet.'));
     const j = parseJson(raw);
     ep.topic = String(j.topic || '').trim().slice(0, 120);
     ep.angle = String(j.angle || '').trim().slice(0, 240);
@@ -75,8 +77,8 @@ function createStudio({ dataDir, callModel, getKey, writeJsonAtomic, port, attem
 
   async function write(ep, feedback) {
     const raw = await ask('writer',
-      'You are Quill, the writer for a YouTube Shorts channel. Write a "Ranked" countdown Short: exactly 5 items, each with a real, widely published number in the SAME unit. Number one is the BIGGEST number. Use accurate, mainstream figures (round them); never invent items or numbers. Each fact is one punchy line under 80 characters that a viewer would repeat to a friend. Each item gets one emoji that pictures it. The title is a hook under 55 characters, like "The 5 fastest animals on Earth". The outro is a short question that makes people comment. Output ONLY JSON: {"title": "", "unit": "<short unit, e.g. km/h>", "items": [{"label": "<under 24 characters>", "value": <number>, "icon": "<one emoji>", "fact": ""}], "outro": ""}',
-      `Topic: ${ep.topic}\nAngle: ${ep.angle}` + (feedback ? `\n\nThe Fact Desk sent your last draft back. Fix these problems:\n${feedback}\n\nYour last draft:\n${JSON.stringify(ep.spec)}` : ''));
+      'You are the Miner, the writer for a YouTube Shorts channel. Write a "Ranked" countdown Short: exactly 5 items, each with a real, widely published number in the SAME unit. Number one is the BIGGEST number. Use accurate, mainstream figures (round them); never invent items or numbers. Each fact is one punchy line under 80 characters that a viewer would repeat to a friend. Each item gets one emoji that pictures it. The title is a hook under 55 characters, like "The 5 fastest animals on Earth". The outro is a short question that makes people comment. Output ONLY JSON: {"title": "", "unit": "<short unit, e.g. km/h>", "items": [{"label": "<under 24 characters>", "value": <number>, "icon": "<one emoji>", "fact": ""}], "outro": ""}',
+      `Topic: ${ep.topic}\nAngle: ${ep.angle}` + (feedback ? `\n\nThe Inspector sent your last draft back. Fix these problems:\n${feedback}\n\nYour last draft:\n${JSON.stringify(ep.spec)}` : ''));
     let spec;
     try { spec = clean[ep.show](parseJson(raw)); } catch (e) { throw new Error('The Writer\'s draft was not usable: ' + e.message); }
     ep.spec = spec;
@@ -84,7 +86,7 @@ function createStudio({ dataDir, callModel, getKey, writeJsonAtomic, port, attem
 
   async function check(ep) {
     const raw = await ask('checker',
-      'You are Ledger at the Fact Desk. Check a Short before it is published. For each item, is the number right for that item and unit, as commonly published? Is number one really the biggest? Are the facts true? Choose "revise" ONLY for wrong numbers, wrong units, false facts or a ranking that does not hold; small rounding is fine. Output ONLY JSON: {"verdict": "approve" or "revise", "issues": ["<item>: <what is wrong and the right figure>"]}',
+      'You are the Inspector. Check a Short before it is published. For each item, is the number right for that item and unit, as commonly published? Is number one really the biggest? Are the facts true? Choose "revise" ONLY for wrong numbers, wrong units, false facts or a ranking that does not hold; small rounding is fine. Output ONLY JSON: {"verdict": "approve" or "revise", "issues": ["<item>: <what is wrong and the right figure>"]}',
       JSON.stringify(ep.spec, null, 1));
     const j = parseJson(raw);
     return { verdict: j.verdict === 'revise' ? 'revise' : 'approve', issues: (Array.isArray(j.issues) ? j.issues : []).map(String).slice(0, 8) };
@@ -92,7 +94,7 @@ function createStudio({ dataDir, callModel, getKey, writeJsonAtomic, port, attem
 
   async function title(ep) {
     const raw = await ask('publisher',
-      'You are Stamp at the Post Office. Write the post for a YouTube Short. Title: under 70 characters, curiosity first, ends with " #Shorts". Description: two short sentences, then 3-5 relevant hashtags. Tags: 5-10 plain keywords. Output ONLY JSON: {"title": "", "description": "", "tags": [""]}',
+      'You are the Dispatcher. Write the post for a YouTube Short. Title: under 70 characters, curiosity first, ends with " #Shorts". Description: two short sentences, then 3-5 relevant hashtags. Tags: 5-10 plain keywords. Output ONLY JSON: {"title": "", "description": "", "tags": [""]}',
       `Short: ${ep.spec.title}\nItems: ${ep.spec.items.map(i => i.label).join(', ')}\nAngle: ${ep.angle}`);
     const j = parseJson(raw);
     ep.post = {
@@ -113,7 +115,7 @@ function createStudio({ dataDir, callModel, getKey, writeJsonAtomic, port, attem
     (async () => {
       try {
         await work('scout', 'looking for a topic', () => scout(ep));
-        log(ep, 'Pip', `Topic: ${ep.topic}. ${ep.angle}`);
+        log(ep, 'Prospector', `Topic: ${ep.topic}. ${ep.angle}`);
         event('scout', 'writer', `New topic: ${ep.topic}`, id);
 
         ep.status = 'writing';
@@ -121,14 +123,14 @@ function createStudio({ dataDir, callModel, getKey, writeJsonAtomic, port, attem
         const max = Math.max(1, Math.min(5, attempts()));
         for (let i = 1; i <= max; i++) {
           await work('writer', `writing "${ep.topic}"${i > 1 ? ` (draft ${i})` : ''}`, () => write(ep, feedback));
-          log(ep, 'Quill', `Draft ${i}: ${ep.spec.title}`);
+          log(ep, 'Miner', `Draft ${i}: ${ep.spec.title}`);
           event('writer', 'checker', `Draft ${i} of "${ep.spec.title}"`, id);
           ep.status = 'checking';
           const c = await work('checker', `checking "${ep.spec.title}"`, () => check(ep));
           ep.checks.push(c);
-          if (c.verdict === 'approve') { log(ep, 'Ledger', 'Facts check out.'); break; }
+          if (c.verdict === 'approve') { log(ep, 'Inspector', 'Facts check out.'); break; }
           feedback = c.issues.join('\n');
-          log(ep, 'Ledger', `Sent back: ${c.issues.join(' | ') || 'needs another pass'}`);
+          log(ep, 'Inspector', `Sent back: ${c.issues.join(' | ') || 'needs another pass'}`);
           if (i < max) { event('checker', 'writer', `Fix: ${c.issues[0] || 'needs another pass'}`, id); ep.status = 'writing'; }
         }
         ep.flagged = ep.checks[ep.checks.length - 1].verdict !== 'approve';
@@ -136,7 +138,7 @@ function createStudio({ dataDir, callModel, getKey, writeJsonAtomic, port, attem
 
         ep.status = 'titling';
         await work('publisher', 'writing the title and tags', () => title(ep));
-        log(ep, 'Stamp', ep.post.title);
+        log(ep, 'Dispatcher', ep.post.title);
         event('publisher', 'studio', `Roll it: ${ep.post.title}`, id);
 
         ep.status = 'rendering';
@@ -157,7 +159,7 @@ function createStudio({ dataDir, callModel, getKey, writeJsonAtomic, port, attem
   try { const e = require('electron'); if (e && typeof e === 'object' && e.BrowserWindow) electron = e; } catch {}
   const windows = {};
   function render(ep) {
-    if (!electron) { log(ep, 'Reel', `Waiting for a renderer: open /studio/render.html?ep=${ep.id}`); return; }
+    if (!electron) { log(ep, 'Smelter', `Waiting for a renderer: open /studio/render.html?ep=${ep.id}`); return; }
     const win = windows[ep.id] = new electron.BrowserWindow({
       show: false, width: 540, height: 960,
       webPreferences: { offscreen: true, backgroundThrottling: false, autoplayPolicy: 'no-user-gesture-required', contextIsolation: true, sandbox: true }
@@ -174,13 +176,13 @@ function createStudio({ dataDir, callModel, getKey, writeJsonAtomic, port, attem
     clearTimeout(ep.renderTimer); delete ep.renderTimer;
     delete S.busy.studio;
     S.running = false;
-    if (error) { ep.status = 'failed'; ep.error = error; log(ep, 'Reel', 'Recording failed: ' + error); return; }
+    if (error) { ep.status = 'failed'; ep.error = error; log(ep, 'Smelter', 'Recording failed: ' + error); return; }
     ep.status = 'staged';
-    log(ep, 'Reel', 'Recorded. Waiting for your OK.');
+    log(ep, 'Smelter', 'Recorded. Waiting for your OK.');
     event('studio', 'bank', `"${ep.spec.title}" is ready for your OK`, id);
   }
 
-  // ---------- the Observatory: view counts and lessons ----------
+  // ---------- the Surveyor: view counts and lessons ----------
   async function track() {
     const key = getKey('youtube');
     const eps = Object.values(S.episodes).filter(e => e.links.youtube);
@@ -215,7 +217,7 @@ function createStudio({ dataDir, callModel, getKey, writeJsonAtomic, port, attem
     if (posted.length < 3) return;
     const line = e => `${e.stats.youtube.views} views: "${(e.post && e.post.title) || e.spec.title}" (topic: ${e.topic})`;
     const raw = await ask('analyst',
-      'You are Lens at the Observatory. Compare the best and worst performing Shorts and write up to 3 short, specific lessons for choosing the next topics and titles. Only conclude what the numbers support. Output ONLY JSON: {"lessons": [""]}',
+      'You are the Surveyor. Compare the best and worst performing Shorts and write up to 3 short, specific lessons for choosing the next topics and titles. Only conclude what the numbers support. Output ONLY JSON: {"lessons": [""]}',
       `Best:\n${posted.slice(0, 5).map(line).join('\n')}\n\nWorst:\n${posted.slice(-5).map(line).join('\n')}`);
     const j = parseJson(raw);
     S.memory.lessons = (Array.isArray(j.lessons) ? j.lessons : []).map(String).filter(Boolean).slice(0, 3);
@@ -244,7 +246,7 @@ function createStudio({ dataDir, callModel, getKey, writeJsonAtomic, port, attem
   }
   function state(since = 0) {
     return {
-      crew: CREW.map(c => ({ id: c.id, name: c.name, house: c.house, job: c.job, doing: S.busy[c.id] || null })),
+      crew: CREW.map(c => ({ id: c.id, name: c.name, icon: c.icon, color: c.color, job: c.job, doing: S.busy[c.id] || null })),
       episodes: Object.values(S.episodes).sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 60).map(summary),
       bank: { ...totals(), goal: S.settings.goal, rpm: S.settings.rpm },
       events: S.events.filter(e => e.n > since),

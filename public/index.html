@@ -559,9 +559,16 @@
         .frost-save { background: #065f46; border: 1px solid #059669; color: #d1fae5; } .frost-save:hover { background: #047857; }
         .frost-ore { font-family: ui-monospace, monospace; color: rgba(251,191,36,0.9); }
         .town-overlay { position: absolute; inset: 0; pointer-events: none; }
-        .town-tag { position: absolute; transform: translate(-50%, 6px); font: 600 11px/1.2 system-ui, sans-serif; color: #e6edf6; background: rgba(15,18,24,0.72); padding: 3px 8px; border-radius: 999px; white-space: nowrap; }
-        .town-tag small { color: #9fb0c6; font-weight: 500; }
-        .town-tag.busy { color: #ffd27a; }
+        .town-tag { position: absolute; transform: translate(-50%, 6px); font: 700 12px/1.25 system-ui, sans-serif; color: #f3f6fa; background: rgba(12,15,21,0.85); padding: 4px 10px 4px 8px; border-radius: 6px; white-space: nowrap; border: 2px solid var(--tag, #64748b); box-shadow: 0 4px 12px rgba(0,0,0,0.35); transition: transform .25s cubic-bezier(.22,1,.36,1), box-shadow .25s; text-align: center; }
+        .town-tag .doing { display: block; color: #ffd27a; font-weight: 500; font-size: 11px; max-width: 220px; overflow: hidden; text-overflow: ellipsis; }
+        .town-tag.busy { box-shadow: 0 0 0 3px color-mix(in srgb, var(--tag) 35%, transparent), 0 4px 12px rgba(0,0,0,0.35); }
+        .town-tag.hl { transform: translate(-50%, 6px) scale(1.18); box-shadow: 0 0 0 4px color-mix(in srgb, var(--tag) 45%, transparent), 0 6px 18px rgba(0,0,0,0.45); z-index: 2; }
+        .town-key { max-width: 1100px; display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; margin-top: 12px; }
+        .town-key button { display: grid; grid-template-columns: auto 1fr; gap: 2px 8px; align-items: center; text-align: left; padding: 8px 10px; border-radius: 10px; background: var(--bg-panel); border: 1px solid var(--border-color); border-left: 4px solid var(--tag); color: var(--text-main); font: inherit; cursor: pointer; }
+        #town-key button:hover, #town-key button:focus-visible { background: var(--bg-input); color: var(--text-main); }
+        .town-key .ic { grid-row: span 2; font-size: 20px; }
+        .town-key b { font-size: 13px; } .town-key span { font-size: 11px; color: var(--text-muted); }
+        .town-key button.busy span { color: #ffd27a; }
         .town-bubble { position: absolute; transform: translate(-50%, -100%); max-width: 220px; font: 500 11.5px/1.35 system-ui, sans-serif; color: #1d1d1f; background: #fff; padding: 6px 9px; border-radius: 10px; box-shadow: 0 6px 18px rgba(0,0,0,0.35); transition: opacity .4s ease, transform .4s ease; animation: bubble-in .35s cubic-bezier(.22,1,.36,1); }
         .town-bubble::after { content: ""; position: absolute; left: 50%; bottom: -5px; margin-left: -5px; border: 5px solid transparent; border-bottom: 0; border-top-color: #fff; }
         .town-bubble.out { opacity: 0; transform: translate(-50%, -110%); }
@@ -787,14 +794,15 @@
         <div><span id="bank-goal-label">Goal</span><div class="goal-bar"><i id="bank-goal" style="width:0%"></i></div></div>
     </div>
     <div class="frost-bar">
-        <div class="frost-title"><i class="frost-dot"></i>Frostpeak Ore &amp; Foundry Co.</div>
+        <div class="frost-title"><i class="frost-dot"></i>Frostpeak Mining Co.</div>
         <div class="row"><button class="ghost" id="frost-snow" onclick="this.textContent = app.town.scene.cycleSnow()">Snow: Heavy</button><button class="frost-cart" onclick="app.town.scene.dispatchCart()">+ Dispatch Cart</button><button class="frost-save" onclick="app.saveTownPng()">Save PNG</button></div>
     </div>
     <div class="town-wrap">
-        <canvas id="town-canvas" width="1288" height="719" aria-label="Frostpeak: six mines in snowy mountains around a central foundry"></canvas>
+        <canvas id="town-canvas" width="1288" height="719" aria-label="Frostpeak Mining Co.: six mines in snowy mountains around a central foundry"></canvas>
         <div class="town-overlay" id="town-overlay"></div>
     </div>
     <div class="frost-foot"><div>6 Active Mountain Mines &bull; Central Smelting Foundry</div><div id="statsReadout" class="frost-ore">Ore Smelted: 1,420 Tons</div></div>
+    <div class="town-key" id="town-key" aria-label="Who works where"></div>
     <div class="town-cols">
         <div class="card">
             <h2>Episodes</h2>
@@ -803,7 +811,7 @@
         <div>
             <div class="card">
                 <h2 id="town-house-title">The crew</h2>
-                <div id="town-house" class="crew-card hint">Click a house to see who works there.</div>
+                <div id="town-house" class="crew-card hint">Click a mine, or a worker in the key, to see what it's doing.</div>
             </div>
             <div class="card">
                 <h2>Town settings</h2>
@@ -920,17 +928,17 @@
       <p class="hint">The Foreman plans with the Planner's model and inspects with the Reviewer's, so a stronger model there pays off. Projects show up in the left drawer with each file's progress; click a file to read it. A project that was running when the app closed comes back paused.</p>
 
       <h2 id="g-town" data-toc="Town: the Shorts crew">Town: a crew that makes Shorts</h2>
-      <p>The Town is a second crew, living in six houses around a Bank. They make vertical Shorts on your models, and every hand-off is a courier walking a letter across town.</p>
+      <p>The Town is Frostpeak Mining Co.: a second crew working six mines and a foundry. They make vertical Shorts on your models; hover a worker in the key under the scene to light up its mine.</p>
       <ul>
-        <li><b>Pip at the Lookout</b> picks a topic, skipping old ones and preferring your Topic ideas and what the Observatory has learned.</li>
-        <li><b>Quill at the Writer's Cottage</b> writes a Ranked countdown: five items, a real number each, a one-line fact, and a question to end on.</li>
-        <li><b>Ledger at the Fact Desk</b> checks every number and sends the draft back when something's wrong (as many tries as Attempts in Settings).</li>
-        <li><b>Stamp at the Post Office</b> writes the title, description and tags.</li>
-        <li><b>Reel at the Studio</b> animates and records a 1080×1920 video with original chiptune music, in a hidden window of the app. It saves as MP4, which YouTube, TikTok and Instagram all take.</li>
-        <li><b>Lens at the Observatory</b> reads view counts for posted videos every 30 minutes and, once a few are posted, tells Pip what's working.</li>
+        <li><b>&#129517; Prospector</b> finds the next vein: picks a topic, skipping old ones and preferring your Topic ideas and what the Surveyor has learned.</li>
+        <li><b>&#9935;&#65039; Miner</b> digs out the story: writes a Ranked countdown: five items, a real number each, a one-line fact, and a question to end on.</li>
+        <li><b>&#128269; Inspector</b> grades the ore: checks every number and sends the draft back when something's wrong (as many tries as Attempts in Settings).</li>
+        <li><b>&#128642; Dispatcher</b> ships it out: writes the title, description and tags.</li>
+        <li><b>&#128293; Smelter</b> works the foundry: animates and records a 1080×1920 video with original chiptune music, in a hidden window of the app. It saves as MP4, which YouTube, TikTok and Instagram all take.</li>
+        <li><b>&#128208; Surveyor</b> surveys the claims: reads view counts for posted videos every 30 minutes and, once a few are posted, tells the Prospector what's working.</li>
       </ul>
-      <p>Finished episodes wait under <b>Episodes</b> for your OK. Watch it, <b>Approve</b>, post it, then paste the link so the Observatory can follow its views. <b>Autopilot</b> starts a new episode every few hours while the app is open, and stops when enough are waiting for you. The Bank adds up views and an earnings estimate at the rate you set.</p>
-      <p class="hint">Reading view counts needs a free YouTube Data API key (Town settings explains how). Bigger models write better facts; check the Fact Desk's notes on anything flagged before you post.</p>
+      <p>Finished episodes wait under <b>Episodes</b> for your OK. Watch it, <b>Approve</b>, post it, then paste the link so the Surveyor can follow its views. <b>Autopilot</b> starts a new episode every few hours while the app is open, and stops when enough are waiting for you. The Vault adds up views and an earnings estimate at the rate you set.</p>
+      <p class="hint">Reading view counts needs a free YouTube Data API key (Town settings explains how). Bigger models write better facts; check the Inspector's notes on anything flagged before you post.</p>
 
       <h2 id="g-approve" data-toc="Approvals and the queue">Approvals, Auto-apply and the queue</h2>
       <p>With <b>Auto-apply</b> off, every finished change waits in <b>Staged changes</b>. Click it to see the diff, then apply or reject. With it on, a change applies itself only when tests didn't fail <i>and</i> the Reviewer approved; everything else waits for you.</p>
@@ -1921,18 +1929,35 @@ class App {
             this.town.busy = Object.fromEntries(d.crew.filter(c => c.doing).map(c => [c.id, true]));
             const ov = document.getElementById('town-overlay');
             ov.querySelectorAll('.town-tag').forEach(t => t.remove());
-            [...d.crew, { id: 'bank', name: 'Bank', house: 'Vault' }].forEach(c => {
+            const everyone = [...d.crew, { id: 'bank', name: 'Vault', icon: '💰', color: '#ffd147', job: 'holds the takings: views and earnings' }];
+            everyone.forEach(c => {
                 const h = this.town.tagSpot(c.id), tag = document.createElement('div');
-                tag.className = 'town-tag' + (c.doing ? ' busy' : '');
+                tag.className = 'town-tag' + (c.doing ? ' busy' : '') + (this.townHover === c.id ? ' hl' : '');
+                tag.dataset.id = c.id;
+                tag.style.setProperty('--tag', c.color);
                 tag.style.left = (h.x / this.town.W * 100) + '%';
                 tag.style.top = (h.y / this.town.H * 100) + '%';
-                tag.innerHTML = `${escapeHtml(c.name)}${c.house ? ` <small>${escapeHtml(c.house)}</small>` : ''}${c.doing ? `<br><small>${escapeHtml(c.doing)}</small>` : ''}`;
+                tag.innerHTML = `${c.icon} ${escapeHtml(c.name)}${c.doing ? `<span class="doing">${escapeHtml(c.doing)}</span>` : ''}`;
                 ov.appendChild(tag);
+            });
+            // The key: one chip per worker; hovering one lights up its mine.
+            const key = document.getElementById('town-key');
+            key.innerHTML = '';
+            everyone.forEach(c => {
+                const b = document.createElement('button');
+                b.style.setProperty('--tag', c.color);
+                if (c.doing) b.className = 'busy';
+                b.innerHTML = `<span class="ic">${c.icon}</span><b>${escapeHtml(c.name)}</b><span>${escapeHtml(c.doing || c.job)}</span>`;
+                const hl = on => { this.townHover = on ? c.id : null; this.town.highlight = this.townHover; ov.querySelectorAll('.town-tag').forEach(t => t.classList.toggle('hl', t.dataset.id === this.townHover)); };
+                b.onmouseenter = b.onfocus = () => hl(true);
+                b.onmouseleave = b.onblur = () => hl(false);
+                b.onclick = () => this.townPick(c.id);
+                key.appendChild(b);
             });
         }
         if (this.townPicked) this.townPick(this.townPicked);
         const lessons = d.lessons || [];
-        document.getElementById('town-lessons').innerHTML = lessons.length ? '<b>What the Observatory learned:</b><br>' + lessons.map(escapeHtml).join('<br>') : '';
+        document.getElementById('town-lessons').innerHTML = lessons.length ? '<b>What the Surveyor learned:</b><br>' + lessons.map(escapeHtml).join('<br>') : '';
         if (!this.townSettingsFilled) {
             this.townSettingsFilled = true;
             const st = d.settings;
@@ -1959,7 +1984,7 @@ class App {
                 `<div style="display:grid;gap:6px;min-width:0"><div><span class="ep-status ${escapeHtml(ep.status)}">${escapeHtml(label[ep.status] || ep.status)}</span></div>
                 <h3></h3><div class="meta"></div><div class="row"></div></div>`;
             div.querySelector('h3').textContent = (ep.post && ep.post.title) || (ep.spec && ep.spec.title) || ep.topic || 'New episode';
-            div.querySelector('.meta').textContent = [ep.topic, views, ep.flagged ? 'Fact Desk was not fully satisfied: read its notes' : '', ep.error || ''].filter(Boolean).join(' · ');
+            div.querySelector('.meta').textContent = [ep.topic, views, ep.flagged ? 'The Inspector was not fully satisfied: read its notes' : '', ep.error || ''].filter(Boolean).join(' · ');
             const row = div.querySelector('.row');
             const btn = (text, fn, cls = 'ghost') => { const b = document.createElement('button'); b.className = cls; b.textContent = text; b.onclick = fn; row.appendChild(b); };
             if (ep.status === 'staged') { btn('Approve', () => this.townAction(ep, 'approve'), 'success'); btn('Reject', () => this.townAction(ep, 'reject'), 'danger'); }
@@ -1985,20 +2010,20 @@ class App {
         const box = document.getElementById('town-house');
         box.classList.remove('hint');
         if (id === 'bank') {
-            document.getElementById('town-house-title').textContent = 'The Bank';
+            document.getElementById('town-house-title').textContent = '💰 The Vault';
             box.innerHTML = `<div>Everything the crew earns ends up here.</div><div class="hint">${d.bank.made} videos made · ${d.bank.waiting} waiting for you · ${d.bank.posts} posted · ${d.bank.views.toLocaleString('en-US')} views. Earnings are an estimate at $${d.bank.rpm} per 1,000 views; change it in Town settings.</div>`;
             return;
         }
         const c = d.crew.find(x => x.id === id);
-        document.getElementById('town-house-title').textContent = c.house;
+        document.getElementById('town-house-title').textContent = `${c.icon} ${c.name}`;
         const recent = d.episodes.flatMap(e => (e.log || []).filter(l => l.who === c.name).map(l => l.msg)).slice(0, 4);
-        box.innerHTML = `<div class="who">${escapeHtml(c.name)}, ${escapeHtml(c.job)}</div>${c.doing ? `<div class="doing">Now: ${escapeHtml(c.doing)}</div>` : '<div class="hint">Waiting for work.</div>'}` +
+        box.innerHTML = `<div class="who">The ${escapeHtml(c.name)} ${escapeHtml(c.job.replace(':', ','))}</div>${c.doing ? `<div class="doing">Now: ${escapeHtml(c.doing)}</div>` : '<div class="hint">Waiting for work.</div>'}` +
             (recent.length ? `<div class="hint">${recent.map(escapeHtml).join('<br>')}</div>` : '');
     }
 
     saveTownPng() {
         const link = document.createElement('a');
-        link.download = 'pixel-winter-foundry.png';
+        link.download = 'frostpeak-mining-co.png';
         link.href = this.town.scene.png();
         link.click();
     }
@@ -2024,7 +2049,7 @@ class App {
         const r = await fetch(`/api/studio/episodes/${ep.id}/link`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url }) });
         const d = await r.json().catch(() => ({}));
         if (!r.ok) return this.toast(d.error || 'That link did not work');
-        this.toast('Linked. The Observatory will follow its views.');
+        this.toast('Linked. The Surveyor will follow its views.');
         this.pollTown();
     }
 
