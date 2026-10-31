@@ -358,3 +358,57 @@ test('a project set to pause waits for you when an order fails', async () => {
     await post('/api/settings', { baseUrl: before.baseUrl, model: before.model, attempts: before.attempts, autoApply: before.autoApply });
   }
 });
+
+test('the Town crew makes an episode: scout, writer, fact desk, post office, recording, approval, link', async () => {
+  const http = require('node:http');
+  let checks = 0;
+  const mock = http.createServer((q, r) => {
+    let b = ''; q.on('data', d => b += d); q.on('end', () => {
+      const sys = JSON.parse(b).messages[0].content;
+      let text = '{}';
+      if (/You are Pip/.test(sys)) text = '{"topic": "Tallest buildings", "angle": "Height doubled in 20 years."}';
+      if (/You are Quill/.test(sys)) text = JSON.stringify({ title: 'The 5 tallest buildings', unit: 'm', items: [['Burj Khalifa', 828], ['Merdeka 118', 679], ['Shanghai Tower', 632], ['Abraj Al-Bait', 601], ['Ping An', 599]].map(([label, value]) => ({ label, value, icon: '🏙️', fact: 'Tall.' })), outro: 'Would you go up?' });
+      if (/You are Ledger/.test(sys)) text = ++checks === 1 ? '{"verdict": "revise", "issues": ["Ping An: 599 m is right, keep it"]}' : '{"verdict": "approve", "issues": []}';
+      if (/You are Stamp/.test(sys)) text = '{"title": "Number one is twice the Eiffel Tower #Shorts", "description": "Ranked.", "tags": ["buildings"]}';
+      r.end(JSON.stringify({ choices: [{ message: { content: text } }], usage: {} }));
+    });
+  }).listen(0);
+  await new Promise(r => setTimeout(r, 100));
+  const before = await (await fetch(BASE + '/api/settings')).json();
+  const state = async () => (await fetch(BASE + '/api/studio')).json();
+  try {
+    await post('/api/settings', { provider: 'local', baseUrl: `http://127.0.0.1:${mock.address().port}/v1`, model: 'm', attempts: 2 });
+    const { id } = await (await post('/api/studio/run', {})).json();
+    assert.equal((await post('/api/studio/run', {})).status, 400, 'one episode at a time');
+    let ep;
+    for (let i = 0; i < 50; i++) { ep = (await state()).episodes.find(e => e.id === id); if (ep.status === 'rendering') break; await new Promise(r => setTimeout(r, 100)); }
+    assert.equal(ep.status, 'rendering');
+    assert.equal(ep.checks.length, 2, 'the Fact Desk sent the first draft back');
+    assert.equal(ep.spec.items[ep.spec.items.length - 1].label, 'Burj Khalifa', 'number one comes last in the countdown');
+    assert.match(ep.post.title, /#Shorts$/);
+    const spec = await (await fetch(`${BASE}/api/studio/episodes/${id}`)).json();
+    assert.equal(spec.show, 'ranked');
+
+    // The renderer hands back the recording.
+    const video = Buffer.alloc(4096, 1);
+    const up = await fetch(`${BASE}/api/studio/episodes/${id}/video`, { method: 'POST', headers: { 'Content-Type': 'video/mp4' }, body: video });
+    assert.equal(up.status, 200);
+    ep = (await state()).episodes.find(e => e.id === id);
+    assert.equal(ep.status, 'staged');
+    assert.equal((await fetch(`${BASE}/api/studio/videos/${id}.mp4`, { headers: { Range: 'bytes=0-9' } })).status, 206);
+    assert.equal((await fetch(`${BASE}/api/studio/videos/..%2Fsettings.json`)).status, 404);
+
+    assert.equal((await post(`/api/studio/episodes/${id}/link`, { url: 'https://example.com/x' })).status, 400);
+    assert.equal((await post(`/api/studio/episodes/${id}/approve`, {})).status, 200);
+    assert.equal((await post(`/api/studio/episodes/${id}/link`, { url: 'https://youtube.com/shorts/abcdefghijk' })).status, 200);
+    const s = await state();
+    assert.equal(s.bank.posts, 1);
+    assert.match((await (await post('/api/studio/track', {})).json()).reason, /API key/);
+    assert.equal((await post('/api/studio/settings', { everyHours: 0, rpm: 0.1 })).status, 200);
+    assert.equal((await state()).settings.everyHours, 6, 'out-of-range values are ignored');
+    assert.equal((await post(`/api/studio/episodes/${id}/delete`, {})).status, 200);
+  } finally {
+    mock.close();
+    await post('/api/settings', { baseUrl: before.baseUrl, model: before.model, attempts: before.attempts });
+  }
+});

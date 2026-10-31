@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Freeze Foundry Studio renderer</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+  html, body { margin: 0; height: 100%; background: #08090b; display: grid; place-items: center; overflow: hidden; }
+  canvas { height: 100vh; aspect-ratio: 9 / 16; max-width: 100vw; }
+  #state { position: fixed; left: 8px; bottom: 8px; color: #8be0ff; font: 12px ui-monospace, monospace; }
+</style>
+</head>
+<body>
+<canvas id="c" width="1080" height="1920"></canvas>
+<div id="state">loading</div>
+<script src="shows.js"></script>
+<script>
+// Plays an episode and, unless ?preview=1, records it (video + music) and hands the file back to the server.
+(async () => {
+  const q = new URLSearchParams(location.search), id = q.get('ep'), preview = q.has('preview');
+  const state = s => { document.getElementById('state').textContent = s; document.title = s; };
+  const fail = async msg => {
+    state('error: ' + msg);
+    if (!preview) await fetch(`/api/studio/episodes/${encodeURIComponent(id)}/render-error`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ error: String(msg).slice(0, 500) }) }).catch(() => {});
+  };
+  try {
+    const ep = await fetch(`/api/studio/episodes/${encodeURIComponent(id)}`).then(r => { if (!r.ok) throw new Error('episode not found'); return r.json(); });
+    const show = FFStudio.shows[ep.show];
+    if (!show) throw new Error('unknown show ' + ep.show);
+    const spec = FFStudio.clean[ep.show](ep.spec);
+    const dur = show.duration(spec);
+    const canvas = document.getElementById('c'), ctx = canvas.getContext('2d');
+
+    const audio = new AudioContext();
+    await audio.resume();
+    const dest = audio.createMediaStreamDestination();
+    const out = preview ? audio.destination : dest;
+    FFStudio.chiptune(ep.id, dur, show.beats(spec))(audio, out);
+
+    let rec, chunks = [];
+    if (!preview) {
+      const stream = canvas.captureStream(30);
+      dest.stream.getAudioTracks().forEach(t => stream.addTrack(t));
+      // MP4 (H.264) when this browser engine can record it: YouTube, TikTok and Instagram all take it. WebM otherwise.
+      const type = ['video/mp4;codecs=avc1.640028,mp4a.40.2', 'video/mp4;codecs=avc1,opus', 'video/webm;codecs=vp9,opus', 'video/webm'].find(t => MediaRecorder.isTypeSupported(t));
+      rec = new MediaRecorder(stream, { mimeType: type, videoBitsPerSecond: 10_000_000, audioBitsPerSecond: 160_000 });
+      rec.ondataavailable = e => { if (e.data.size) chunks.push(e.data); };
+      rec.start(1000);
+    }
+    const start = performance.now();
+    // A timer, not requestAnimationFrame: the renderer window is hidden, and hidden pages get no animation frames.
+    await new Promise(done => {
+      const tick = () => {
+        const t = (performance.now() - start) / 1000;
+        show.draw(ctx, Math.min(t, dur), spec);
+        state(`${preview ? 'preview' : 'recording'} ${t.toFixed(1)} / ${dur.toFixed(1)} s`);
+        if (t >= dur + 0.3) return done();
+        setTimeout(tick, 1000 / 30);
+      };
+      tick();
+    });
+    if (preview) return state('done');
+    const mime = rec.mimeType.startsWith('video/mp4') ? 'video/mp4' : 'video/webm';
+    const blob = await new Promise(res => { rec.onstop = () => res(new Blob(chunks, { type: mime })); rec.stop(); });
+    state('uploading');
+    const r = await fetch(`/api/studio/episodes/${encodeURIComponent(id)}/video`, { method: 'POST', headers: { 'Content-Type': mime }, body: blob });
+    if (!r.ok) throw new Error('upload failed: ' + r.status);
+    state('done');
+  } catch (e) { await fail(e.message || e); }
+})();
+</script>
+</body>
+</html>

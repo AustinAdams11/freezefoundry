@@ -536,6 +536,52 @@
         .proj-card .row button { padding: 4px 9px; font-size: 11px; }
         @keyframes pulse { 50% { opacity: .35; } }
         @media (prefers-reduced-motion: reduce) { .st { animation: none !important; } }
+        /* ---------- Town ---------- */
+        #view-town { max-width: none; }
+        .town-top { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-bottom: 14px; }
+        .town-top h1 { margin: 0; }
+        .town-top .spacer { flex: 1; }
+        .bank-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-bottom: 14px; max-width: 1100px; }
+        .bank-stats div { background: var(--bg-panel); border: 1px solid var(--border-color); border-radius: 12px; padding: 12px 14px; display: grid; gap: 4px; }
+        .bank-stats b { font-size: 22px; letter-spacing: -0.02em; }
+        .bank-stats span { font-size: 12px; color: var(--text-muted); }
+        .goal-bar { height: 6px; border-radius: 6px; background: var(--border-color); overflow: hidden; }
+        .goal-bar i { display: block; height: 100%; background: linear-gradient(90deg, #ffbe3d, #ff8a1f); }
+        .town-wrap { position: relative; max-width: 960px; aspect-ratio: 16 / 9; border-radius: 8px; overflow: hidden; border: 2px solid #334155; background: #0f172a; box-shadow: 0 20px 50px rgba(0,0,0,0.85); }
+        #town-canvas { display: block; width: 100%; height: 100%; image-rendering: -moz-crisp-edges; image-rendering: -webkit-crisp-edges; image-rendering: pixelated; image-rendering: crisp-edges; background-color: #5b718c; cursor: pointer; }
+        .frost-bar, .frost-foot { max-width: 960px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 0 8px; }
+        .frost-bar { margin-bottom: 12px; } .frost-foot { margin-top: 12px; font-size: 12px; color: #94a3b8; }
+        .frost-title { display: flex; align-items: center; gap: 12px; font: 13px/1.4 'Press Start 2P', ui-monospace, monospace; letter-spacing: .05em; text-transform: uppercase; color: #fef3c7; }
+        .frost-dot { width: 12px; height: 12px; border-radius: 50%; background: #fbbf24; box-shadow: 0 0 8px #fbbf24; animation: pulse-dot 2s cubic-bezier(.4,0,.6,1) infinite; }
+        @keyframes pulse-dot { 50% { opacity: .5; } }
+        .frost-bar button { font-size: 12px; padding: 6px 12px; border-radius: 4px; }
+        .frost-cart { background: #b45309; border: 1px solid #f59e0b; color: #fffbeb; } .frost-cart:hover { background: #d97706; }
+        .frost-save { background: #065f46; border: 1px solid #059669; color: #d1fae5; } .frost-save:hover { background: #047857; }
+        .frost-ore { font-family: ui-monospace, monospace; color: rgba(251,191,36,0.9); }
+        .town-overlay { position: absolute; inset: 0; pointer-events: none; }
+        .town-tag { position: absolute; transform: translate(-50%, 6px); font: 600 11px/1.2 system-ui, sans-serif; color: #e6edf6; background: rgba(15,18,24,0.72); padding: 3px 8px; border-radius: 999px; white-space: nowrap; }
+        .town-tag small { color: #9fb0c6; font-weight: 500; }
+        .town-tag.busy { color: #ffd27a; }
+        .town-bubble { position: absolute; transform: translate(-50%, -100%); max-width: 220px; font: 500 11.5px/1.35 system-ui, sans-serif; color: #1d1d1f; background: #fff; padding: 6px 9px; border-radius: 10px; box-shadow: 0 6px 18px rgba(0,0,0,0.35); transition: opacity .4s ease, transform .4s ease; animation: bubble-in .35s cubic-bezier(.22,1,.36,1); }
+        .town-bubble::after { content: ""; position: absolute; left: 50%; bottom: -5px; margin-left: -5px; border: 5px solid transparent; border-bottom: 0; border-top-color: #fff; }
+        .town-bubble.out { opacity: 0; transform: translate(-50%, -110%); }
+        @keyframes bubble-in { from { opacity: 0; transform: translate(-50%, -80%) scale(.9); } }
+        .town-cols { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: 16px; max-width: 1100px; margin-top: 16px; align-items: start; }
+        .town-cols .card { max-width: none; }
+        .town-cols .grid2 { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+        .town-cols input, .town-cols textarea { width: 100%; min-width: 0; box-sizing: border-box; }
+        .ep { border: 1px solid var(--border-color); border-radius: 12px; padding: 12px; display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 12px; background: var(--bg-input); }
+        .ep video, .ep .ep-thumb { width: 96px; aspect-ratio: 9 / 16; border-radius: 8px; background: #000; object-fit: cover; }
+        .ep .ep-thumb { display: grid; place-items: center; font-size: 22px; color: var(--text-muted); }
+        .ep h3 { margin: 0; font-size: 14px; line-height: 1.3; }
+        .ep .meta { font-size: 12px; color: var(--text-muted); }
+        .ep .row button, .ep .row input { font-size: 12px; }
+        .ep-status { display: inline-block; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: var(--border-color); }
+        .ep-status.staged { background: #ff8a1f; color: #1a0f04; } .ep-status.posted { background: var(--success); color: #04120c; } .ep-status.failed { background: var(--error); }
+        .crew-card { display: grid; gap: 6px; }
+        .crew-card .who { font-weight: 700; } .crew-card .doing { color: #ffd27a; font-size: 12px; }
+        @media (max-width: 1000px) { .town-cols { grid-template-columns: 1fr; } .bank-stats { grid-template-columns: 1fr 1fr; } }
+        @media (prefers-reduced-motion: reduce) { .town-bubble { animation: none; } }
     </style>
 </head>
 <body>
@@ -560,6 +606,7 @@
 <div class="app-shell">
 <nav class="rail">
     <button class="active" data-view="factory" onclick="app.showView('factory')"><span>&#127981;</span>Factory</button>
+    <button data-view="town" onclick="app.showView('town')"><span>&#127960;&#65039;</span>Town</button>
     <button data-view="models" onclick="app.showView('models')"><span>&#129504;</span>Models</button>
     <button data-view="skills" onclick="app.showView('skills')"><span>&#129513;</span>Skills</button>
     <button data-view="sources" onclick="app.showView('sources')"><span>&#128218;</span>Sources</button>
@@ -725,6 +772,57 @@
     <div id="sources-list"></div>
 </section>
 
+<section class="view" id="view-town" hidden>
+    <div class="town-top">
+        <h1>Town</h1>
+        <span class="hint" id="town-sub">A crew of AI agents that makes Shorts on your models.</span>
+        <span class="spacer"></span>
+        <label class="toggle" title="While the app is open, start an episode every few hours (never more than the waiting limit)"><input type="checkbox" id="town-auto" onchange="app.townSettings({ auto: this.checked })"> Autopilot</label>
+        <button id="town-run" onclick="app.townRun()">Make an episode</button>
+    </div>
+    <div class="bank-stats">
+        <div><span>Views</span><b id="bank-views">0</b></div>
+        <div><span>Posted</span><b id="bank-posts">0</b></div>
+        <div><span>Est. earnings</span><b id="bank-money">$0.00</b></div>
+        <div><span id="bank-goal-label">Goal</span><div class="goal-bar"><i id="bank-goal" style="width:0%"></i></div></div>
+    </div>
+    <div class="frost-bar">
+        <div class="frost-title"><i class="frost-dot"></i>Frostpeak Ore &amp; Foundry Co.</div>
+        <div class="row"><button class="ghost" id="frost-snow" onclick="this.textContent = app.town.scene.cycleSnow()">Snow: Heavy</button><button class="frost-cart" onclick="app.town.scene.dispatchCart()">+ Dispatch Cart</button><button class="frost-save" onclick="app.saveTownPng()">Save PNG</button></div>
+    </div>
+    <div class="town-wrap">
+        <canvas id="town-canvas" width="960" height="540" aria-label="Frostpeak: six mines in snowy mountains around a central foundry"></canvas>
+        <div class="town-overlay" id="town-overlay"></div>
+    </div>
+    <div class="frost-foot"><div>6 Active Mountain Mines &bull; Central Smelting Foundry &bull; 320&times;180 Native Pixel Grid</div><div id="statsReadout" class="frost-ore">Ore Smelted: 1,420 Tons</div></div>
+    <div class="town-cols">
+        <div class="card">
+            <h2>Episodes</h2>
+            <div id="town-episodes" class="hint">No episodes yet. Press Make an episode, and watch the crew pass it around town.</div>
+        </div>
+        <div>
+            <div class="card">
+                <h2 id="town-house-title">The crew</h2>
+                <div id="town-house" class="crew-card hint">Click a house to see who works there.</div>
+            </div>
+            <div class="card">
+                <h2>Town settings</h2>
+                <label>Topic ideas (one per line; the Scout prefers these) <textarea id="town-topics" rows="4" placeholder="fastest animals&#10;tallest buildings&#10;most expensive cars"></textarea></label>
+                <div class="grid2">
+                    <label>Autopilot: an episode every (hours) <input id="town-every" type="number" min="1" max="168"></label>
+                    <label>Stop when this many wait for you <input id="town-max" type="number" min="1" max="20"></label>
+                    <label>Views goal <input id="town-goal" type="number" min="100"></label>
+                    <label>Earnings per 1,000 views ($) <input id="town-rpm" type="number" min="0" step="0.01"></label>
+                </div>
+                <label>YouTube API key (to read view counts) <input id="town-ytkey" type="password" placeholder="Paste a key; it's stored encrypted"></label>
+                <p class="hint">Get one free at console.cloud.google.com: create a project, enable "YouTube Data API v3", then Credentials &gt; Create credentials &gt; API key.</p>
+                <div class="row"><button onclick="app.saveTownSettings()">Save</button><button class="ghost" onclick="app.townTrack()">Refresh views now</button><button class="ghost" onclick="app.openFolder('videos')">Open videos folder</button></div>
+                <div id="town-lessons" class="hint"></div>
+            </div>
+        </div>
+    </div>
+</section>
+
 <section class="view" id="view-watch" hidden>
     <h1>Watch</h1>
     <p class="sub">Keep an eye on miners, servers and APIs. Freeze Foundry polls them while the app is open, charts a value and alerts you when a rule trips. It can also ask your model what's wrong.</p>
@@ -820,6 +918,19 @@
         <li><b>One approval.</b> Nothing touches your workspace until the project is done. Apply writes every file at once with backups; Undo puts them all back. With Auto-apply on, a project that passes inspection applies itself.</li>
       </ul>
       <p class="hint">The Foreman plans with the Planner's model and inspects with the Reviewer's, so a stronger model there pays off. Projects show up in the left drawer with each file's progress; click a file to read it. A project that was running when the app closed comes back paused.</p>
+
+      <h2 id="g-town" data-toc="Town: the Shorts crew">Town: a crew that makes Shorts</h2>
+      <p>The Town is a second crew, living in six houses around a Bank. They make vertical Shorts on your models, and every hand-off is a courier walking a letter across town.</p>
+      <ul>
+        <li><b>Pip at the Lookout</b> picks a topic, skipping old ones and preferring your Topic ideas and what the Observatory has learned.</li>
+        <li><b>Quill at the Writer's Cottage</b> writes a Ranked countdown: five items, a real number each, a one-line fact, and a question to end on.</li>
+        <li><b>Ledger at the Fact Desk</b> checks every number and sends the draft back when something's wrong (as many tries as Attempts in Settings).</li>
+        <li><b>Stamp at the Post Office</b> writes the title, description and tags.</li>
+        <li><b>Reel at the Studio</b> animates and records a 1080×1920 video with original chiptune music, in a hidden window of the app. It saves as MP4, which YouTube, TikTok and Instagram all take.</li>
+        <li><b>Lens at the Observatory</b> reads view counts for posted videos every 30 minutes and, once a few are posted, tells Pip what's working.</li>
+      </ul>
+      <p>Finished episodes wait under <b>Episodes</b> for your OK. Watch it, <b>Approve</b>, post it, then paste the link so the Observatory can follow its views. <b>Autopilot</b> starts a new episode every few hours while the app is open, and stops when enough are waiting for you. The Bank adds up views and an earnings estimate at the rate you set.</p>
+      <p class="hint">Reading view counts needs a free YouTube Data API key (Town settings explains how). Bigger models write better facts; check the Fact Desk's notes on anything flagged before you post.</p>
 
       <h2 id="g-approve" data-toc="Approvals and the queue">Approvals, Auto-apply and the queue</h2>
       <p>With <b>Auto-apply</b> off, every finished change waits in <b>Staged changes</b>. Click it to see the diff, then apply or reject. With it on, a change applies itself only when tests didn't fail <i>and</i> the Reviewer approved; everything else waits for you.</p>
@@ -1038,6 +1149,7 @@ roles: [builder, reviewer]
     </div>
 </div>
 
+<script src="town.js"></script>
 <script>
 // Escape text before it goes into HTML (model names, server errors and goals can contain anything).
 const escapeHtml = t => String(t ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -1642,7 +1754,8 @@ class App {
 
     showView(name) {
         document.getElementById('view-factory').hidden = name !== 'factory';
-        ['models', 'skills', 'sources', 'watch', 'ship', 'settings', 'guide'].forEach(v => { document.getElementById('view-' + v).hidden = name !== v; });
+        ['town', 'models', 'skills', 'sources', 'watch', 'ship', 'settings', 'guide'].forEach(v => { document.getElementById('view-' + v).hidden = name !== v; });
+        if (name === 'town') this.openTown(); else if (this.town) this.town.stop();
         document.querySelectorAll('.rail [data-view]').forEach(b => b.classList.toggle('active', b.dataset.view === name));
         if (name === 'models') {
             document.getElementById('set-base').value = (this.settings && this.settings.baseUrl) || '';
@@ -1768,6 +1881,178 @@ class App {
     }
 
     // ---------- Watch ----------
+    // ---------- Town: the Shorts crew ----------
+    openTown() {
+        if (!this.town) {
+            this.town = new TownMap(document.getElementById('town-canvas'), document.getElementById('town-overlay'), id => this.townPick(id));
+            this.townSince = null;
+        }
+        this.town.start();
+        this.pollTown();
+    }
+
+    async pollTown() {
+        const visible = !document.getElementById('view-town').hidden;
+        clearTimeout(this.townTimer);
+        this.townTimer = setTimeout(() => this.pollTown(), visible ? 1500 : 20000);
+        const d = await fetch('/api/studio' + (this.townSince ? `?since=${this.townSince}` : '')).then(r => r.json()).catch(() => null);
+        if (!d) return;
+        const first = this.townSince === null;
+        const last = d.events.length ? d.events[d.events.length - 1].n : this.townSince || 0;
+        if (!first && this.town) d.events.forEach(e => this.town.send(e.from, e.to, e.msg));
+        if (!first) d.events.filter(e => e.from === 'studio' && e.to === 'bank').forEach(e => { this.toast(e.msg); this.sfx('ready'); });
+        this.townSince = last;
+        this.townState = d;
+        if (visible) this.renderTown(d);
+    }
+
+    renderTown(d) {
+        const b = d.bank, fmt = n => n.toLocaleString('en-US');
+        document.getElementById('bank-views').textContent = fmt(b.views);
+        document.getElementById('bank-posts').textContent = fmt(b.posts);
+        document.getElementById('bank-money').textContent = '$' + b.earnings.toFixed(2);
+        document.getElementById('bank-goal-label').textContent = `Goal: ${fmt(b.goal)} views (${Math.min(100, Math.floor(b.views / b.goal * 100))}%)`;
+        document.getElementById('bank-goal').style.width = Math.min(100, b.views / b.goal * 100) + '%';
+        document.getElementById('town-run').disabled = d.running;
+        document.getElementById('town-run').textContent = d.running ? 'Crew at work...' : 'Make an episode';
+        document.getElementById('town-auto').checked = d.settings.auto;
+        if (!d.canRecord) document.getElementById('town-sub').textContent = 'Developer mode: videos are recorded by the desktop app. Here, open /studio/render.html?ep=<id> to record one.';
+        if (this.town) {
+            this.town.busy = Object.fromEntries(d.crew.filter(c => c.doing).map(c => [c.id, true]));
+            const ov = document.getElementById('town-overlay');
+            ov.querySelectorAll('.town-tag').forEach(t => t.remove());
+            [...d.crew, { id: 'bank', name: 'Bank', house: 'Vault' }].forEach(c => {
+                const h = this.town.tagSpot(c.id), tag = document.createElement('div');
+                tag.className = 'town-tag' + (c.doing ? ' busy' : '');
+                tag.style.left = (h.x / this.town.W * 100) + '%';
+                tag.style.top = (h.y / this.town.H * 100) + '%';
+                tag.innerHTML = `${escapeHtml(c.name)}${c.house ? ` <small>${escapeHtml(c.house)}</small>` : ''}${c.doing ? `<br><small>${escapeHtml(c.doing)}</small>` : ''}`;
+                ov.appendChild(tag);
+            });
+        }
+        if (this.townPicked) this.townPick(this.townPicked);
+        const lessons = d.lessons || [];
+        document.getElementById('town-lessons').innerHTML = lessons.length ? '<b>What the Observatory learned:</b><br>' + lessons.map(escapeHtml).join('<br>') : '';
+        if (!this.townSettingsFilled) {
+            this.townSettingsFilled = true;
+            const st = d.settings;
+            document.getElementById('town-topics').value = st.topics;
+            document.getElementById('town-every').value = st.everyHours;
+            document.getElementById('town-max').value = st.maxWaiting;
+            document.getElementById('town-goal').value = st.goal;
+            document.getElementById('town-rpm').value = st.rpm;
+            document.getElementById('town-ytkey').placeholder = d.youtubeKey ? 'Key saved. Paste a new one to replace it' : 'Paste a key; it\'s stored encrypted';
+        }
+        const key = JSON.stringify(d.episodes.map(e => [e.id, e.status, e.updatedAt, e.stats]));
+        if (key === this.townEpKey) return;
+        this.townEpKey = key;
+        const box = document.getElementById('town-episodes');
+        if (!d.episodes.length) return;
+        box.innerHTML = '';
+        box.classList.remove('hint');
+        const label = { scouting: 'Scouting', writing: 'Writing', checking: 'Fact check', titling: 'Titling', rendering: 'Recording', staged: 'Needs your OK', ready: 'Approved, post it', posted: 'Posted', rejected: 'Rejected', failed: 'Failed' };
+        d.episodes.forEach(ep => {
+            const div = document.createElement('div');
+            div.className = 'ep';
+            const views = ep.stats && ep.stats.youtube ? `${ep.stats.youtube.views.toLocaleString('en-US')} views · ${ep.stats.youtube.likes.toLocaleString('en-US')} likes` : '';
+            div.innerHTML = (ep.hasVideo ? `<video src="/api/studio/videos/${ep.video && ep.video.file || ep.id}" controls preload="metadata" playsinline></video>` : '<div class="ep-thumb">&#127916;</div>') +
+                `<div style="display:grid;gap:6px;min-width:0"><div><span class="ep-status ${escapeHtml(ep.status)}">${escapeHtml(label[ep.status] || ep.status)}</span></div>
+                <h3></h3><div class="meta"></div><div class="row"></div></div>`;
+            div.querySelector('h3').textContent = (ep.post && ep.post.title) || (ep.spec && ep.spec.title) || ep.topic || 'New episode';
+            div.querySelector('.meta').textContent = [ep.topic, views, ep.flagged ? 'Fact Desk was not fully satisfied: read its notes' : '', ep.error || ''].filter(Boolean).join(' · ');
+            const row = div.querySelector('.row');
+            const btn = (text, fn, cls = 'ghost') => { const b = document.createElement('button'); b.className = cls; b.textContent = text; b.onclick = fn; row.appendChild(b); };
+            if (ep.status === 'staged') { btn('Approve', () => this.townAction(ep, 'approve'), 'success'); btn('Reject', () => this.townAction(ep, 'reject'), 'danger'); }
+            if (ep.post && ['staged', 'ready'].includes(ep.status)) btn('Copy title + description', () => this.copyText(`${ep.post.title}\n\n${ep.post.description}\n\n${(ep.post.tags || []).map(t => '#' + t.replace(/\s+/g, '')).join(' ')}`));
+            if (['ready', 'posted'].includes(ep.status)) {
+                const input = document.createElement('input');
+                input.placeholder = 'Paste the YouTube link after posting';
+                input.value = (ep.links && ep.links.youtube) || '';
+                input.style.flex = '1';
+                row.appendChild(input);
+                btn(ep.status === 'posted' ? 'Update link' : 'Save link', () => this.townLink(ep, input.value));
+            }
+            if (ep.checks && ep.checks.length) btn('Crew notes', () => this.showDetail(`Crew notes: ${ep.spec ? ep.spec.title : ep.topic}`, ep.log.map(l => `${new Date(l.at).toLocaleTimeString()}  ${l.who}: ${l.msg}`).join('\n')));
+            if (!['scouting', 'writing', 'checking', 'titling', 'rendering'].includes(ep.status)) btn('Delete', () => this.townAction(ep, 'delete'));
+            box.appendChild(div);
+        });
+    }
+
+    townPick(id) {
+        this.townPicked = id;
+        const d = this.townState;
+        if (!d) return;
+        const box = document.getElementById('town-house');
+        box.classList.remove('hint');
+        if (id === 'bank') {
+            document.getElementById('town-house-title').textContent = 'The Bank';
+            box.innerHTML = `<div>Everything the crew earns ends up here.</div><div class="hint">${d.bank.made} videos made · ${d.bank.waiting} waiting for you · ${d.bank.posts} posted · ${d.bank.views.toLocaleString('en-US')} views. Earnings are an estimate at $${d.bank.rpm} per 1,000 views; change it in Town settings.</div>`;
+            return;
+        }
+        const c = d.crew.find(x => x.id === id);
+        document.getElementById('town-house-title').textContent = c.house;
+        const recent = d.episodes.flatMap(e => (e.log || []).filter(l => l.who === c.name).map(l => l.msg)).slice(0, 4);
+        box.innerHTML = `<div class="who">${escapeHtml(c.name)}, ${escapeHtml(c.job)}</div>${c.doing ? `<div class="doing">Now: ${escapeHtml(c.doing)}</div>` : '<div class="hint">Waiting for work.</div>'}` +
+            (recent.length ? `<div class="hint">${recent.map(escapeHtml).join('<br>')}</div>` : '');
+    }
+
+    saveTownPng() {
+        const link = document.createElement('a');
+        link.download = 'pixel-winter-foundry.png';
+        link.href = this.town.scene.png();
+        link.click();
+    }
+
+    async townRun() {
+        const r = await fetch('/api/studio/run', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok) return this.toast(d.error || 'The crew could not start');
+        this.toast('The crew is on it');
+        this.sfx('start');
+        this.pollTown();
+    }
+
+    async townAction(ep, action) {
+        const r = await fetch(`/api/studio/episodes/${ep.id}/${action}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok) return this.toast(d.error || 'That did not work');
+        if (action === 'approve') this.toast('Approved. Post it, then paste the link to start tracking views.');
+        this.pollTown();
+    }
+
+    async townLink(ep, url) {
+        const r = await fetch(`/api/studio/episodes/${ep.id}/link`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url }) });
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok) return this.toast(d.error || 'That link did not work');
+        this.toast('Linked. The Observatory will follow its views.');
+        this.pollTown();
+    }
+
+    async townSettings(b) {
+        await fetch('/api/studio/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b) });
+        this.pollTown();
+    }
+
+    async saveTownSettings() {
+        const v = id => document.getElementById(id).value;
+        await this.townSettings({ topics: v('town-topics'), everyHours: +v('town-every'), maxWaiting: +v('town-max'), goal: +v('town-goal'), rpm: +v('town-rpm') });
+        const key = v('town-ytkey').trim();
+        if (key) {
+            const r = await fetch('/api/keys', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ provider: 'youtube', key }) });
+            if (!r.ok) return this.toast((await r.json().catch(() => ({}))).error || 'Could not save the key');
+            document.getElementById('town-ytkey').value = '';
+            this.townSettingsFilled = false;
+        }
+        this.toast('Town settings saved');
+    }
+
+    async townTrack() {
+        const r = await fetch('/api/studio/track', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+        const d = await r.json().catch(() => ({}));
+        this.toast(!r.ok ? (d.error || 'Could not read views') : d.reason || `Updated ${d.tracked} video${d.tracked === 1 ? '' : 's'}`);
+        this.pollTown();
+    }
+
     async refreshWatch() {
         const d = await fetch('/api/watchers').then(r => r.json()).catch(() => null);
         if (!d) return;
@@ -2841,6 +3126,7 @@ class App {
         this.renderBlueprints();
         this.refreshWatch();
         setInterval(() => this.refreshWatch(), 10000);
+        this.pollTown(); // keeps an eye on the crew even when the Town page is closed
         this.pollProjects();
         setInterval(() => this.pollProjects(), 1500);
         this.restoreQueue();

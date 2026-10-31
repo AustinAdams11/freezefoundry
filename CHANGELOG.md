@@ -2,6 +2,14 @@
 
 Everything that changed in Freeze Foundry, newest first.
 
+## 0.13.0 · 2026-10-31
+
+- **Town.** A second crew that makes Shorts on your models: Pip scouts a topic, Quill writes it, Ledger at the Fact Desk checks every number and sends drafts back, Stamp writes the title and tags, Reel records the video, and Lens at the Observatory tracks views. They live in a snowy pixel town around a Bank, and every hand-off is a courier walking a letter across town.
+- **Ranked, the first show.** A five-item countdown with a spotlight reveal, counting numbers, a building leaderboard and a question to end on. Recorded at 1080×1920 with original chiptune music, inside the app, as MP4.
+- **Your OK before anything goes out.** Episodes wait for you to watch and approve. Paste the link after posting and the Observatory follows its views; the Bank adds up views and an earnings estimate.
+- **Autopilot.** A new episode every few hours while the app is open, never more than you have time to review.
+- **New logo.** The Hex Ingot: an ice snowflake set into a molten hexagon.
+
 ## 0.12.0 · 2026-10-28
 
 - **The Foreman runs whole projects.** It used to plan and queue; now it runs the project to the end on its own, even if you switch pages.

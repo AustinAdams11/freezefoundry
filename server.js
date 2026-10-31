@@ -322,6 +322,9 @@ const server = http.createServer(async (req, res) => {
     } catch (e) { res.writeHead(400); return res.end(JSON.stringify({ error: e.message })); }
   }
 
+  // TOWN: the Shorts studio (studio.js)
+  if (pathname.startsWith('/api/studio') && await studio.handle(req, res, pathname, method)) return;
+
   // FOREMAN: plan a project, then run it (see "Foreman" below)
   if (pathname === '/api/foreman' && method === 'POST') {
     try {
@@ -733,7 +736,7 @@ if (pathname.startsWith('/api/tasks/') && pathname.endsWith('/approve')) {
   if (pathname === '/api/keys' && method === 'POST') {
     try {
       const { provider, key } = await readJsonBody(req);
-      if ((!PROVIDERS[provider] && provider !== 'apify') || provider === 'local') throw new Error('Unknown provider');
+      if ((!PROVIDERS[provider] && provider !== 'apify' && provider !== 'youtube') || provider === 'local') throw new Error('Unknown provider');
       if (typeof key !== 'string' || key.length > 500 || /\s/.test(key.trim())) throw new Error('That does not look like an API key.');
       setKey(provider, key.trim());
       res.writeHead(200); return res.end(JSON.stringify(publicSettings(loadSettings())));
@@ -787,7 +790,7 @@ if (pathname.startsWith('/api/tasks/') && pathname.endsWith('/approve')) {
 
   if (pathname === '/api/open-folder' && method === 'POST') {
     const { which } = await readJsonBody(req).catch(() => ({}));
-    const dir = { models: loadSettings().modelsDir, workspace: WORKSPACE_DIR, data: DATA_DIR, skills: SKILLS_DIR, logs: path.join(DATA_DIR, 'logs') }[which];
+    const dir = { models: loadSettings().modelsDir, workspace: WORKSPACE_DIR, data: DATA_DIR, skills: SKILLS_DIR, logs: path.join(DATA_DIR, 'logs'), videos: path.join(DATA_DIR, 'studio', 'videos') }[which];
     if (!dir) { res.writeHead(400); return res.end(JSON.stringify({ error: 'Unknown folder' })); }
     fs.mkdirSync(dir, { recursive: true });
     const opener = process.platform === 'win32' ? 'explorer' : process.platform === 'darwin' ? 'open' : 'xdg-open';
@@ -1375,6 +1378,8 @@ async function projectAction(p, action) {
   }
   throw new Error('Unknown action');
 }
+
+const studio = require('./studio').createStudio({ dataDir: DATA_DIR, callModel: callLMStudio, getKey, writeJsonAtomic, port: PORT, attempts: () => loadSettings().attempts });
 
 const watchers = require('./watchers').createWatchers(path.join(DATA_DIR, 'watchers.json'), {
   // Optional: ask the model to explain an alert, using the latest reading.
