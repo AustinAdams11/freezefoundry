@@ -195,9 +195,8 @@
         ctx.fillStyle = 'rgba(255,255,255,0.05)'; roundRect(ctx, 110, 470, 860, 620, 56); ctx.fill();
         ctx.strokeStyle = top ? 'rgba(255,138,31,0.55)' : 'rgba(255,255,255,0.10)'; ctx.lineWidth = 3; roundRect(ctx, 110, 470, 860, 620, 56); ctx.stroke();
         text(ctx, top ? 'NUMBER ONE' : `#${rank}`, W / 2, 560, { size: top ? 44 : 64, weight: 800, color: top ? C.molten : C.dim, track: top ? 0.08 : -0.02 });
-        if (item.icon) text(ctx, item.icon, W / 2, 760, { size: 170, weight: 400 });
-        text(ctx, item.label, W / 2, item.icon ? 880 : 760, { size: 76, weight: 800, track: -0.03, maxW: 780 });
-        text(ctx, fmt(grow < 1 ? item.value * grow : item.value, spec.unit, item.value), W / 2, item.icon ? 1000 : 900, { size: 96, weight: 800, track: -0.03, color: top ? C.amber : C.ice });
+        text(ctx, item.label, W / 2, 760, { size: 76, weight: 800, track: -0.03, maxW: 780 });
+        text(ctx, fmt(grow < 1 ? item.value * grow : item.value, spec.unit, item.value), W / 2, 900, { size: 96, weight: 800, track: -0.03, color: top ? C.amber : C.ice });
         ctx.restore();
         if (item.fact) {
           const f = settle((local - 0.9) / 0.6);
@@ -239,7 +238,6 @@
       background(ctx, 3, 1.4);
       const top = spec.items[spec.items.length - 1];
       pill(ctx, 'RANKED', W / 2, 520, C.molten);
-      if (top.icon) text(ctx, top.icon, W / 2, 860, { size: 260, weight: 400 });
       thumbWords(ctx, spec.thumb || spec.title, 1040, C.amber);
     }
   };
@@ -284,11 +282,12 @@
       describe: 'A real unsolved mystery, legend or strange historical event, told as a story: what is documented, what people claim, and why it is still debated.' }
   };
 
-  function frostCamera(ctx, t, spec, tl) {
+  // The camera over the Frostpeak illustration. `spot(k)` names where segment k looks; by default each scene's focus.
+  function frostCamera(ctx, t, spec, tl, spot = k => (k > 0 && k <= spec.scenes.length && spec.scenes[k - 1].focus) || 'town') {
     const img = assets.frostpeak;
     if (!img || !img.width) { background(ctx, t, 0.3); return; }
     const i = segAt(tl, t), seg = tl.segs[i];
-    const focusOf = k => FOCUS[(k > 0 && k <= spec.scenes.length && spec.scenes[k - 1].focus) || 'town'];
+    const focusOf = k => FOCUS[spot(k)] || FOCUS.town;
     const prev = focusOf(Math.max(0, i - 1)), cur = focusOf(i);
     const m = settle((t - seg.start) / 1.1), drift = 1 + 0.06 * clamp((t - seg.start) / seg.len);
     const fx = prev.x + (cur.x - prev.x) * m, fy = prev.y + (cur.y - prev.y) * m, z = (prev.z + (cur.z - prev.z) * m) * drift;
@@ -305,39 +304,24 @@
     }
   }
 
-  function nightSky(ctx, t, style) {
+  // Story shows: the valley as background footage. The camera wanders mine to mine, one per scene, under a night grade.
+  const WANDER = ['town', 'scout', 'writer', 'checker', 'studio', 'publisher', 'analyst', 'bank'];
+  function footage(ctx, t, spec, tl, style) {
+    frostCamera(ctx, t, spec, tl, k => WANDER[k % WANDER.length]);
     const spooky = style === 'spooky';
-    const g = ctx.createLinearGradient(0, 0, 0, H);
-    g.addColorStop(0, spooky ? '#140a1c' : '#04121c'); g.addColorStop(1, '#020203');
-    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = spooky ? 'rgba(18,6,28,0.62)' : 'rgba(2,16,26,0.55)';
+    ctx.fillRect(0, 0, W, H);
     if (spooky) {
-      // The moon, its glow, and a lightning flicker now and then.
+      // A lightning flicker now and then, and fog rolling through.
       const flash = Math.max(0, Math.sin(t * 0.9) * Math.sin(t * 7.3) - 0.93) * 12;
-      const mg = ctx.createRadialGradient(800, 330, 20, 800, 330, 420);
-      mg.addColorStop(0, `rgba(255,236,214,${0.35 + flash * 0.3})`); mg.addColorStop(1, 'rgba(255,236,214,0)');
-      ctx.fillStyle = mg; ctx.fillRect(0, 0, W, H);
-      ctx.fillStyle = '#f3e7d3'; ctx.beginPath(); ctx.arc(800, 330, 120, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = '#140a1c'; ctx.beginPath(); ctx.arc(750, 300, 112, 0, Math.PI * 2); ctx.fill();
       if (flash > 0) { ctx.fillStyle = `rgba(220,220,255,${Math.min(0.35, flash * 0.2)})`; ctx.fillRect(0, 0, W, H); }
-      // Drifting fog.
       for (let k = 0; k < 7; k++) {
-        const x = ((k * 400 + t * (18 + k * 6)) % (W + 1200)) - 600, y = 1100 + k * 110;
+        const x = ((k * 400 + t * (18 + k * 6)) % (W + 1200)) - 600, y = 900 + k * 150;
         const fg = ctx.createRadialGradient(x, y, 30, x, y, 520);
-        fg.addColorStop(0, 'rgba(180,170,200,0.10)'); fg.addColorStop(1, 'rgba(180,170,200,0)');
+        fg.addColorStop(0, 'rgba(180,170,200,0.12)'); fg.addColorStop(1, 'rgba(180,170,200,0)');
         ctx.fillStyle = fg; ctx.fillRect(0, 0, W, H);
       }
-    } else {
-      // Stars and a slow radar sweep: someone, somewhere, is still looking.
-      ctx.fillStyle = 'rgba(200,240,255,0.7)';
-      for (let k = 0; k < 120; k++) { const tw = 0.4 + 0.6 * Math.abs(Math.sin(t * 0.8 + k)); ctx.globalAlpha = tw; ctx.fillRect((k * 397.3) % W, (k * 733.1) % (H * 0.7), 3, 3); }
-      ctx.globalAlpha = 1;
-      const cx = W / 2, cy = 760, a = t * 0.9;
-      ctx.strokeStyle = 'rgba(94,234,212,0.18)'; ctx.lineWidth = 3;
-      [180, 330, 480].forEach(r => { ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.stroke(); });
-      const sw = ctx.createConicGradient ? ctx.createConicGradient(a, cx, cy) : null;
-      if (sw) { sw.addColorStop(0, 'rgba(94,234,212,0.28)'); sw.addColorStop(0.12, 'rgba(94,234,212,0)'); sw.addColorStop(1, 'rgba(94,234,212,0)'); ctx.fillStyle = sw; ctx.beginPath(); ctx.arc(cx, cy, 480, 0, Math.PI * 2); ctx.fill(); }
     }
-    // Vignette.
     const v = ctx.createRadialGradient(W / 2, H / 2, 300, W / 2, H / 2, 1200);
     v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(1, 'rgba(0,0,0,0.7)');
     ctx.fillStyle = v; ctx.fillRect(0, 0, W, H);
@@ -355,7 +339,8 @@
       beats(spec, tl) { return tl.segs.slice(1, -1).map(s => s.start + 0.1); },
       draw(ctx, t, spec, tl) {
         const i = segAt(tl, t), seg = tl.segs[i], n = spec.scenes.length, local = t - seg.start;
-        if (style === 'frostpeak') frostCamera(ctx, t, spec, tl); else nightSky(ctx, t, style);
+        if (style === 'frostpeak') frostCamera(ctx, t, spec, tl); else footage(ctx, t, spec, tl, style);
+        const capY = style === 'frostpeak' ? 1300 : 1000; // stories put the words mid-screen, over the footage
         // A dark band behind the captions keeps them readable over any picture.
         const band = ctx.createLinearGradient(0, 1050, 0, H);
         band.addColorStop(0, 'rgba(0,0,0,0)'); band.addColorStop(0.25, 'rgba(0,0,0,0.55)'); band.addColorStop(1, 'rgba(0,0,0,0.6)');
@@ -365,18 +350,10 @@
         if (i === 0) {
           // Hook: the title, big, then the spoken hook as captions.
           text(ctx, spec.title, W / 2, 700, { size: 104, weight: 900, track: -0.035, alpha: head, maxW: 900, stroke: true });
-          captions(ctx, spec.hook || '', seg, t, 1300, S.accent);
+          captions(ctx, spec.hook || '', seg, t, capY, S.accent);
         } else if (i <= n) {
-          const sc = spec.scenes[i - 1], inn = settle(local / 0.5), out = settle((local - (seg.len - 0.35)) / 0.35);
           text(ctx, spec.title, W / 2, 330, { size: 46, weight: 800, maxW: 860, stroke: true });
-          if (sc.icon) {
-            const bob = Math.sin(t * 2.1) * 10, big = style !== 'frostpeak';
-            ctx.save(); ctx.globalAlpha = inn * (1 - out);
-            if (!big) { ctx.fillStyle = 'rgba(0,0,0,0.45)'; ctx.beginPath(); ctx.arc(W / 2, 560 + bob, 110, 0, Math.PI * 2); ctx.fill(); }
-            text(ctx, sc.icon, W / 2, (big ? 820 : 610) + bob, { size: big ? 260 : 130, weight: 400 });
-            ctx.restore();
-          }
-          captions(ctx, sc.say, seg, t, 1300, S.accent);
+          captions(ctx, spec.scenes[i - 1].say, seg, t, capY, S.accent);
           // Progress dots: where we are in the story.
           for (let k = 0; k < n; k++) { ctx.fillStyle = k < i ? S.accent : 'rgba(255,255,255,0.25)'; ctx.beginPath(); ctx.arc(W / 2 + (k - (n - 1) / 2) * 30, 1600, 8, 0, Math.PI * 2); ctx.fill(); }
         } else {
@@ -392,10 +369,8 @@
           const k = spec.scenes.findIndex(s => s.focus && s.focus !== 'town');
           frostCamera(ctx, k >= 0 ? tl.segs[k + 1].start + 2 : 2, spec, tl);
           ctx.fillStyle = 'rgba(0,0,0,0.35)'; ctx.fillRect(0, 0, W, H);
-        } else nightSky(ctx, 2.2, style);
+        } else footage(ctx, tl.segs[1].start + 2, spec, tl, style);
         pill(ctx, S.label, W / 2, 520, S.pill);
-        const icon = (spec.scenes.find(s => s.icon) || {}).icon;
-        if (icon) text(ctx, icon, W / 2, 850, { size: 240, weight: 400 });
         thumbWords(ctx, spec.thumb || spec.title, 1060, S.accent);
       }
     };
@@ -484,13 +459,6 @@
   }
   const soundtrack = (kind, seed, duration, beats) => kind === 'chiptune' ? chiptune(seed, duration, beats) : ambient(seed, duration, beats, kind);
 
-  // One emoji (a single grapheme with no letters or digits), or nothing.
-  function firstEmoji(v) {
-    const str = String(v || '').trim();
-    const g = typeof Intl !== 'undefined' && Intl.Segmenter ? (new Intl.Segmenter().segment(str)[Symbol.iterator]().next().value || {}).segment : [...str][0];
-    return g && !/[\p{L}\p{N}]/u.test(g) ? g : '';
-  }
-
   // Validate and tidy a spec from the Writer, so a bad one fails before rendering.
   function cleanRanked(spec) {
     if (!spec || typeof spec !== 'object') throw new Error('No spec');
@@ -498,8 +466,7 @@
       label: String((i && i.label) || '').trim().slice(0, 28),
       value: Number(i && i.value),
       fact: String((i && i.fact) || '').trim().slice(0, 90),
-      say: str(i && i.say, 200),
-      icon: firstEmoji(i && i.icon)
+      say: str(i && i.say, 200)
     })).filter(i => i.label && Number.isFinite(i.value) && i.value > 0);
     if (items.length < 3 || items.length > 7) throw new Error('A ranking needs 3 to 7 items, each with a label and a positive number.');
     items.sort((a, b) => a.value - b.value); // countdown: smallest first, biggest is number one
@@ -511,7 +478,6 @@
     if (!spec || typeof spec !== 'object') throw new Error('No spec');
     const scenes = (Array.isArray(spec.scenes) ? spec.scenes : []).map(sc => ({
       say: str(sc && sc.say, 400),
-      icon: firstEmoji(sc && sc.icon),
       focus: FOCUS[sc && sc.focus] ? sc.focus : 'town'
     })).filter(sc => sc.say);
     if (scenes.length < 2 || scenes.length > 12) throw new Error('A story needs 2 to 12 scenes, each with a line to say.');

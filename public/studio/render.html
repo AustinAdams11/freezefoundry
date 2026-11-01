@@ -32,7 +32,7 @@ try {
   const show = FFStudio.shows[ep.show];
   if (!show) throw new Error('unknown show ' + ep.show);
   const spec = FFStudio.clean[ep.show](ep.spec);
-  if (ep.show === 'frostpeak') FFStudio.assets.frostpeak = await image('/img/frostpeak.jpg');
+  if (ep.show !== 'ranked') FFStudio.assets.frostpeak = await image('/img/frostpeak.jpg'); // story shows film the valley
 
   // Narration: one clip per segment, spoken before recording starts.
   const audio = new AudioContext();
