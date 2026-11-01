@@ -589,7 +589,8 @@
         .crew-card .who { font-weight: 700; } .crew-card .doing { color: #ffd27a; font-size: 12px; }
         @media (max-width: 1000px) { .town-cols { grid-template-columns: 1fr; } .bank-stats { grid-template-columns: 1fr 1fr; } }
         @media (prefers-reduced-motion: reduce) { .town-bubble { animation: none; } }
-    </style>
+    .ep-notes { white-space: pre-wrap; font-size: 12px; max-height: 260px; overflow: auto; margin: 0; padding: 8px; background: var(--bg-alt, rgba(0,0,0,.25)); border-radius: 6px; }
+</style>
 </head>
 <body>
 
@@ -1997,7 +1998,15 @@ class App {
                 row.appendChild(input);
                 btn(ep.status === 'posted' ? 'Update link' : 'Save link', () => this.townLink(ep, input.value));
             }
-            if (ep.checks && ep.checks.length) btn('Crew notes', () => this.showDetail(`Crew notes: ${ep.spec ? ep.spec.title : ep.topic}`, ep.log.map(l => `${new Date(l.at).toLocaleTimeString()}  ${l.who}: ${l.msg}`).join('\n')));
+            if (ep.log && ep.log.length) {
+                // The detail panel lives on the Factory page, so the notes open inside the card.
+                const notes = document.createElement('pre');
+                notes.className = 'ep-notes';
+                notes.hidden = !(this.townNotes || {})[ep.id];
+                notes.textContent = ep.log.map(l => `${new Date(l.at).toLocaleTimeString()}  ${l.who}: ${l.msg}`).join('\n');
+                btn('Crew notes', () => { notes.hidden = !notes.hidden; (this.townNotes = this.townNotes || {})[ep.id] = !notes.hidden; });
+                div.lastElementChild.appendChild(notes);
+            }
             if (!['scouting', 'writing', 'checking', 'titling', 'rendering'].includes(ep.status)) btn('Delete', () => this.townAction(ep, 'delete'));
             box.appendChild(div);
         });
@@ -3004,8 +3013,17 @@ class App {
     }
 
     copyText(text) {
-        const done = () => this.toast('Copied ' + text);
-        if (navigator.clipboard) navigator.clipboard.writeText(text).then(done).catch(() => this.toast('Could not copy'));
+        const done = () => this.toast('Copied ' + (text.length > 60 ? text.slice(0, 60) + '…' : text));
+        // Fallback for when the clipboard API is missing or refused (no focus, no permission).
+        const legacy = () => {
+            const t = document.createElement('textarea');
+            t.value = text; t.style.position = 'fixed'; t.style.opacity = '0';
+            document.body.appendChild(t); t.select();
+            const ok = document.execCommand('copy'); t.remove();
+            ok ? done() : this.toast('Could not copy');
+        };
+        if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done).catch(legacy);
+        else legacy();
     }
 
     // Stop the work order on the floor: abort its requests and move on to the next one.
