@@ -100,16 +100,26 @@
   }
   const segAt = (tl, t) => { let i = 0; while (i < tl.segs.length - 1 && t >= tl.segs[i + 1].start) i++; return i; };
 
-  // Shorts-style captions: two or three words at a time, the word being spoken lit up. Word timing is spread over the
-  // narration by word length (the voice engine gives no word times; this lands close enough to read along).
+  // Shorts-style captions: two or three words at a time, the word being spoken lit up. Each sentence is pinned to
+  // where the voice really says it (seg.marks); inside a sentence, words share the time by syllables, and a comma
+  // gets a pause. Without marks (no voice), the line is spread over its reading time.
+  const syllables = w => Math.max(1, (w.toLowerCase().replace(/[^a-z0-9]/g, '').replace(/e$/, '').match(/[aeiouy]+|\d/g) || []).length);
+  function wordTimes(line, seg) {
+    const marks = seg.marks && seg.marks.length ? seg.marks : [{ text: line, start: 0, end: seg.speech || guess(line) }];
+    const out = [];
+    for (const m of marks) {
+      const ws = m.text.split(/\s+/).filter(Boolean), weight = ws.map(w => syllables(w) + (/[,;:]$/.test(w) ? 1.2 : 0));
+      const total = weight.reduce((a, b) => a + b, 0) || 1;
+      let acc = 0;
+      ws.forEach((w, i) => { out.push({ w, at: seg.say + m.start + (m.end - m.start) * acc / total }); acc += weight[i]; });
+    }
+    return out;
+  }
   function captions(ctx, line, seg, t, y, accent) {
-    const ws = String(line || '').split(/\s+/).filter(Boolean);
+    const times = wordTimes(line, seg), ws = times.map(x => x.w);
     if (!ws.length) return;
-    const span = seg.speech || guess(line), weight = ws.map(w => w.length + 2), total = weight.reduce((a, b) => a + b, 0);
-    const local = (t - seg.say) / span * total;
-    let acc = 0, cur = 0;
-    for (let i = 0; i < ws.length; i++) { if (local >= acc) cur = i; acc += weight[i]; }
-    if (t < seg.say) cur = 0;
+    let cur = 0;
+    times.forEach((x, i) => { if (t >= x.at) cur = i; });
     // Chunks of up to 3 words or 16 letters; show the chunk holding the current word.
     const chunks = [];
     for (let i = 0, c = []; i < ws.length; i++) {
@@ -118,7 +128,7 @@
       if (c.length === 3 || len > 16 || /[.!?,;:]$/.test(ws[i]) || i === ws.length - 1) { chunks.push(c); c = []; }
     }
     const chunk = chunks.find(c => c.includes(cur)) || chunks[0];
-    const chunkAt = seg.say + weight.slice(0, chunk[0]).reduce((a, b) => a + b, 0) / total * span;
+    const chunkAt = times[chunk[0]].at;
     const appear = settle((t - Math.max(seg.start, chunkAt - 0.05)) / 0.22);
     ctx.save();
     ctx.font = `900 92px ${FONT}`;
@@ -132,7 +142,7 @@
       let x = W / 2 - (row.reduce((n, q) => n + q.w, 0) + gap * (row.length - 1)) / 2;
       const yy = y + r * 104 + (1 - appear) * 18;
       row.forEach(p => {
-        const lit = p.k === cur && t >= seg.say;
+        const lit = p.k === cur && t >= times[0].at;
         ctx.globalAlpha = appear;
         ctx.lineWidth = 16; ctx.lineJoin = 'round'; ctx.strokeStyle = 'rgba(0,0,0,0.85)';
         ctx.strokeText(ws[p.k].toUpperCase(), x, yy);

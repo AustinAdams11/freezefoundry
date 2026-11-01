@@ -5,11 +5,12 @@ Everything that changed in Freeze Foundry, newest first.
 ## 0.14.0 · 2026-11-01
 
 - **A narrator.** Every Town episode can be read aloud by Kokoro, a natural-sounding text-to-speech model that runs on your own computer (no account, no cloud, free for commercial use). Pick a narrator per show and press Hear it to try it. The voice model downloads once (about 90 MB), then works offline. Scenes last as long as their lines, the music ducks under the voice, and a limiter keeps it from clipping.
-- **Live captions.** Big Shorts-style captions, two or three words at a time, with the spoken word lit up.
+- **Live captions.** Big Shorts-style captions, two or three words at a time, with the spoken word lit up. They follow the real voice: every sentence and comma phrase is pinned to where the narrator actually says it.
 - **Three new shows.** Frostpeak Tour walks the camera around the Frostpeak valley to whichever worker the narrator is talking about and explains the real science behind it. Spooky Story tells an original creepy (never gory) story with a twist. Mysteries & Legends tells real unsolved cases, keeping what is documented apart from what people believe. Each show has its own music bed, look and fact-check rules.
 - **Your idea, your script.** Type exactly what you want an episode to be about, or leave it empty and the Prospector picks. The script then waits for you: edit any spoken line, the titles and the description, or send it back to the Miner with a note, before anything is recorded. Turn this off in Town settings for fully automatic episodes.
 - **Thumbnails.** Every recording comes with a 1080×1920 thumbnail (big two-tone words, the show's look), with the words kept in the middle so YouTube's crops never cut them. Save it, or the video, straight from the episode.
 - **Record again** after a failed or rejected take, or after changing the voice.
+- **Stories with a payoff.** Spooky stories and mysteries are written beat by beat (setup with a planted detail, escalation where every scene adds something new, a twist or the open question), run 190 to 260 words, and are graded by the Inspector as a story editor. Anything too short goes back to the Miner automatically.
 - **Tougher fact checks for Ranked.** Filler items that don't belong in a real top 5, and lists that mix measures (running and diving speeds), are now sent back.
 - **Fixed:** Crew notes now open inside the episode card; Copy works in the desktop app; deleting the last episode clears the list; a crew member's broken JSON gets one retry instead of failing the episode.
 

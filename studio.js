@@ -50,6 +50,7 @@ const AI = {
     check: 'For each item, is the number right for that item and unit, as commonly published? Is every item a real member of the top 5 for this exact topic (filler that does not belong is wrong)? Is the same measure used for all items? Is number one really the biggest? Are the facts and spoken lines true? Choose "revise" ONLY for wrong numbers, wrong units, items that do not belong, false facts or a ranking that does not hold; small rounding is fine.'
   },
   frostpeak: {
+    minWords: 110,
     scout: `Pick the next episode of the Frostpeak Mining Co. series: a friendly tour that introduces one worker (or the town itself) and the real science behind what it does. Topics are worker introductions or a single idea (how the Miner writes one token at a time, why the Inspector double-checks, how a voice is made from text, what "8-bit" means). Never repeat a past topic.
 
 ${CREW_FACTS}`,
@@ -59,14 +60,30 @@ ${CREW_FACTS}`,
     check: 'Is every science claim accurate and the explanation easy to follow? Does each scene\'s focus match the worker it talks about? Choose "revise" ONLY for false or misleading claims, a focus that shows the wrong place, or a script that is confusing.'
   },
   spooky: {
-    scout: 'Pick the premise for an ORIGINAL short spooky story (never a retelling of a book, film or game). Creepy, not gory; fine for teenagers. Strong settings: an empty place at night, a sound that should not be there, a rule that must not be broken.',
-    write: 'Write an original spooky story Short told by a narrator. Build tension with small sensory details and end on a twist in the last scene. Creepy, never gory, nothing about self-harm; fine for teenagers. 6 to 9 scenes; each scene\'s "say" is one or two spoken sentences, at most 30 words; 130 to 170 words in all. Each scene gets one emoji "icon" for the screen. The hook is one spoken sentence over the title that makes people stay. The outro is a short question that makes people comment. "thumb" is 2 to 4 punchy words for the thumbnail. Output ONLY JSON: {"title": "<under 55 characters>", "hook": "", "scenes": [{"say": "", "icon": ""}], "outro": "", "thumb": ""}',
-    check: 'Is it original (not a retelling of a known story), easy to follow when heard once, and does the twist land? Is anything gory or unsuitable for teenagers? Choose "revise" ONLY for those problems.'
+    minWords: 170,
+    scout: 'Pick the premise for an ORIGINAL short spooky story (never a retelling of a book, film, game or famous creepypasta). Creepy, not gory; fine for teenagers. Make it specific: a real-feeling place (a night-shift gas station, a lake cabin in February, a hospital elevator), one ordinary person, and one wrong detail that will pay off in a twist. The angle names the twist in one sentence.',
+    write: `Write an original spooky story Short, told by a narrator in first person, past tense. It must be a complete story with a payoff, not a mood piece.
+Structure, one beat per scene:
+1. Hook the ordinary: who, where, when, in concrete detail. Plant one small detail that seems harmless (it pays off in the twist).
+2-3. Something is wrong, and it escalates: each scene adds a NEW concrete clue (a sound, an object, a message, a rule) and raises the stakes.
+4-5. The narrator acts: investigates, breaks the rule, or tries to leave. Show what they see and hear.
+6-7. The turn: the danger becomes undeniable.
+Last scene: the twist. One or two short sentences that make the planted detail mean something terrible. No explaining it afterwards.
+Rules: concrete nouns and sounds, not adjectives like "creepy" or "eerie"; short sentences read aloud well; no gore, nothing about self-harm; nothing a 13-year-old should not hear. 7 to 9 scenes; each scene's "say" is two or three spoken sentences, 20 to 35 words; 190 to 260 words in all. Each scene gets one emoji "icon" that pictures that beat. The hook is one spoken sentence over the title that makes people stay, without giving away the twist. The outro is a short question that makes people comment. "thumb" is 2 to 4 punchy words for the thumbnail. Output ONLY JSON: {"title": "<under 55 characters>", "hook": "", "scenes": [{"say": "", "icon": ""}], "outro": "", "thumb": ""}`,
+    check: 'Grade it as a story editor. Is it a complete story: a concrete setup, escalation where every scene adds something new, and a twist that pays off a detail planted early? Is it original (not a known story), easy to follow when heard once, and free of filler lines ("it was so creepy")? Is anything gory or unsuitable for teenagers? Choose "revise" for any of these, and say exactly which scene to fix and how.'
   },
   mystery: {
+    minWords: 170,
     scout: 'Pick a real unsolved mystery, legend or strange historical event with good records (for example a disappearance at sea, an undeciphered manuscript, a lost expedition). Never about private living people, and never a theory that blames a group of people or denies a tragedy.',
-    write: 'Write a Short that tells a real mystery or legend as a story. Keep what is documented apart from what people claim: say "records show" for facts and "some believe" for theories. Names, dates and places must be accurate. End with the leading explanations and why it is still debated. 6 to 9 scenes; each scene\'s "say" is one or two spoken sentences, at most 30 words; 130 to 170 words in all. Each scene gets one emoji "icon" for the screen. The hook is one spoken sentence over the title that makes people stay. The outro is a short question that makes people comment. "thumb" is 2 to 4 punchy words for the thumbnail. Output ONLY JSON: {"title": "<under 55 characters>", "hook": "", "scenes": [{"say": "", "icon": ""}], "outro": "", "thumb": ""}',
-    check: 'Are the names, dates, places and documented facts accurate? Are theories clearly presented as theories, never as fact? Does it avoid blaming a group of people or private living people? Choose "revise" ONLY for those problems.'
+    write: `Write a Short that tells a real mystery or legend as a gripping story, with a narrator.
+Structure, one beat per scene:
+1. Open on the strangest documented moment, with the date and place.
+2-3. Back up: who was involved and what was normal before it happened.
+4-5. What was found or what happened, step by step, with the specific documented details that make it strange.
+6-7. The leading explanations, each fairly: "Some believe...", "Investigators found...". Say which evidence supports or weakens each one.
+Last scene: what is still unexplained, and why it is still debated.
+Rules: keep what is documented apart from what people claim ("records show" for facts, "some believe" for theories); names, dates and places must be accurate; no invented quotes or details; concrete details, not adjectives. 7 to 9 scenes; each scene's "say" is two or three spoken sentences, 20 to 35 words; 190 to 260 words in all. Each scene gets one emoji "icon". The hook is one spoken sentence over the title that makes people stay. The outro is a short question that makes people comment. "thumb" is 2 to 4 punchy words for the thumbnail. Output ONLY JSON: {"title": "<under 55 characters>", "hook": "", "scenes": [{"say": "", "icon": ""}], "outro": "", "thumb": ""}`,
+    check: 'Grade it as a fact-checking editor. Are the names, dates, places and documented facts accurate, with nothing invented? Are theories clearly presented as theories, never as fact? Does it avoid blaming a group of people or private living people? Does it tell a clear story where every scene adds something new? Choose "revise" for any of these, and say exactly which scene to fix and how.'
   }
 };
 
@@ -176,6 +193,9 @@ function createStudio({ dataDir, callModel, getKey, writeJsonAtomic, port, attem
       event('writer', 'checker', `Draft ${i} of "${ep.spec.title}"`, ep.id);
       ep.status = 'checking';
       const c = await work('checker', `checking "${ep.spec.title}"`, () => check(ep));
+      // Too short is never a judgment call: send it back whatever the Inspector says.
+      const words = shows[ep.show].lines(ep.spec).join(' ').split(/\s+/).filter(Boolean).length, min = AI[ep.show].minWords || 0;
+      if (words < min) { c.verdict = 'revise'; c.issues.unshift(`Length: ${words} spoken words; write at least ${min}, with more scenes or fuller ones.`); }
       ep.checks.push(c);
       if (c.verdict === 'approve') { log(ep, 'Inspector', 'Checks out.'); break; }
       feedback = c.issues.join('\n');
