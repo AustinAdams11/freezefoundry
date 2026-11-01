@@ -1973,7 +1973,7 @@ class App {
         if (key === this.townEpKey) return;
         this.townEpKey = key;
         const box = document.getElementById('town-episodes');
-        if (!d.episodes.length) return;
+        if (!d.episodes.length) { box.className = 'hint'; box.textContent = 'No episodes yet. Press Make an episode, and watch the crew pass it around town.'; return; }
         box.innerHTML = '';
         box.classList.remove('hint');
         const label = { scouting: 'Scouting', writing: 'Writing', checking: 'Fact check', titling: 'Titling', rendering: 'Recording', staged: 'Needs your OK', ready: 'Approved, post it', posted: 'Posted', rejected: 'Rejected', failed: 'Failed' };
