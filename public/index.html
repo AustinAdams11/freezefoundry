@@ -2042,7 +2042,7 @@ class App {
                 const input = document.createElement('input');
                 input.placeholder = 'Paste the YouTube link after posting';
                 input.value = (ep.links && ep.links.youtube) || '';
-                input.style.flex = '1';
+                input.style.flex = '1 1 100%'; // its own line: a YouTube link is long
                 row.appendChild(input);
                 btn(ep.status === 'posted' ? 'Update link' : 'Save link', () => this.townLink(ep, input.value));
             }
