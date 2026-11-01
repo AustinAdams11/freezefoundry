@@ -460,7 +460,7 @@ test('a story show starts from the owner\'s idea, and the owner can send the scr
     assert.equal(ep.status, 'script');
     assert.equal(ep.show, 'frostpeak');
     assert.match(prospectorSaw, /a friendly hello to the town/, 'the idea reaches the Prospector');
-    assert.equal(ep.spec.scenes[2].focus, 'town', 'an unknown camera spot falls back to the whole town');
+    assert.equal(ep.spec.scenes[2].focus, undefined, 'an unknown camera spot is dropped; the camera shows the whole town');
     assert.match(ep.post.description, /AI voice/, 'the description says the narration is an AI voice');
     assert.equal((await post(`/api/studio/episodes/${id}/revise`, { note: 'Say hello first' })).status, 200);
     ep = await until(id, 'script');

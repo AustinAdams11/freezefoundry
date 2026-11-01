@@ -65,7 +65,7 @@ ${CREW_FACTS}`,
     check: `Is every science claim accurate and the explanation easy to follow? Does each scene's focus match the worker it talks about? Is every worker called by its Frostpeak name (Prospector, Miner, Inspector, Dispatcher, Smelter, Surveyor, Vault), never by a camera word like scout, writer, checker, publisher, studio or analyst? The "focus" field is a camera position and must stay one of the camera words; only the spoken lines use names. Judge every claim against these facts, and never suggest a fix that contradicts them. Choose "revise" ONLY for false or misleading claims, a wrong worker name, a focus that shows the wrong place, or a script that is confusing.\n\n${CREW_FACTS}`
   },
   spooky: {
-    minWords: 160,
+    minWords: 140,
     scout: 'Pick the premise for an ORIGINAL short spooky story (never a retelling of a book, film, game or famous creepypasta). Creepy, not gory; fine for teenagers. Make it specific: a real-feeling place (a night-shift gas station, a lake cabin in February, a hospital elevator), one ordinary person, and one wrong detail that will pay off in a twist. The angle names the twist in one sentence.',
     write: `Write an original spooky story Short, told by a narrator in first person, past tense. It must be a complete story with a payoff, not a mood piece.
 Structure, one beat per scene:
@@ -78,7 +78,7 @@ Rules: concrete nouns and sounds, not adjectives like "creepy" or "eerie"; short
     check: 'Grade it as a story editor. Is it a complete story: a concrete setup, escalation where every scene adds something new, and a twist that pays off a detail planted early? Is it original (not a known story), easy to follow when heard once, and free of filler lines ("it was so creepy")? Is anything gory or unsuitable for teenagers? Choose "revise" for any of these, and say exactly which scene to fix and how.'
   },
   mystery: {
-    minWords: 160,
+    minWords: 140,
     scout: 'Pick a real unsolved mystery, legend or strange historical event with good records (for example a disappearance at sea, an undeciphered manuscript, a lost expedition). Never about private living people, and never a theory that blames a group of people or denies a tragedy.',
     write: `Write a Short that tells a real mystery or legend as a gripping story, with a narrator.
 Structure, one beat per scene:

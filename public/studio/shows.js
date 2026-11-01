@@ -473,7 +473,7 @@
     if (!spec || typeof spec !== 'object') throw new Error('No spec');
     const scenes = (Array.isArray(spec.scenes) ? spec.scenes : []).map(sc => ({
       say: str(sc && sc.say, 400),
-      focus: FOCUS[sc && sc.focus] ? sc.focus : 'town'
+      ...(FOCUS[sc && sc.focus] ? { focus: sc.focus } : {}) // only Frostpeak scenes have a camera spot
     })).filter(sc => sc.say);
     if (scenes.length < 2 || scenes.length > 12) throw new Error('A story needs 2 to 12 scenes, each with a line to say.');
     return { title: str(spec.title, 70) || 'Untitled', hook: str(spec.hook, 240), outro: str(spec.outro, 120), thumb: str(spec.thumb, 40), scenes };
