@@ -115,6 +115,19 @@ function backupFile(sourcePath, backupPath) {
   fs.copyFileSync(sourcePath, backupPath);
 }
 
+// Built-in fetch() gives up if a server takes over 5 minutes to start answering, and a big local model writing a
+// long answer can take longer. Model calls use plain http(s) instead, so only our own time limit applies.
+function patientFetch(url, { method = 'GET', headers = {}, body, signal } = {}) {
+  return new Promise((resolve, reject) => {
+    const req = require(url.startsWith('https:') ? 'https' : 'http').request(url, { method, headers, signal }, res => {
+      const h = Object.entries(res.headers).flatMap(([k, v]) => [].concat(v).map(x => [k, x]));
+      resolve(new Response([204, 304].includes(res.statusCode) ? null : require('stream').Readable.toWeb(res), { status: res.statusCode, headers: h }));
+    });
+    req.on('error', e => reject(signal && signal.aborted ? signal.reason : e));
+    req.end(body);
+  });
+}
+
 // fetch for model servers: a time limit, up to two retries on rate limits, server errors and dropped connections,
 // and errors that say what to do instead of "fetch failed".
 async function modelFetch(st, url, opts) {
@@ -122,10 +135,10 @@ async function modelFetch(st, url, opts) {
   for (let attempt = 0; ; attempt++) {
     let r;
     try {
-      r = await fetch(url, { ...opts, signal: opts.signal ? AbortSignal.any([opts.signal, AbortSignal.timeout(limit)]) : AbortSignal.timeout(limit) });
+      r = await patientFetch(url, { ...opts, signal: opts.signal ? AbortSignal.any([opts.signal, AbortSignal.timeout(limit)]) : AbortSignal.timeout(limit) });
     } catch (e) {
       if (e.name === 'AbortError') throw e; // the Foreman stopped this line
-      const code = e.cause && e.cause.code;
+      const code = e.code || (e.cause && e.cause.code);
       if (e.name === 'TimeoutError') throw new Error(`The model took longer than ${limit / 1000}s to answer. Raise "Model time limit" in Settings, lower Max tokens, or use a smaller model.`);
       const unreachable = () => new Error(st.provider === 'local' || st.provider === 'custom'
         ? `Can't reach the model server at ${String(url).replace(/\/(chat\/completions|messages)$/, '')}. Start it (LM Studio: Developer tab > Start server; Ollama: run "ollama serve"), or check the address on the Models page.`
