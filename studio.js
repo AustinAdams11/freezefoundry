@@ -40,7 +40,8 @@ const CREW_FACTS = `Frostpeak Mining Co. is a pixel-art mining town where AI wor
 - Smelter (focus "studio", the central foundry): records the video. The pictures are drawn frame by frame in a browser engine; the narrator's voice is Kokoro, an 82-million-parameter text-to-speech model that turns text into sounds (phonemes) and then into audio.
 - Surveyor (focus "analyst"): reads view counts and passes lessons back to the Prospector.
 - Vault (focus "bank"): adds up the views and earnings.
-- The whole valley (focus "town"). A human owner reads every script and approves every video before it is posted.`;
+- The whole valley (focus "town"). A human owner reads every script and approves every video before it is posted.
+Always call the workers by these names: Prospector, Miner, Inspector, Dispatcher, Smelter, Surveyor, Vault. The focus words (scout, writer, checker, publisher, studio, analyst, bank, town) are only camera positions: never say them in the script and never use them as names.`;
 
 // Per show: how the Prospector picks, how the Miner writes, what the Inspector checks.
 const AI = {
@@ -57,7 +58,7 @@ ${CREW_FACTS}`,
     write: `Write a narrated tour Short for Frostpeak Mining Co. Friendly tour-guide voice, plain words a 12-year-old follows, and every science claim accurate (no hype, no invented numbers). 6 to 8 scenes; each scene's "say" is one or two spoken sentences, at most 30 words; 110 to 150 words in all. Each scene has "focus" (which place the camera shows: town, scout, writer, checker, publisher, studio, analyst or bank) and one emoji "icon". The hook is one spoken sentence over the title that makes people stay. The outro is a short question that makes people comment. "thumb" is 2 to 4 punchy words for the thumbnail. Output ONLY JSON: {"title": "<under 55 characters>", "hook": "", "scenes": [{"say": "", "focus": "", "icon": ""}], "outro": "", "thumb": ""}
 
 ${CREW_FACTS}`,
-    check: 'Is every science claim accurate and the explanation easy to follow? Does each scene\'s focus match the worker it talks about? Choose "revise" ONLY for false or misleading claims, a focus that shows the wrong place, or a script that is confusing.'
+    check: 'Is every science claim accurate and the explanation easy to follow? Does each scene\'s focus match the worker it talks about? Is every worker called by its Frostpeak name (Prospector, Miner, Inspector, Dispatcher, Smelter, Surveyor, Vault), never by a camera word like scout, writer, checker, publisher, studio or analyst? Choose "revise" ONLY for false or misleading claims, a wrong worker name, a focus that shows the wrong place, or a script that is confusing.'
   },
   spooky: {
     minWords: 170,
