@@ -381,15 +381,34 @@ test('the Town crew makes an episode: prospector, miner, inspector, dispatcher, 
     const { id } = await (await post('/api/studio/run', {})).json();
     assert.equal((await post('/api/studio/run', {})).status, 400, 'one episode at a time');
     let ep;
-    for (let i = 0; i < 50; i++) { ep = (await state()).episodes.find(e => e.id === id); if (ep.status === 'rendering') break; await new Promise(r => setTimeout(r, 100)); }
-    assert.equal(ep.status, 'rendering');
+    for (let i = 0; i < 50; i++) { ep = (await state()).episodes.find(e => e.id === id); if (ep.status === 'script') break; await new Promise(r => setTimeout(r, 100)); }
+    assert.equal(ep.status, 'script', 'the script waits for the owner');
+    assert.equal(ep.lines.length, 7, 'hook, five items, outro');
     assert.equal(ep.checks.length, 2, 'the Fact Desk sent the first draft back');
     assert.equal(ep.spec.items[ep.spec.items.length - 1].label, 'Burj Khalifa', 'number one comes last in the countdown');
     assert.match(ep.post.title, /#Shorts$/);
     const spec = await (await fetch(`${BASE}/api/studio/episodes/${id}`)).json();
     assert.equal(spec.show, 'ranked');
 
-    // The renderer hands back the recording.
+    // The owner edits the script, then records it.
+    const lines = ep.lines.map((l, i) => i === 0 ? 'The tallest buildings on Earth.' : l);
+    assert.equal((await post(`/api/studio/episodes/${id}/script`, { lines: lines.slice(1) })).status, 400, 'every line is needed');
+    assert.equal((await post(`/api/studio/episodes/${id}/script`, { title: 'Tallest', lines, post: { title: 'Sky high #Shorts' } })).status, 200);
+    assert.equal((await post(`/api/studio/episodes/${id}/revise`, { note: '' })).status, 400, 'a rewrite needs a note');
+    assert.equal((await post(`/api/studio/episodes/${id}/thumb`, {})).status, 409, 'no thumbnail before recording');
+    assert.equal((await post(`/api/studio/episodes/${id}/record`, {})).status, 200);
+    ep = (await state()).episodes.find(e => e.id === id);
+    assert.equal(ep.status, 'rendering');
+    assert.equal(ep.spec.title, 'Tallest');
+    assert.equal(ep.spec.hook, 'The tallest buildings on Earth.');
+    assert.equal(ep.post.title, 'Sky high #Shorts');
+    const rendered = await (await fetch(`${BASE}/api/studio/episodes/${id}`)).json();
+    assert.equal(rendered.voice.id, 'af_heart', 'the renderer gets the show\'s narrator');
+
+    // The renderer hands back the thumbnail, then the recording.
+    const jpg = await fetch(`${BASE}/api/studio/episodes/${id}/thumb`, { method: 'POST', headers: { 'Content-Type': 'image/jpeg' }, body: Buffer.from([0xff, 0xd8, 0xff, 0xd9]) });
+    assert.equal(jpg.status, 200);
+    assert.equal((await fetch(`${BASE}/api/studio/thumbs/${id}.jpg`)).headers.get('content-type'), 'image/jpeg');
     const video = Buffer.alloc(4096, 1);
     const up = await fetch(`${BASE}/api/studio/episodes/${id}/video`, { method: 'POST', headers: { 'Content-Type': 'video/mp4' }, body: video });
     assert.equal(up.status, 200);
@@ -406,6 +425,47 @@ test('the Town crew makes an episode: prospector, miner, inspector, dispatcher, 
     assert.match((await (await post('/api/studio/track', {})).json()).reason, /API key/);
     assert.equal((await post('/api/studio/settings', { everyHours: 0, rpm: 0.1 })).status, 200);
     assert.equal((await state()).settings.everyHours, 6, 'out-of-range values are ignored');
+    assert.equal((await post(`/api/studio/episodes/${id}/delete`, {})).status, 200);
+  } finally {
+    mock.close();
+    await post('/api/settings', { baseUrl: before.baseUrl, model: before.model, attempts: before.attempts });
+  }
+});
+
+test('a story show starts from the owner\'s idea, and the owner can send the script back', async () => {
+  const http = require('node:http');
+  let prospectorSaw = '', rewrites = 0;
+  const mock = http.createServer((q, r) => {
+    let b = ''; q.on('data', d => b += d); q.on('end', () => {
+      const m = JSON.parse(b).messages, sys = m[0].content;
+      let text = '{}';
+      if (/You are the Prospector/.test(sys)) { prospectorSaw = m[1].content; text = '{"topic": "Welcome to Frostpeak", "angle": "Meet the town."}'; }
+      if (/You are the Miner/.test(sys)) {
+        if (/owner asked for these changes/.test(m[1].content)) rewrites++;
+        text = JSON.stringify({ title: 'Welcome to Frostpeak', hook: 'Six mines, one foundry.', scenes: [{ say: 'This is the Prospector.', focus: 'scout', icon: '🧭' }, { say: 'This is the Miner.', focus: 'writer', icon: '⛏️' }, { say: 'And the foundry.', focus: 'nowhere', icon: 'x' }], outro: 'Which worker next?', thumb: 'Meet the crew' });
+      }
+      if (/You are the Inspector/.test(sys)) text = '{"verdict": "approve", "issues": []}';
+      if (/You are the Dispatcher/.test(sys)) text = '{"title": "Welcome #Shorts", "description": "Hi.", "tags": ["ai"]}';
+      r.end(JSON.stringify({ choices: [{ message: { content: text } }], usage: {} }));
+    });
+  }).listen(0);
+  await new Promise(r => setTimeout(r, 100));
+  const before = await (await fetch(BASE + '/api/settings')).json();
+  const find = async id => (await (await fetch(BASE + '/api/studio')).json()).episodes.find(e => e.id === id);
+  const until = async (id, status) => { let ep; for (let i = 0; i < 50; i++) { ep = await find(id); if (ep.status === status) break; await new Promise(r => setTimeout(r, 100)); } return ep; };
+  try {
+    await post('/api/settings', { provider: 'local', baseUrl: `http://127.0.0.1:${mock.address().port}/v1`, model: 'm', attempts: 1 });
+    const { id } = await (await post('/api/studio/run', { show: 'frostpeak', idea: 'Episode 1: a friendly hello to the town' })).json();
+    let ep = await until(id, 'script');
+    assert.equal(ep.status, 'script');
+    assert.equal(ep.show, 'frostpeak');
+    assert.match(prospectorSaw, /a friendly hello to the town/, 'the idea reaches the Prospector');
+    assert.equal(ep.spec.scenes[2].focus, 'town', 'an unknown camera spot falls back to the whole town');
+    assert.equal(ep.spec.scenes[2].icon, '', 'letters are not an emoji');
+    assert.match(ep.post.description, /AI voice/, 'the description says the narration is an AI voice');
+    assert.equal((await post(`/api/studio/episodes/${id}/revise`, { note: 'Say hello first' })).status, 200);
+    ep = await until(id, 'script');
+    assert.equal(rewrites, 1, 'the note went to the Miner');
     assert.equal((await post(`/api/studio/episodes/${id}/delete`, {})).status, 200);
   } finally {
     mock.close();

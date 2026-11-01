@@ -577,6 +577,7 @@
         .town-cols .card { max-width: none; }
         .town-cols .grid2 { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
         .town-cols input, .town-cols textarea { width: 100%; min-width: 0; box-sizing: border-box; }
+        .town-cols label.check input { width: auto; flex: none; }
         .ep { border: 1px solid var(--border-color); border-radius: 12px; padding: 12px; display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 12px; background: var(--bg-input); }
         .ep video, .ep .ep-thumb { width: 96px; aspect-ratio: 9 / 16; border-radius: 8px; background: #000; object-fit: cover; }
         .ep .ep-thumb { display: grid; place-items: center; font-size: 22px; color: var(--text-muted); }
@@ -589,6 +590,21 @@
         .crew-card .who { font-weight: 700; } .crew-card .doing { color: #ffd27a; font-size: 12px; }
         @media (max-width: 1000px) { .town-cols { grid-template-columns: 1fr; } .bank-stats { grid-template-columns: 1fr 1fr; } }
         @media (prefers-reduced-motion: reduce) { .town-bubble { animation: none; } }
+        .new-ep { display: grid; gap: 10px; }
+        .new-ep .shows { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 6px; }
+        .new-ep .shows button { text-align: left; padding: 8px 10px; border-radius: 10px; background: var(--bg-input); border: 1px solid var(--border-color); color: var(--text-main); font: inherit; font-size: 12px; cursor: pointer; display: grid; gap: 2px; }
+        .new-ep .shows button b { font-size: 13px; }
+        .new-ep .shows button[aria-pressed="true"] { border-color: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 35%, transparent); }
+        .new-ep .voice-row { display: flex; gap: 8px; align-items: end; flex-wrap: wrap; }
+        .new-ep .voice-row label { flex: 1; min-width: 160px; }
+        #town-episodes:not(.hint) { display: grid; gap: 10px; }
+        .ep .ep-thumb-img { width: 96px; aspect-ratio: 9 / 16; border-radius: 8px; object-fit: cover; cursor: pointer; display: block; }
+        .ep .ep-media { display: grid; gap: 6px; align-content: start; }
+        .ep-status.script { background: #7dd3fc; color: #04121c; } .ep-status.ready { background: #fde68a; color: #1a1204; }
+        .script-ed { display: grid; gap: 8px; margin-top: 4px; }
+        .script-ed label { font-size: 11px; color: var(--text-muted); display: grid; gap: 3px; }
+        .script-ed textarea { font: inherit; font-size: 13px; line-height: 1.4; resize: vertical; }
+        .script-ed .words { font-size: 11px; color: var(--text-muted); }
     .ep-notes { white-space: pre-wrap; font-size: 12px; max-height: 260px; overflow: auto; margin: 0; padding: 8px; background: var(--bg-alt, rgba(0,0,0,.25)); border-radius: 6px; }
 </style>
 </head>
@@ -805,9 +821,22 @@
     <div class="frost-foot"><div>6 Active Mountain Mines &bull; Central Smelting Foundry</div><div id="statsReadout" class="frost-ore">Ore Smelted: 1,420 Tons</div></div>
     <div class="town-key" id="town-key" aria-label="Who works where"></div>
     <div class="town-cols">
+        <div>
+        <div class="card new-ep">
+            <h2>New episode</h2>
+            <div class="shows" id="town-shows" role="group" aria-label="Show"></div>
+            <label>Your idea (optional) <textarea id="town-idea" rows="3" placeholder="Leave empty and the Prospector picks a topic. Or, for example: Episode 1: welcome to Frostpeak, a friendly hello to the town"></textarea></label>
+            <div class="voice-row">
+                <label>Narrator for this show <select id="town-voice" onchange="app.townVoicePick()"></select></label>
+                <button class="ghost" id="town-hear" onclick="app.townHear()">Hear it</button>
+            </div>
+            <div class="hint" id="town-voice-msg"></div>
+            <div class="row"><button id="town-make" onclick="app.townRun()">Make it</button><span class="hint" id="town-make-hint"></span></div>
+        </div>
         <div class="card">
             <h2>Episodes</h2>
             <div id="town-episodes" class="hint">No episodes yet. Press Make an episode, and watch the crew pass it around town.</div>
+        </div>
         </div>
         <div>
             <div class="card">
@@ -816,13 +845,16 @@
             </div>
             <div class="card">
                 <h2>Town settings</h2>
-                <label>Topic ideas (one per line; the Scout prefers these) <textarea id="town-topics" rows="4" placeholder="fastest animals&#10;tallest buildings&#10;most expensive cars"></textarea></label>
+                <label>Topic ideas (one per line; the Prospector prefers these when you leave the idea empty) <textarea id="town-topics" rows="4" placeholder="fastest animals&#10;tallest buildings&#10;most expensive cars"></textarea></label>
                 <div class="grid2">
                     <label>Autopilot: an episode every (hours) <input id="town-every" type="number" min="1" max="168"></label>
                     <label>Stop when this many wait for you <input id="town-max" type="number" min="1" max="20"></label>
                     <label>Views goal <input id="town-goal" type="number" min="100"></label>
                     <label>Earnings per 1,000 views ($) <input id="town-rpm" type="number" min="0" step="0.01"></label>
                 </div>
+                <label class="check"><input type="checkbox" id="town-approve"> Let me read and edit the script before it's recorded</label>
+                <label class="check"><input type="checkbox" id="town-voiceon"> Narrate with an AI voice (Kokoro, runs on this computer)</label>
+                <label>Voice speed: <span id="town-speed-val"></span> <input id="town-speed" type="range" min="0.8" max="1.2" step="0.05" oninput="document.getElementById('town-speed-val').textContent = this.value + 'x'"></label>
                 <label>YouTube API key (to read view counts) <input id="town-ytkey" type="password" placeholder="Paste a key; it's stored encrypted"></label>
                 <p class="hint">Get one free at console.cloud.google.com: create a project, enable "YouTube Data API v3", then Credentials &gt; Create credentials &gt; API key.</p>
                 <div class="row"><button onclick="app.saveTownSettings()">Save</button><button class="ghost" onclick="app.townTrack()">Refresh views now</button><button class="ghost" onclick="app.openFolder('videos')">Open videos folder</button></div>
@@ -1924,6 +1956,9 @@ class App {
         document.getElementById('bank-goal').style.width = Math.min(100, b.views / b.goal * 100) + '%';
         document.getElementById('town-run').disabled = d.running;
         document.getElementById('town-run').textContent = d.running ? 'Crew at work...' : 'Make an episode';
+        document.getElementById('town-make').disabled = d.running;
+        document.getElementById('town-make-hint').textContent = d.running ? 'The crew is busy with an episode; this one can start when it is done.' : '';
+        this.renderNewEpisode(d);
         document.getElementById('town-auto').checked = d.settings.auto;
         if (!d.canRecord) document.getElementById('town-sub').textContent = 'Developer mode: videos are recorded by the desktop app. Here, open /studio/render.html?ep=<id> to record one.';
         if (this.town) {
@@ -1967,6 +2002,10 @@ class App {
             document.getElementById('town-max').value = st.maxWaiting;
             document.getElementById('town-goal').value = st.goal;
             document.getElementById('town-rpm').value = st.rpm;
+            document.getElementById('town-approve').checked = st.approveScript;
+            document.getElementById('town-voiceon').checked = st.voiceOn;
+            document.getElementById('town-speed').value = st.speed;
+            document.getElementById('town-speed-val').textContent = st.speed + 'x';
             document.getElementById('town-ytkey').placeholder = d.youtubeKey ? 'Key saved. Paste a new one to replace it' : 'Paste a key; it\'s stored encrypted';
         }
         const key = JSON.stringify(d.episodes.map(e => [e.id, e.status, e.updatedAt, e.stats]));
@@ -1976,19 +2015,28 @@ class App {
         if (!d.episodes.length) { box.className = 'hint'; box.textContent = 'No episodes yet. Press Make an episode, and watch the crew pass it around town.'; return; }
         box.innerHTML = '';
         box.classList.remove('hint');
-        const label = { scouting: 'Scouting', writing: 'Writing', checking: 'Fact check', titling: 'Titling', rendering: 'Recording', staged: 'Needs your OK', ready: 'Approved, post it', posted: 'Posted', rejected: 'Rejected', failed: 'Failed' };
+        const label = { scouting: 'Scouting', writing: 'Writing', checking: 'Fact check', titling: 'Titling', script: 'Script ready: read it', rendering: 'Recording', staged: 'Needs your OK', ready: 'Approved, post it', posted: 'Posted', rejected: 'Rejected', failed: 'Failed' };
+        const showName = Object.fromEntries((d.shows || []).map(x => [x.id, x.name]));
         d.episodes.forEach(ep => {
             const div = document.createElement('div');
             div.className = 'ep';
             const views = ep.stats && ep.stats.youtube ? `${ep.stats.youtube.views.toLocaleString('en-US')} views · ${ep.stats.youtube.likes.toLocaleString('en-US')} likes` : '';
-            div.innerHTML = (ep.hasVideo ? `<video src="/api/studio/videos/${ep.video && ep.video.file || ep.id}" controls preload="metadata" playsinline></video>` : '<div class="ep-thumb">&#127916;</div>') +
+            const v = ep.updatedAt ? `?v=${encodeURIComponent(ep.updatedAt)}` : '';
+            div.innerHTML = `<div class="ep-media">${ep.hasVideo ? `<video src="/api/studio/videos/${ep.video && ep.video.file || ep.id}${v}" controls preload="metadata" playsinline></video>` : '<div class="ep-thumb">&#127916;</div>'}` +
+                (ep.hasThumb ? `<a href="/api/studio/thumbs/${ep.id}.jpg${v}" download="${ep.id}-thumbnail.jpg" title="Save the thumbnail"><img class="ep-thumb-img" src="/api/studio/thumbs/${ep.id}.jpg${v}" alt="Thumbnail"></a>` : '') + '</div>' +
                 `<div style="display:grid;gap:6px;min-width:0"><div><span class="ep-status ${escapeHtml(ep.status)}">${escapeHtml(label[ep.status] || ep.status)}</span></div>
                 <h3></h3><div class="meta"></div><div class="row"></div></div>`;
             div.querySelector('h3').textContent = (ep.post && ep.post.title) || (ep.spec && ep.spec.title) || ep.topic || 'New episode';
-            div.querySelector('.meta').textContent = [ep.topic, views, ep.flagged ? 'The Inspector was not fully satisfied: read its notes' : '', ep.error || ''].filter(Boolean).join(' · ');
+            div.querySelector('.meta').textContent = [showName[ep.show] || ep.show, ep.topic, views, ep.flagged ? 'The Inspector was not fully satisfied: read its notes' : '', ep.error || ''].filter(Boolean).join(' · ');
             const row = div.querySelector('.row');
             const btn = (text, fn, cls = 'ghost') => { const b = document.createElement('button'); b.className = cls; b.textContent = text; b.onclick = fn; row.appendChild(b); };
+            if (ep.status === 'script') { this.scriptEditor(ep, div.lastElementChild, btn); }
             if (ep.status === 'staged') { btn('Approve', () => this.townAction(ep, 'approve'), 'success'); btn('Reject', () => this.townAction(ep, 'reject'), 'danger'); }
+            const save = (href, name) => { const a = document.createElement('a'); a.href = href; a.download = name; a.click(); };
+            if (ep.hasVideo && ['staged', 'ready', 'posted'].includes(ep.status)) btn('Save video', () => save(`/api/studio/videos/${ep.video.file}`, ep.video.file));
+            if (ep.hasThumb && ['staged', 'ready', 'posted'].includes(ep.status)) btn('Save thumbnail', () => save(`/api/studio/thumbs/${ep.id}.jpg`, `${ep.id}-thumbnail.jpg`));
+            if (ep.post && ['failed', 'rejected'].includes(ep.status)) btn('Record again', () => this.townAction(ep, 'record'));
+            if (ep.spec && ['failed', 'rejected'].includes(ep.status)) btn('Ask for changes', () => this.townRevisePrompt(ep, div.lastElementChild));
             if (ep.post && ['staged', 'ready'].includes(ep.status)) btn('Copy title + description', () => this.copyText(`${ep.post.title}\n\n${ep.post.description}\n\n${(ep.post.tags || []).map(t => '#' + t.replace(/\s+/g, '')).join(' ')}`));
             if (['ready', 'posted'].includes(ep.status)) {
                 const input = document.createElement('input');
@@ -2037,13 +2085,141 @@ class App {
         link.click();
     }
 
+    // The New episode panel: pick a show, give an idea (or not), pick its narrator.
+    renderNewEpisode(d) {
+        const box = document.getElementById('town-shows');
+        this.townShow = this.townShow || d.settings.show;
+        if (!box.childElementCount || this.townShowsKey !== this.townShow) {
+            this.townShowsKey = this.townShow;
+            box.innerHTML = '';
+            d.shows.forEach(sh => {
+                const b = document.createElement('button');
+                b.type = 'button';
+                b.setAttribute('aria-pressed', String(sh.id === this.townShow));
+                b.title = sh.describe;
+                b.innerHTML = `<b>${escapeHtml(sh.name)}</b>`;
+                b.onclick = () => { this.townShow = sh.id; this.townSettings({ show: sh.id }); this.renderNewEpisode(this.townState); };
+                box.appendChild(b);
+            });
+        }
+        const sel = document.getElementById('town-voice');
+        if (sel.dataset.show !== this.townShow || !sel.options.length) {
+            sel.dataset.show = this.townShow;
+            sel.innerHTML = '';
+            d.voices.forEach(v => sel.add(new Option(v.name, v.id)));
+            sel.value = d.settings.voices[this.townShow];
+        }
+        const off = !d.settings.voiceOn;
+        sel.disabled = off;
+        document.getElementById('town-hear').disabled = off || this.townHearing;
+        if (off) document.getElementById('town-voice-msg').textContent = 'Narration is off (Town settings).';
+        else if (!this.townHearing && /off/.test(document.getElementById('town-voice-msg').textContent)) document.getElementById('town-voice-msg').textContent = '';
+    }
+
+    townVoicePick() {
+        const sel = document.getElementById('town-voice');
+        this.townSettings({ voices: { [this.townShow]: sel.value } });
+    }
+
+    // Speak a sample line in the chosen voice, right here. The first time, the voice model downloads (about 90 MB).
+    async townHear() {
+        const msg = document.getElementById('town-voice-msg'), btn = document.getElementById('town-hear');
+        const voiceId = document.getElementById('town-voice').value, speed = +document.getElementById('town-speed').value || 1;
+        this.townHearing = true; btn.disabled = true;
+        try {
+            this.voiceWorker = this.voiceWorker || new window.Worker('/studio/voice-worker.js', { type: 'module' });
+            msg.textContent = 'Loading the voice...';
+            const sample = { frostpeak: 'Welcome to Frostpeak Mining Company, where the workers are made of math and never need coffee.', spooky: 'The house had been empty for years. So who kept leaving the porch light on?', mystery: 'In eighteen seventy-two, a ship was found drifting in the Atlantic. Every sailor was gone.', ranked: 'Number one is so fast, it would get a speeding ticket on the highway.' }[this.townShow] || 'Hello from Freeze Foundry.';
+            const a = await new Promise((resolve, reject) => {
+                this.voiceWorker.onmessage = ({ data }) => {
+                    if (data.progress) msg.textContent = `Downloading the voice (first time only): ${Math.round(data.progress.loaded / 1e6)} of ${Math.round(data.progress.total / 1e6)} MB`;
+                    else if (data.speaking) msg.textContent = 'Speaking...';
+                    else if (data.error) reject(new Error(data.error));
+                    else resolve(data);
+                };
+                this.voiceWorker.onerror = e => reject(new Error(e.message || 'the voice engine stopped'));
+                this.voiceWorker.postMessage({ text: sample, voice: voiceId, speed });
+            });
+            const ac = new AudioContext(), buf = ac.createBuffer(1, a.samples.length, a.rate);
+            buf.copyToChannel(a.samples, 0);
+            const src = ac.createBufferSource(); src.buffer = buf; src.connect(ac.destination); src.start();
+            src.onended = () => ac.close();
+            msg.textContent = '';
+        } catch (e) {
+            if (this.voiceWorker) { this.voiceWorker.terminate(); this.voiceWorker = null; }
+            msg.textContent = 'The voice could not load: ' + (e.message || e) + '. The first time needs an internet connection.';
+        } finally { this.townHearing = false; btn.disabled = false; }
+    }
+
     async townRun() {
-        const r = await fetch('/api/studio/run', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+        const idea = document.getElementById('town-idea').value.trim();
+        const r = await fetch('/api/studio/run', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ show: this.townShow, idea }) });
         const d = await r.json().catch(() => ({}));
         if (!r.ok) return this.toast(d.error || 'The crew could not start');
+        document.getElementById('town-idea').value = '';
         this.toast('The crew is on it');
         this.sfx('start');
         this.pollTown();
+    }
+
+    // The script, ready to read: every spoken line can be edited before the Smelter records it.
+    scriptEditor(ep, box, btn) {
+        const row = box.querySelector('.row'), ed = document.createElement('div');
+        ed.className = 'script-ed';
+        this.townDrafts = this.townDrafts || {};
+        const drafts = this.townDrafts[ep.id] = this.townDrafts[ep.id] || {};
+        const field = (key, labelText, value, rows) => {
+            const l = document.createElement('label'), t = document.createElement('textarea');
+            l.textContent = labelText;
+            t.rows = rows; t.value = drafts[key] != null ? drafts[key] : value;
+            t.oninput = () => { drafts[key] = t.value; };
+            l.appendChild(t); ed.appendChild(l);
+            return t;
+        };
+        const n = ep.lines.length - 2, ranked = ep.show === 'ranked';
+        const title = field('title', 'Title on screen', ep.spec.title, 1);
+        const lines = ep.lines.map((text, i) => field('l' + i, i === 0 ? 'Hook (spoken over the title)' : i === n + 1 ? 'Ending (spoken)' : ranked ? `#${n - i + 1}: ${ep.spec.items[i - 1].label}` : `Scene ${i}`, text, i === 0 || i === n + 1 ? 2 : 3));
+        const ptitle = field('ptitle', 'YouTube title', ep.post.title, 1);
+        const pdesc = field('pdesc', 'YouTube description', ep.post.description, 3);
+        const words = document.createElement('div');
+        words.className = 'words';
+        const count = () => { const w = lines.reduce((k, t) => k + t.value.split(/\s+/).filter(Boolean).length, 0); words.textContent = `${w} spoken words, about ${Math.round(w / 2.6)} seconds`; };
+        lines.forEach(t => t.addEventListener('input', count)); count();
+        ed.appendChild(words);
+        box.insertBefore(ed, row);
+        const save = async () => {
+            const r = await fetch(`/api/studio/episodes/${ep.id}/script`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: title.value, lines: lines.map(t => t.value), post: { title: ptitle.value, description: pdesc.value } }) });
+            const d = await r.json().catch(() => ({}));
+            if (!r.ok) { this.toast(d.error || 'Could not save the script'); return false; }
+            delete this.townDrafts[ep.id];
+            return true;
+        };
+        btn('Record it', async () => { if (await save()) this.townAction(ep, 'record'); }, 'success');
+        btn('Save edits', async () => { if (await save()) { this.toast('Script saved'); this.pollTown(); } });
+        btn('Ask for changes', () => this.townRevisePrompt(ep, box));
+    }
+
+    // A note for the Miner: the crew rewrites, re-checks and brings the script back.
+    townRevisePrompt(ep, box) {
+        if (box.querySelector('.revise')) return box.querySelector('.revise input').focus();
+        const wrap = document.createElement('div'), input = document.createElement('input'), go = document.createElement('button');
+        wrap.className = 'row revise';
+        input.placeholder = 'What should change? For example: make the ending scarier, explain tokens more simply';
+        input.style.flex = '1';
+        go.textContent = 'Send to the Miner';
+        const send = async () => {
+            const r = await fetch(`/api/studio/episodes/${ep.id}/revise`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ note: input.value }) });
+            const d = await r.json().catch(() => ({}));
+            if (!r.ok) return this.toast(d.error || 'Could not send it back');
+            if (this.townDrafts) delete this.townDrafts[ep.id];
+            this.toast('Back to the Miner');
+            this.pollTown();
+        };
+        go.onclick = send;
+        input.onkeydown = e => { if (e.key === 'Enter') send(); };
+        wrap.append(input, go);
+        box.appendChild(wrap);
+        input.focus();
     }
 
     async townAction(ep, action) {
@@ -2051,6 +2227,7 @@ class App {
         const d = await r.json().catch(() => ({}));
         if (!r.ok) return this.toast(d.error || 'That did not work');
         if (action === 'approve') this.toast('Approved. Post it, then paste the link to start tracking views.');
+        if (action === 'record') this.toast(d.status === 'rendering' ? 'The Smelter is recording it' : 'Recording');
         this.pollTown();
     }
 
@@ -2069,7 +2246,8 @@ class App {
 
     async saveTownSettings() {
         const v = id => document.getElementById(id).value;
-        await this.townSettings({ topics: v('town-topics'), everyHours: +v('town-every'), maxWaiting: +v('town-max'), goal: +v('town-goal'), rpm: +v('town-rpm') });
+        await this.townSettings({ topics: v('town-topics'), everyHours: +v('town-every'), maxWaiting: +v('town-max'), goal: +v('town-goal'), rpm: +v('town-rpm'),
+            approveScript: document.getElementById('town-approve').checked, voiceOn: document.getElementById('town-voiceon').checked, speed: +v('town-speed') });
         const key = v('town-ytkey').trim();
         if (key) {
             const r = await fetch('/api/keys', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ provider: 'youtube', key }) });

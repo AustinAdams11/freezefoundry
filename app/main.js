@@ -44,8 +44,9 @@ async function createWindow() {
 if (process.platform === 'win32') app.setAppUserModelId('com.freezefoundry.app');
 
 app.whenReady().then(() => {
-  // The page may show notifications; camera, microphone, location, USB and the rest are always refused.
-  session.defaultSession.setPermissionRequestHandler((wc, permission, done) => done(permission === 'notifications'));
+  // The page may show notifications and copy text; camera, microphone, location, USB and the rest are always refused.
+  const allowed = ['notifications', 'clipboard-sanitized-write'];
+  session.defaultSession.setPermissionRequestHandler((wc, permission, done) => done(allowed.includes(permission)));
   createWindow();
 });
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });

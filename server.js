@@ -1036,6 +1036,8 @@ if (pathname.startsWith('/api/tasks/') && pathname.endsWith('/approve')) {
         const types = {
           '.html': 'text/html; charset=utf-8',
           '.js': 'text/javascript; charset=utf-8',
+          '.mjs': 'text/javascript; charset=utf-8',
+          '.wasm': 'application/wasm',
           '.css': 'text/css; charset=utf-8',
           '.json': 'application/json; charset=utf-8',
           '.svg': 'image/svg+xml',
@@ -1045,7 +1047,9 @@ if (pathname.startsWith('/api/tasks/') && pathname.endsWith('/approve')) {
         };
         res.writeHead(200, {
           'Content-Type': types[path.extname(target).toLowerCase()] || 'application/octet-stream',
-          'X-Content-Type-Options': 'nosniff'
+          'X-Content-Type-Options': 'nosniff',
+          // The studio pages are cross-origin isolated so the voice engine can use every CPU core.
+          ...(requested.startsWith('/studio/') ? { 'Cross-Origin-Opener-Policy': 'same-origin', 'Cross-Origin-Embedder-Policy': 'require-corp' } : {})
         });
         if (method === 'HEAD') return res.end();
         return fs.createReadStream(target).pipe(res);
