@@ -59,44 +59,50 @@ function createStudio({ dataDir, callModel, getKey, writeJsonAtomic, port, attem
     S.busy[agent] = label;
     try { return await fn(); } finally { delete S.busy[agent]; }
   }
-  const ask = (agent, system, user) => callModel([{ role: 'system', content: system }, { role: 'user', content: user }], CREW.find(c => c.id === agent).role, 'studio');
+  // Ask a crew member for JSON. A broken answer gets one more try before the episode fails.
+  async function askJson(agent, system, user) {
+    const c = CREW.find(x => x.id === agent);
+    let raw;
+    for (let i = 0; i < 2; i++) {
+      raw = await callModel([{ role: 'system', content: system }, { role: 'user', content: user }], c.role, 'studio');
+      try { return parseJson(raw); } catch {}
+    }
+    throw new Error(`The ${c.name}'s answer was not valid JSON. It began: ${String(raw || '').trim().slice(0, 150)}`);
+  }
 
   // ---------- the crew ----------
   async function scout(ep) {
     const past = Object.values(S.episodes).filter(e => e.topic && e.id !== ep.id).sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 40).map(e => e.topic);
-    const raw = await ask('scout',
+    const j = await askJson('scout',
       'You are the Prospector for a YouTube Shorts channel run by AI agents. Pick ONE topic for the next Short. Pick something people are curious about and that has real, well-known numbers (speeds, sizes, weights, distances, records, prices, populations). Never repeat a past topic. Output ONLY JSON: {"topic": "<the topic, a few words>", "angle": "<one sentence: what makes it surprising>"}',
       `Show: ${shows[ep.show].name}. ${shows[ep.show].describe}\n\nPast topics (do not repeat): ${past.join('; ') || 'none yet'}\n\n` +
       (S.settings.topics.trim() ? `Topic ideas from the owner (prefer these):\n${S.settings.topics.trim()}\n\n` : '') +
       (S.memory.lessons.length ? `What the Surveyor learned from view counts:\n- ${S.memory.lessons.join('\n- ')}` : 'No view data yet.'));
-    const j = parseJson(raw);
     ep.topic = String(j.topic || '').trim().slice(0, 120);
     ep.angle = String(j.angle || '').trim().slice(0, 240);
     if (!ep.topic) throw new Error('The Scout did not pick a topic.');
   }
 
   async function write(ep, feedback) {
-    const raw = await ask('writer',
+    const j = await askJson('writer',
       'You are the Miner, the writer for a YouTube Shorts channel. Write a "Ranked" countdown Short: exactly 5 items, each with a real, widely published number in the SAME unit. Number one is the BIGGEST number. Use accurate, mainstream figures (round them); never invent items or numbers. Each fact is one punchy line under 80 characters that a viewer would repeat to a friend. Each item gets one emoji that pictures it. The title is a hook under 55 characters, like "The 5 fastest animals on Earth". The outro is a short question that makes people comment. Output ONLY JSON: {"title": "", "unit": "<short unit, e.g. km/h>", "items": [{"label": "<under 24 characters>", "value": <number>, "icon": "<one emoji>", "fact": ""}], "outro": ""}',
       `Topic: ${ep.topic}\nAngle: ${ep.angle}` + (feedback ? `\n\nThe Inspector sent your last draft back. Fix these problems:\n${feedback}\n\nYour last draft:\n${JSON.stringify(ep.spec)}` : ''));
     let spec;
-    try { spec = clean[ep.show](parseJson(raw)); } catch (e) { throw new Error('The Writer\'s draft was not usable: ' + e.message); }
+    try { spec = clean[ep.show](j); } catch (e) { throw new Error('The Writer\'s draft was not usable: ' + e.message); }
     ep.spec = spec;
   }
 
   async function check(ep) {
-    const raw = await ask('checker',
-      'You are the Inspector. Check a Short before it is published. For each item, is the number right for that item and unit, as commonly published? Is number one really the biggest? Are the facts true? Choose "revise" ONLY for wrong numbers, wrong units, false facts or a ranking that does not hold; small rounding is fine. Output ONLY JSON: {"verdict": "approve" or "revise", "issues": ["<item>: <what is wrong and the right figure>"]}',
+    const j = await askJson('checker',
+      'You are the Inspector. Check a Short before it is published. For each item, is the number right for that item and unit, as commonly published? Is number one really the biggest? Are the facts true? Choose "revise" ONLY for wrong numbers, wrong units, false facts or a ranking that does not hold; small rounding is fine. Keep each issue to one short line under 120 characters, and never put double quotes inside the text. Output ONLY JSON: {"verdict": "approve" or "revise", "issues": ["<item>: <what is wrong and the right figure>"]}',
       JSON.stringify(ep.spec, null, 1));
-    const j = parseJson(raw);
     return { verdict: j.verdict === 'revise' ? 'revise' : 'approve', issues: (Array.isArray(j.issues) ? j.issues : []).map(String).slice(0, 8) };
   }
 
   async function title(ep) {
-    const raw = await ask('publisher',
+    const j = await askJson('publisher',
       'You are the Dispatcher. Write the post for a YouTube Short. Title: under 70 characters, curiosity first, ends with " #Shorts". Description: two short sentences, then 3-5 relevant hashtags. Tags: 5-10 plain keywords. Output ONLY JSON: {"title": "", "description": "", "tags": [""]}',
       `Short: ${ep.spec.title}\nItems: ${ep.spec.items.map(i => i.label).join(', ')}\nAngle: ${ep.angle}`);
-    const j = parseJson(raw);
     ep.post = {
       title: String(j.title || ep.spec.title).slice(0, 100),
       description: String(j.description || '').slice(0, 2000),
@@ -216,10 +222,9 @@ function createStudio({ dataDir, callModel, getKey, writeJsonAtomic, port, attem
     const posted = Object.values(S.episodes).filter(e => e.stats.youtube).sort((a, b) => b.stats.youtube.views - a.stats.youtube.views);
     if (posted.length < 3) return;
     const line = e => `${e.stats.youtube.views} views: "${(e.post && e.post.title) || e.spec.title}" (topic: ${e.topic})`;
-    const raw = await ask('analyst',
+    const j = await askJson('analyst',
       'You are the Surveyor. Compare the best and worst performing Shorts and write up to 3 short, specific lessons for choosing the next topics and titles. Only conclude what the numbers support. Output ONLY JSON: {"lessons": [""]}',
       `Best:\n${posted.slice(0, 5).map(line).join('\n')}\n\nWorst:\n${posted.slice(-5).map(line).join('\n')}`);
-    const j = parseJson(raw);
     S.memory.lessons = (Array.isArray(j.lessons) ? j.lessons : []).map(String).filter(Boolean).slice(0, 3);
     save();
     if (S.memory.lessons.length) event('analyst', 'scout', `Lesson: ${S.memory.lessons[0]}`);
@@ -302,6 +307,7 @@ function createStudio({ dataDir, callModel, getKey, writeJsonAtomic, port, attem
       }
       if (parts[0] === 'episodes' && parts[1]) {
         const ep = S.episodes[parts[1]];
+        if (!ep && parts[2] === 'delete') return send(res, 200, { ok: true }), true; // already gone
         if (!ep) return send(res, 404, { error: 'Episode not found' }), true;
         const action = parts[2];
         if (!action && method === 'GET') return send(res, 200, { id: ep.id, show: ep.show, spec: ep.spec, post: ep.post, status: ep.status }), true;
