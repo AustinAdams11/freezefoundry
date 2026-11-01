@@ -41,6 +41,7 @@ const CREW_FACTS = `Frostpeak Mining Co. is a pixel-art mining town where AI wor
 - Surveyor (focus "analyst"): reads view counts and passes lessons back to the Prospector.
 - Vault (focus "bank"): adds up the views and earnings.
 - The whole valley (focus "town"). A human owner reads every script and approves every video before it is posted.
+The story is the town and its workers, not the computer: mention the Mac, "local" or "no cloud" only in an episode that is specifically about the hardware, and then once.
 Always call the workers by these names: Prospector, Miner, Inspector, Dispatcher, Smelter, Surveyor, Vault. The focus words (scout, writer, checker, publisher, studio, analyst, bank, town) are only camera positions: never say them in the script and never use them as names.`;
 
 // Every script, every show: Shorts viewers decide in about two seconds.
