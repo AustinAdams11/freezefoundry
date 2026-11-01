@@ -598,6 +598,13 @@
         .new-ep .voice-row { display: flex; gap: 8px; align-items: end; flex-wrap: wrap; }
         .new-ep .voice-row label { flex: 1; min-width: 160px; }
         #town-episodes:not(.hint) { display: grid; gap: 10px; }
+        .ep-tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border-color); margin: 4px 0 10px; flex-wrap: wrap; }
+        .ep-tabs button { background: none; border: 0; border-bottom: 2px solid transparent; border-radius: 0; padding: 6px 10px; color: var(--text-muted); font: inherit; font-size: 13px; cursor: pointer; }
+        .ep-tabs button[aria-pressed="true"] { color: var(--text-main); border-bottom-color: var(--accent); font-weight: 600; }
+        .ep-chips { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+        .ep-chips button { background: var(--bg-input); border: 1px solid var(--border-color); border-radius: 999px; padding: 3px 10px; color: var(--text-muted); font: inherit; font-size: 12px; cursor: pointer; }
+        .ep-chips button[aria-pressed="true"] { color: var(--text-main); border-color: var(--accent); }
+        .ep-group { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--text-muted); margin: 8px 0 -2px; }
         .ep .ep-thumb-img { width: 96px; aspect-ratio: 9 / 16; border-radius: 8px; object-fit: cover; cursor: pointer; display: block; }
         .ep .ep-media { display: grid; gap: 6px; align-content: start; }
         .ep-status.script { background: #7dd3fc; color: #04121c; } .ep-status.ready { background: #fde68a; color: #1a1204; }
@@ -835,6 +842,8 @@
         </div>
         <div class="card">
             <h2>Episodes</h2>
+            <div class="ep-tabs" id="town-tabs" role="tablist" aria-label="Episodes by stage"></div>
+            <div class="ep-chips" id="town-filter" aria-label="Show"></div>
             <div id="town-episodes" class="hint">No episodes yet. Press Make an episode, and watch the crew pass it around town.</div>
         </div>
         </div>
@@ -2008,16 +2017,37 @@ class App {
             document.getElementById('town-speed-val').textContent = st.speed + 'x';
             document.getElementById('town-ytkey').placeholder = d.youtubeKey ? 'Key saved. Paste a new one to replace it' : 'Paste a key; it\'s stored encrypted';
         }
-        const key = JSON.stringify(d.episodes.map(e => [e.id, e.status, e.updatedAt, e.stats]));
+        // Episodes by stage (tabs) and show (chips). "To do" groups what is waiting for you, in the order to do it.
+        const TABS = [['todo', 'To do', ['staged', 'ready', 'script']], ['work', 'In progress', ['scouting', 'writing', 'checking', 'titling', 'rendering']], ['posted', 'Posted', ['posted']], ['archive', 'Archive', ['rejected', 'failed']]];
+        this.townTab = this.townTab || 'todo';
+        this.townFilter = this.townFilter || 'all';
+        const key = JSON.stringify([this.townTab, this.townFilter, d.episodes.map(e => [e.id, e.status, e.updatedAt, e.stats])]);
         if (key === this.townEpKey) return;
         this.townEpKey = key;
+        const pick = (el, items, current, set) => {
+            el.innerHTML = '';
+            items.forEach(([id, text]) => {
+                const b = document.createElement('button');
+                b.type = 'button'; b.textContent = text;
+                b.setAttribute('aria-pressed', String(id === current));
+                b.onclick = () => { set(id); this.renderTown(this.townState); };
+                el.appendChild(b);
+            });
+        };
+        const inShow = e => this.townFilter === 'all' || e.show === this.townFilter;
+        pick(document.getElementById('town-tabs'), TABS.map(([id, name, sts]) => { const n = d.episodes.filter(e => sts.includes(e.status) && inShow(e)).length; return [id, n ? `${name} · ${n}` : name]; }), this.townTab, v => { this.townTab = v; });
+        pick(document.getElementById('town-filter'), [['all', 'All shows'], ...(d.shows || []).map(x => [x.id, x.name])], this.townFilter, v => { this.townFilter = v; });
         const box = document.getElementById('town-episodes');
         if (!d.episodes.length) { box.className = 'hint'; box.textContent = 'No episodes yet. Press Make an episode, and watch the crew pass it around town.'; return; }
+        const tab = TABS.find(t => t[0] === this.townTab);
+        const eps = d.episodes.filter(e => tab[2].includes(e.status) && inShow(e));
         box.innerHTML = '';
-        box.classList.remove('hint');
+        box.classList.toggle('hint', !eps.length);
+        if (!eps.length) { box.textContent = { todo: 'Nothing waiting for you.', work: 'The crew is idle.', posted: 'Nothing posted yet.', archive: 'Nothing rejected or failed.' }[tab[0]]; return; }
+        const groups = tab[0] === 'todo' ? [['staged', 'Watch and approve'], ['ready', 'Post it'], ['script', 'Read the script']] : [[null, null]];
         const label = { scouting: 'Scouting', writing: 'Writing', checking: 'Fact check', titling: 'Titling', script: 'Script ready: read it', rendering: 'Recording', staged: 'Needs your OK', ready: 'Approved, post it', posted: 'Posted', rejected: 'Rejected', failed: 'Failed' };
         const showName = Object.fromEntries((d.shows || []).map(x => [x.id, x.name]));
-        d.episodes.forEach(ep => {
+        const card = ep => {
             const div = document.createElement('div');
             div.className = 'ep';
             const views = ep.stats && ep.stats.youtube ? `${ep.stats.youtube.views.toLocaleString('en-US')} views · ${ep.stats.youtube.likes.toLocaleString('en-US')} likes` : '';
@@ -2056,8 +2086,15 @@ class App {
                 div.lastElementChild.appendChild(notes);
             }
             if (!['scouting', 'writing', 'checking', 'titling', 'rendering'].includes(ep.status)) btn('Delete', () => this.townAction(ep, 'delete'));
-            box.appendChild(div);
-        });
+            return div;
+        };
+        for (const [status, heading] of groups) {
+            // Scripts oldest first, so a series reads in episode order; everything else newest first.
+            const list = eps.filter(e => !status || e.status === status).sort((a, b) => status === 'script' ? a.createdAt.localeCompare(b.createdAt) : 0);
+            if (!list.length) continue;
+            if (heading) { const h = document.createElement('h3'); h.className = 'ep-group'; h.textContent = `${heading} (${list.length})`; box.appendChild(h); }
+            list.forEach(ep => box.appendChild(card(ep)));
+        }
     }
 
     townPick(id) {
@@ -2194,6 +2231,10 @@ class App {
             delete this.townDrafts[ep.id];
             return true;
         };
+        // Collapsed until you open it, so a long queue of scripts stays easy to scan.
+        this.townOpen = this.townOpen || {};
+        ed.hidden = !this.townOpen[ep.id];
+        btn(ed.hidden ? 'Read script' : 'Hide script', e => { ed.hidden = !ed.hidden; this.townOpen[ep.id] = !ed.hidden; e.target.textContent = ed.hidden ? 'Read script' : 'Hide script'; });
         btn('Record it', async () => { if (await save()) this.townAction(ep, 'record'); }, 'success');
         btn('Save edits', async () => { if (await save()) { this.toast('Script saved'); this.pollTown(); } });
         btn('Ask for changes', () => this.townRevisePrompt(ep, box));
