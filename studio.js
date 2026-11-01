@@ -17,7 +17,7 @@ const CREW = [
 ];
 const DEFAULTS = {
   auto: false, everyHours: 6, maxWaiting: 3, topics: '', rpm: 0.05, goal: 10000, show: 'ranked',
-  approveScript: true, voiceOn: true, speed: 1,
+  approveScript: true, voiceOn: true, speed: 1.1,
   voices: { ranked: 'af_heart', frostpeak: 'am_michael', spooky: 'bm_george', mystery: 'am_fenrir' }
 };
 // Narrator voices (Kokoro), the best-graded English ones.
@@ -43,6 +43,9 @@ const CREW_FACTS = `Frostpeak Mining Co. is a pixel-art mining town where AI wor
 - The whole valley (focus "town"). A human owner reads every script and approves every video before it is posted.
 Always call the workers by these names: Prospector, Miner, Inspector, Dispatcher, Smelter, Surveyor, Vault. The focus words (scout, writer, checker, publisher, studio, analyst, bank, town) are only camera positions: never say them in the script and never use them as names.`;
 
+// Every script, every show: Shorts viewers decide in about two seconds.
+const PACE = 'Pace it for Shorts, where viewers scroll away within two seconds. The hook is the single most surprising fact or moment in the whole video, under 12 words. Never open with a greeting, "welcome", "hey", "in this video", "let\'s" or "have you ever"; start in the middle of the action. Every sentence must earn its place: no warm-ups, recaps or filler.';
+
 // Per show: how the Prospector picks, how the Miner writes, what the Inspector checks.
 const AI = {
   ranked: {
@@ -51,17 +54,17 @@ const AI = {
     check: 'For each item, is the number right for that item and unit, as commonly published? Is every item a real member of the top 5 for this exact topic (filler that does not belong is wrong)? Is the same measure used for all items? Is number one really the biggest? Are the facts and spoken lines true? Choose "revise" ONLY for wrong numbers, wrong units, items that do not belong, false facts or a ranking that does not hold; small rounding is fine.'
   },
   frostpeak: {
-    minWords: 110,
+    minWords: 90,
     scout: `Pick the next episode of the Frostpeak Mining Co. series: a friendly tour that introduces one worker (or the town itself) and the real science behind what it does. Topics are worker introductions or a single idea (how the Miner writes one token at a time, why the Inspector double-checks, how a voice is made from text, what "8-bit" means). Never repeat a past topic.
 
 ${CREW_FACTS}`,
-    write: `Write a narrated tour Short for Frostpeak Mining Co. Friendly tour-guide voice, plain words a 12-year-old follows, and every science claim accurate (no hype, no invented numbers). 6 to 8 scenes; each scene's "say" is one or two spoken sentences, at most 30 words; 110 to 150 words in all. Each scene has "focus" (which place the camera shows: town, scout, writer, checker, publisher, studio, analyst or bank). The hook is one spoken sentence over the title that makes people stay. The outro is a short question that makes people comment. "thumb" is 2 to 4 punchy words for the thumbnail. Output ONLY JSON: {"title": "<under 55 characters>", "hook": "", "scenes": [{"say": "", "focus": ""}], "outro": "", "thumb": ""}
+    write: `Write a narrated tour Short for Frostpeak Mining Co. Friendly tour-guide voice, plain words a 12-year-old follows, and every science claim accurate (no hype, no invented numbers). 6 to 8 scenes; each scene's "say" is one or two short spoken sentences, at most 22 words; 90 to 130 words in all. Each scene has "focus" (which place the camera shows: town, scout, writer, checker, publisher, studio, analyst or bank). The hook is one spoken sentence over the title that makes people stay. The outro is a short question that makes people comment. "thumb" is 2 to 4 punchy words for the thumbnail. Output ONLY JSON: {"title": "<under 55 characters>", "hook": "", "scenes": [{"say": "", "focus": ""}], "outro": "", "thumb": ""}
 
 ${CREW_FACTS}`,
     check: `Is every science claim accurate and the explanation easy to follow? Does each scene's focus match the worker it talks about? Is every worker called by its Frostpeak name (Prospector, Miner, Inspector, Dispatcher, Smelter, Surveyor, Vault), never by a camera word like scout, writer, checker, publisher, studio or analyst? The "focus" field is a camera position and must stay one of the camera words; only the spoken lines use names. Judge every claim against these facts, and never suggest a fix that contradicts them. Choose "revise" ONLY for false or misleading claims, a wrong worker name, a focus that shows the wrong place, or a script that is confusing.\n\n${CREW_FACTS}`
   },
   spooky: {
-    minWords: 170,
+    minWords: 160,
     scout: 'Pick the premise for an ORIGINAL short spooky story (never a retelling of a book, film, game or famous creepypasta). Creepy, not gory; fine for teenagers. Make it specific: a real-feeling place (a night-shift gas station, a lake cabin in February, a hospital elevator), one ordinary person, and one wrong detail that will pay off in a twist. The angle names the twist in one sentence.',
     write: `Write an original spooky story Short, told by a narrator in first person, past tense. It must be a complete story with a payoff, not a mood piece.
 Structure, one beat per scene:
@@ -70,11 +73,11 @@ Structure, one beat per scene:
 4-5. The narrator acts: investigates, breaks the rule, or tries to leave. Show what they see and hear.
 6-7. The turn: the danger becomes undeniable.
 Last scene: the twist. One or two short sentences that make the planted detail mean something terrible. No explaining it afterwards.
-Rules: concrete nouns and sounds, not adjectives like "creepy" or "eerie"; short sentences read aloud well; no gore, nothing about self-harm; nothing a 13-year-old should not hear. 7 to 9 scenes; each scene's "say" is two or three spoken sentences, 20 to 35 words; 190 to 260 words in all. The hook is one spoken sentence over the title that makes people stay, without giving away the twist. The outro is a short question that makes people comment. "thumb" is 2 to 4 punchy words for the thumbnail. Output ONLY JSON: {"title": "<under 55 characters>", "hook": "", "scenes": [{"say": ""}], "outro": "", "thumb": ""}`,
+Rules: concrete nouns and sounds, not adjectives like "creepy" or "eerie"; short sentences read aloud well; no gore, nothing about self-harm; nothing a 13-year-old should not hear. 7 to 9 scenes; each scene's "say" is one to three short spoken sentences, 15 to 30 words; 170 to 230 words in all. The hook is one spoken sentence over the title that makes people stay, without giving away the twist. The outro is a short question that makes people comment. "thumb" is 2 to 4 punchy words for the thumbnail. Output ONLY JSON: {"title": "<under 55 characters>", "hook": "", "scenes": [{"say": ""}], "outro": "", "thumb": ""}`,
     check: 'Grade it as a story editor. Is it a complete story: a concrete setup, escalation where every scene adds something new, and a twist that pays off a detail planted early? Is it original (not a known story), easy to follow when heard once, and free of filler lines ("it was so creepy")? Is anything gory or unsuitable for teenagers? Choose "revise" for any of these, and say exactly which scene to fix and how.'
   },
   mystery: {
-    minWords: 170,
+    minWords: 160,
     scout: 'Pick a real unsolved mystery, legend or strange historical event with good records (for example a disappearance at sea, an undeciphered manuscript, a lost expedition). Never about private living people, and never a theory that blames a group of people or denies a tragedy.',
     write: `Write a Short that tells a real mystery or legend as a gripping story, with a narrator.
 Structure, one beat per scene:
@@ -83,7 +86,7 @@ Structure, one beat per scene:
 4-5. What was found or what happened, step by step, with the specific documented details that make it strange.
 6-7. The leading explanations, each fairly: "Some believe...", "Investigators found...". Say which evidence supports or weakens each one.
 Last scene: what is still unexplained, and why it is still debated.
-Rules: keep what is documented apart from what people claim ("records show" for facts, "some believe" for theories); names, dates and places must be accurate; no invented quotes or details; concrete details, not adjectives. 7 to 9 scenes; each scene's "say" is two or three spoken sentences, 20 to 35 words; 190 to 260 words in all. The hook is one spoken sentence over the title that makes people stay. The outro is a short question that makes people comment. "thumb" is 2 to 4 punchy words for the thumbnail. Output ONLY JSON: {"title": "<under 55 characters>", "hook": "", "scenes": [{"say": ""}], "outro": "", "thumb": ""}`,
+Rules: keep what is documented apart from what people claim ("records show" for facts, "some believe" for theories); names, dates and places must be accurate; no invented quotes or details; concrete details, not adjectives. 7 to 9 scenes; each scene's "say" is one to three short spoken sentences, 15 to 30 words; 170 to 230 words in all. The hook is one spoken sentence over the title that makes people stay. The outro is a short question that makes people comment. "thumb" is 2 to 4 punchy words for the thumbnail. Output ONLY JSON: {"title": "<under 55 characters>", "hook": "", "scenes": [{"say": ""}], "outro": "", "thumb": ""}`,
     check: 'Grade it as a fact-checking editor. Are the names, dates, places and documented facts accurate, with nothing invented? Are theories clearly presented as theories, never as fact? Does it avoid blaming a group of people or private living people? Does it tell a clear story where every scene adds something new? Choose "revise" for any of these, and say exactly which scene to fix and how.'
   }
 };
@@ -157,7 +160,7 @@ function createStudio({ dataDir, callModel, getKey, writeJsonAtomic, port, attem
 
   async function write(ep, feedback) {
     const j = await askJson('writer',
-      `You are the Miner, the writer for a YouTube Shorts channel. ${AI[ep.show].write}`,
+      `You are the Miner, the writer for a YouTube Shorts channel. ${AI[ep.show].write}\n\n${PACE}`,
       `Topic: ${ep.topic}\nAngle: ${ep.angle}` + (ep.idea ? `\nThe owner's request: ${ep.idea}` : '') +
       (feedback ? `\n\nYour last draft was sent back. Fix these problems:\n${feedback}\n\nYour last draft:\n${JSON.stringify(ep.spec)}` : ''));
     try { ep.spec = clean[ep.show](j); } catch (e) { throw new Error('The Miner\'s draft was not usable: ' + e.message); }

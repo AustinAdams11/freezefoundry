@@ -36,7 +36,7 @@ try {
 
   // Narration: one clip per segment, spoken before recording starts.
   const audio = new AudioContext();
-  const lines = show.lines(spec), clips = lines.map(() => null), marks = lines.map(() => null);
+  const lines = show.lines(spec), clips = lines.map(() => null), words = lines.map(() => null);
   if (ep.voice && ep.voice.on) {
     const voice = await import('./voice.js');
     await voice.load(p => { if (p.status === 'progress' && p.total) state(`downloading the voice ${Math.round(p.loaded / 1e6)} / ${Math.round(p.total / 1e6)} MB`); });
@@ -47,11 +47,11 @@ try {
       const buf = audio.createBuffer(1, a.samples.length, a.rate);
       buf.copyToChannel(a.samples, 0);
       clips[i] = buf;
-      marks[i] = a.marks;
+      words[i] = a.words;
     }
   }
   const tl = show.timeline(spec, clips.map(c => c ? c.duration : 0));
-  tl.segs.forEach((s, i) => { s.marks = marks[i]; }); // when each sentence is really spoken, for the captions
+  tl.segs.forEach((s, i) => { s.words = words[i]; }); // when each word is spoken, for the captions
   const dur = tl.duration;
   const canvas = document.getElementById('c'), ctx = canvas.getContext('2d');
 

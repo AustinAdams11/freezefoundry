@@ -100,20 +100,15 @@
   }
   const segAt = (tl, t) => { let i = 0; while (i < tl.segs.length - 1 && t >= tl.segs[i + 1].start) i++; return i; };
 
-  // Shorts-style captions: two or three words at a time, the word being spoken lit up. Each sentence is pinned to
-  // where the voice really says it (seg.marks); inside a sentence, words share the time by syllables, and a comma
-  // gets a pause. Without marks (no voice), the line is spread over its reading time.
+  // Shorts-style captions: two or three words at a time, the word being spoken lit up. With a voice, every word
+  // starts exactly when Kokoro says it (seg.words); without one, the line is spread over its reading time by syllables.
   const syllables = w => Math.max(1, (w.toLowerCase().replace(/[^a-z0-9]/g, '').replace(/e$/, '').match(/[aeiouy]+|\d/g) || []).length);
   function wordTimes(line, seg) {
-    const marks = seg.marks && seg.marks.length ? seg.marks : [{ text: line, start: 0, end: seg.speech || guess(line) }];
-    const out = [];
-    for (const m of marks) {
-      const ws = m.text.split(/\s+/).filter(Boolean), weight = ws.map(w => syllables(w) + (/[,;:]$/.test(w) ? 1.2 : 0));
-      const total = weight.reduce((a, b) => a + b, 0) || 1;
-      let acc = 0;
-      ws.forEach((w, i) => { out.push({ w, at: seg.say + m.start + (m.end - m.start) * acc / total }); acc += weight[i]; });
-    }
-    return out;
+    if (seg.words && seg.words.length) return seg.words.map(x => ({ w: x.w, at: seg.say + x.start }));
+    const ws = String(line || '').split(/\s+/).filter(Boolean), weight = ws.map(w => syllables(w) + (/[,;:]$/.test(w) ? 1.2 : 0));
+    const total = weight.reduce((a, b) => a + b, 0) || 1, span = seg.speech || guess(line);
+    let acc = 0;
+    return ws.map((w, i) => { const at = seg.say + span * acc / total; acc += weight[i]; return { w, at }; });
   }
   function captions(ctx, line, seg, t, y, accent) {
     const times = wordTimes(line, seg), ws = times.map(x => x.w);
@@ -164,7 +159,7 @@
     lines(spec) { const n = spec.items.length; return [spec.hook || spec.title, ...spec.items.map((it, i) => it.say || `Number ${n - i}: ${it.label}.`), spec.outro]; },
     timeline(spec, secs) {
       const n = spec.items.length;
-      return timeline([2.6, ...Array(n).fill(5.4), 3.4], secs, [0.5, ...Array(n).fill(1.1), 1.2], [0.15, ...Array(n).fill(0.45), 0.5]);
+      return timeline([2.2, ...Array(n).fill(3.8), 3.0], secs, [0.35, ...Array(n).fill(0.6), 1.0], [0.1, ...Array(n).fill(0.35), 0.25]);
     },
     // Times (in seconds) when something lands; the soundtrack hits on these.
     beats(spec, tl) { return spec.items.map((_, i) => tl.segs[i + 1].start + 0.35); },
@@ -334,7 +329,7 @@
       lines(spec) { return [spec.hook || spec.title, ...spec.scenes.map(s => s.say), spec.outro]; },
       timeline(spec, secs) {
         const n = spec.scenes.length;
-        return timeline([3.0, ...Array(n).fill(3.5), 3.6], secs, [0.7, ...Array(n).fill(0.45), 1.4], [0.35, ...Array(n).fill(0.2), 0.45]);
+        return timeline([2.2, ...Array(n).fill(2.4), 3.0], secs, [0.35, ...Array(n).fill(0.15), 1.0], [0.1, ...Array(n).fill(0.05), 0.25]);
       },
       beats(spec, tl) { return tl.segs.slice(1, -1).map(s => s.start + 0.1); },
       draw(ctx, t, spec, tl) {
