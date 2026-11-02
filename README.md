@@ -10,6 +10,8 @@ Runs on your own local model through [LM Studio](https://lmstudio.ai) or [Ollama
 
 ## Features
 
+- **Home**: everything every crew made for you in one list (code changes, videos, scripts, alerts, failures) to approve or reject in place, and what each crew is doing now.
+- **Shifts**: give a crew a standing job on a schedule, like a new episode every night at 1 am or a work order every weekday morning. Results wait on Home for your OK.
 - **Four-worker pipeline** with real checks: the Tester runs `node --check`, JSON validation and your workspace's `npm test` in a throwaway copy; the Reviewer judges the diff and test results, and failed work goes back to the Builder with the feedback.
 - **Undo, retry and stop**: roll back any applied change, retry failed goals from the Report, stop a run mid-way; unfinished work orders survive a restart. Optional git commit per applied change.
 - **Approval gate**: see the diff, then apply or reject. Every applied change keeps a backup.

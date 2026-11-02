@@ -1,6 +1,6 @@
 {
   "name": "freeze-foundry",
-  "version": "0.15.0",
+  "version": "0.16.0",
   "private": true,
   "description": "Local-first AI software factory: four local-model workers plan, build, test and review code on a pixel-art factory floor.",
   "scripts": {
@@ -23,6 +23,7 @@
       "watchers.js",
       "lan.js",
       "studio.js",
+      "shifts.js",
       "CHANGELOG.md",
       "public/**",
       "app/**",

@@ -2,6 +2,13 @@
 
 Everything that changed in Freeze Foundry, newest first.
 
+## 0.16.0 · 2026-11-02
+
+- **Home.** The app now opens on one page that shows everything waiting for your OK, from every crew: code changes (see the change, apply or reject), Town videos (watch, approve or reject), scripts to read, approved videos to post, Watch alerts and failed work orders (try again or dismiss). A red number on the Home button counts them, and three tiles show what the Factory, Town and Watch are doing right now.
+- **Shifts.** Give any crew a standing job on a schedule: "every night at 1 am, make a Mysteries episode", "weekdays at 7:30, run this work order". Shifts start on their own while the app is open, catch up once if the app was closed at that time, and wait for a busy crew. Run now starts one straight away.
+- **A clear fix when the model is off.** If your model server isn't answering, Home says so and tells you exactly how to start LM Studio or Ollama, with a Check again button.
+- **Tidier sidebar.** Home and the three crews (Factory, Town, Watch) come first; Models, Skills, Sources, Ship and Settings sit below a divider.
+
 ## 0.15.0 · 2026-11-02
 
 - **Make any show.** Press + New show in the Town, say what it is about and how it should be written, pick a look (Tour, Night, Cold case or Countdown) and a length, and the crew makes it like a built-in one. Copy and edit starts from any built-in show. Your shows can be edited or deleted (not while an episode still uses them).

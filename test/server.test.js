@@ -564,3 +564,36 @@ test('your own show: its description and style reach the crew, and it is drawn i
     await post('/api/settings', { baseUrl: before.baseUrl, model: before.model, attempts: before.attempts });
   }
 });
+
+test('shifts: due ones start once a day, a new one waits for its next time, a busy crew is tried again', async () => {
+  const { createShifts } = require('../shifts');
+  const file = path.join(home, 'shifts-unit.json'), started = [];
+  let busy = false;
+  const sh = createShifts(file, { writeJsonAtomic: (f, v) => fs.writeFileSync(f, JSON.stringify(v)), every: 1e9, start: async s => { if (busy) throw new Error('The crew is already busy'); started.push(s.id); } });
+  assert.throws(() => sh.upsert({ crew: 'factory', time: '01:00', days: [0, 1, 2, 3, 4, 5, 6] }), /work order/);
+  assert.throws(() => sh.upsert({ crew: 'town', time: '25:00', days: [1] }), /start time/);
+  assert.throws(() => sh.upsert({ crew: 'town', time: '01:00', days: [] }), /day/);
+  const s = sh.upsert({ crew: 'factory', goal: 'Make a.txt', time: '01:00', days: [0, 1, 2, 3, 4, 5, 6] });
+  s.createdAt = '2026-11-01T00:00:00'; // made just after midnight
+  assert.equal(s.lastRun, null);
+  await sh.tick(new Date('2026-11-01T00:30:00')); assert.equal(started.length, 0); // not 1 am yet
+  busy = true;
+  await sh.tick(new Date('2026-11-01T01:05:00')); assert.equal(started.length, 0); assert.match(s.lastError, /busy/);
+  busy = false;
+  await sh.tick(new Date('2026-11-01T01:06:00')); assert.equal(started.length, 1); assert.equal(s.lastError, null);
+  await sh.tick(new Date('2026-11-01T23:00:00')); assert.equal(started.length, 1); // once a day
+  await sh.tick(new Date('2026-11-02T09:00:00')); assert.equal(started.length, 2); // missed overnight: runs when the app opens
+  s.days = [3]; await sh.tick(new Date('2026-11-03T09:00:00')); assert.equal(started.length, 2); // not one of its days
+  sh.stop();
+
+  // Through the server: a factory shift's Run now puts a work order on the floor, marked with the shift.
+  const made = await (await post('/api/shifts', { crew: 'factory', goal: 'Write hello.txt', time: '03:00', days: [1, 2, 3, 4, 5] })).json();
+  assert.equal(made.days.join(), '1,2,3,4,5');
+  assert.equal(made.lastRun, null);
+  const ran = await (await post('/api/shifts/run', { id: made.id })).json();
+  assert.ok(ran.lastRun);
+  const tasks = await (await fetch(BASE + '/api/tasks')).json();
+  assert.ok(Object.values(tasks).some(t => t.shift === made.id && t.goal === 'Write hello.txt' && t.status === 'pending'));
+  await post('/api/shifts/delete', { id: made.id });
+  assert.deepEqual(await (await fetch(BASE + '/api/shifts')).json(), []);
+});

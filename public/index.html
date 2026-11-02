@@ -498,6 +498,28 @@
         .release .ver .new { display: inline-block; margin-top: 6px; font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: var(--accent); border: 1px solid var(--accent); border-radius: 999px; padding: 1px 7px; }
         .release ul { margin: 0; }
         .rail button { position: relative; }
+        .rail .badge { position: absolute; top: 4px; right: 6px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: var(--error); color: #fff; font: 600 11px/18px var(--ui-font); font-style: normal; }
+        .home-offline ol { margin: 0; padding-left: 20px; display: grid; gap: 4px; }
+        .rail-sep { width: 32px; border: 0; border-top: 1px solid var(--border-color); margin: 4px 0; }
+        .home-crews { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; max-width: 860px; margin-bottom: 16px; }
+        button.ghost.crew-tile { display: grid; gap: 4px; text-align: left; padding: 14px 16px; border-radius: 14px; background: var(--bg-panel); font-weight: 400; }
+        .crew-tile b { font-size: 14px; } .crew-tile span { font-size: 12px; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .crew-tile .live { color: var(--success); }
+        .inbox-item { display: grid; gap: 6px; padding: 12px 0; border-top: 1px solid var(--border-color); color: var(--text-main); }
+        .inbox-item:first-child { border-top: 0; padding-top: 0; }
+        .inbox-item .what { font-weight: 600; } .inbox-item .meta { font-size: 12px; color: var(--text-muted); }
+        .inbox-item pre { max-height: 320px; overflow: auto; font-size: 12px; background: var(--bg-input); padding: 10px; border-radius: 8px; margin: 0; }
+        .inbox-item video { max-height: 420px; max-width: 100%; border-radius: 10px; background: #000; justify-self: start; }
+        .kind { display: inline-block; font-size: 11px; font-weight: 600; padding: 1px 8px; border-radius: 999px; background: var(--bg-raise); border: 1px solid var(--border-color); color: var(--text-muted); margin-right: 6px; }
+        .shift { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; padding: 10px 0; border-top: 1px solid var(--border-color); }
+        .shift:first-child { border-top: 0; }
+        .shift .what { flex: 1 1 260px; min-width: 0; font-size: 13px; } .shift .meta { font-size: 12px; color: var(--text-muted); }
+        .shift.off .what { opacity: .55; }
+        .shift-new summary { cursor: pointer; font-weight: 600; font-size: 13px; color: var(--accent); }
+        .shift-new[open] { display: grid; gap: 12px; }
+        .days { display: flex; gap: 6px; flex-wrap: wrap; }
+        .days button[aria-pressed="false"] { opacity: .5; }
+        @media (max-width: 900px) { .home-crews { grid-template-columns: 1fr; } }
         .rail .dot-new { position: absolute; top: 8px; right: 14px; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 8px var(--accent); }
         @media (max-width: 900px) { .guide { grid-template-columns: 1fr; padding: 20px; } .guide-toc { position: static; } .release { grid-template-columns: 1fr; gap: 6px; } }
     
@@ -656,18 +678,20 @@
 
 <div class="app-shell">
 <nav class="rail">
-    <button class="active" data-view="factory" onclick="app.showView('factory')"><span>&#127981;</span>Factory</button>
+    <button class="active" data-view="home" onclick="app.showView('home')"><span>&#127968;</span>Home<i class="badge" id="home-badge" hidden></i></button>
+    <button data-view="factory" onclick="app.showView('factory')"><span>&#127981;</span>Factory</button>
     <button data-view="town" onclick="app.showView('town')"><span>&#127960;&#65039;</span>Town</button>
+    <button data-view="watch" onclick="app.showView('watch')"><span>&#128225;</span>Watch</button>
+    <hr class="rail-sep">
     <button data-view="models" onclick="app.showView('models')"><span>&#129504;</span>Models</button>
     <button data-view="skills" onclick="app.showView('skills')"><span>&#129513;</span>Skills</button>
     <button data-view="sources" onclick="app.showView('sources')"><span>&#128218;</span>Sources</button>
-    <button data-view="watch" onclick="app.showView('watch')"><span>&#128225;</span>Watch</button>
     <button data-view="ship" onclick="app.showView('ship')"><span>&#128640;</span>Ship</button>
     <button data-view="settings" onclick="app.showView('settings')"><span>&#9881;&#65039;</span>Settings</button>
     <div class="spacer"></div>
     <button data-view="guide" onclick="app.showView('guide')" title="Guide and what's new"><span>&#128214;</span>Guide<i class="dot-new" id="guide-dot" hidden></i></button>
 </nav>
-<main id="view-factory">
+<main id="view-factory" hidden>
     <div class="floor-area"><div class="floor-wrap"><canvas id="floor-canvas" width="640" height="300"></canvas><canvas id="floor-light"></canvas></div></div>
 
     <section class="drawer drawer-left" id="task-queue-panel">
@@ -726,6 +750,41 @@
         </div>
     </div>
 </main>
+
+<section class="view" id="view-home">
+    <h1 id="home-hello">Home</h1>
+    <p class="sub" id="home-sub">What your crews made for you, and what they do next.</p>
+    <div class="card home-offline" id="home-offline" hidden>
+        <h2>Your model isn't answering</h2>
+        <p class="hint">Every crew thinks with a model server on this computer. Start one, then press Check again.</p>
+        <ol class="hint"><li><b>LM Studio:</b> open it, go to the Developer tab and switch the server on.</li><li><b>Ollama:</b> open the Ollama app, or run <code>ollama serve</code> in a terminal.</li></ol>
+        <div class="row"><button onclick="app.checkApiConnection()">Check again</button><button class="ghost" onclick="app.showView('models')">Model settings</button></div>
+    </div>
+    <div class="home-crews" id="home-crews"></div>
+    <div class="card">
+        <h2>Waiting for you</h2>
+        <div id="home-inbox" class="hint">Loading...</div>
+    </div>
+    <div class="card">
+        <h2>Shifts</h2>
+        <p class="hint">Give a crew a standing job. It starts on its own while the app is open (a shift missed while the app was closed runs when it opens, the same day), and what it makes waits above for your OK.</p>
+        <div id="shift-list"></div>
+        <details class="shift-new" id="shift-new">
+            <summary>+ New shift</summary>
+            <div class="grid2">
+                <label>Crew<select id="sh-crew" onchange="app.shiftCrew()"><option value="town">Town: make an episode</option><option value="factory">Factory: run a work order</option></select></label>
+                <label>Start at<input type="time" id="sh-time" value="01:00"></label>
+            </div>
+            <label data-crew="factory" hidden>Work order<textarea id="sh-goal" rows="3" placeholder="e.g. Update prices.json with today's BTC and LTC prices from the CoinGecko API"></textarea></label>
+            <div class="grid2" data-crew="town">
+                <label>Show<select id="sh-show"></select></label>
+                <label>Idea (optional)<input id="sh-idea" placeholder="Blank: the Prospector picks the topic"></label>
+            </div>
+            <div class="days" id="sh-days" role="group" aria-label="Days"></div>
+            <div class="row"><button onclick="app.saveShift()">Add shift</button><span class="hint" id="sh-msg"></span></div>
+        </details>
+    </div>
+</section>
 
 <section class="view" id="view-models" hidden>
     <h1>Models</h1>
@@ -989,6 +1048,10 @@
         <li><b>Write a work order</b> in the cream ticket under the factory floor and press <code>Ctrl+Enter</code>.</li>
       </ol>
       <div class="row"><button onclick="app.openSetup()">Run the setup wizard</button></div>
+
+      <h2 id="g-home" data-toc="Home and shifts">Home and shifts</h2>
+      <p><b>Home</b> is where every crew hands you its work. Code changes from the Factory, videos and scripts from the Town, Watch alerts and failed work orders all wait under <b>Waiting for you</b>, and you can apply, approve, watch or reject them right there. The red number on the Home button counts them. The three tiles show what each crew is doing; click one to open its page.</p>
+      <p><b>Shifts</b> give a crew a standing job: "every night at 1 am, make a Mysteries episode", or "weekdays at 7:30, run this work order". A shift starts on its own while the app is open. If the app was closed at that time, it runs once when you open it, the same day. A busy crew is tried again a minute later. Whatever it makes waits on Home for your OK (or is applied, if Auto-apply is on and it passes the Tester and Reviewer). <b>Run now</b> starts a shift straight away.</p>
 
       <h2 id="g-line" data-toc="How the line works">How the line works</h2>
       <table>
@@ -1859,7 +1922,7 @@ class App {
 
     showView(name) {
         document.getElementById('view-factory').hidden = name !== 'factory';
-        ['town', 'models', 'skills', 'sources', 'watch', 'ship', 'settings', 'guide'].forEach(v => { document.getElementById('view-' + v).hidden = name !== v; });
+        ['home', 'town', 'models', 'skills', 'sources', 'watch', 'ship', 'settings', 'guide'].forEach(v => { document.getElementById('view-' + v).hidden = name !== v; });
         if (name === 'town') this.openTown(); else if (this.town) this.town.stop();
         document.querySelectorAll('.rail [data-view]').forEach(b => b.classList.toggle('active', b.dataset.view === name));
         if (name === 'models') {
@@ -1869,6 +1932,7 @@ class App {
             this.refreshModels();
         }
         if (name === 'settings') this.fillSettings();
+        if (name === 'home') this.refreshHome();
         if (name === 'skills') this.refreshSkills();
         if (name === 'sources') this.refreshSources();
         if (name === 'ship') this.refreshShip();
@@ -1876,6 +1940,163 @@ class App {
         if (name === 'guide') this.openGuide();
         if (name === 'models') this.renderMachines();
         if (name === 'models') this.renderTuning();
+    }
+
+    // ---------- Home: everything waiting for you, every crew at a glance, and shifts ----------
+    async refreshHome() {
+        const visible = !document.getElementById('view-home').hidden;
+        clearTimeout(this.homeTimer);
+        this.homeTimer = setTimeout(() => this.refreshHome(), visible ? 4000 : 15000);
+        const get = u => fetch(u).then(r => r.ok ? r.json() : null).catch(() => null);
+        const [props, tasks, shifts, watch] = await Promise.all([get('/api/proposals'), get('/api/tasks'), get('/api/shifts'), get('/api/watchers')]);
+        this.pickUpShiftTasks(tasks);
+        const town = this.townState || { episodes: [], crew: [], shows: [] };
+        const seenAt = (() => { try { return localStorage.getItem('ff-alerts-seen') || ''; } catch { return ''; } })();
+        const items = [];
+        const showName = Object.fromEntries((town.shows || []).map(x => [x.id, x.name]));
+        const epTitle = ep => (ep.post && ep.post.title) || (ep.spec && ep.spec.title) || ep.topic || 'New episode';
+        const busyIds = new Set(this.currentTask ? [this.currentTask.id] : []);
+        (Array.isArray(props) ? props : []).filter(p => !busyIds.has(p.task_id)).forEach(p => items.push({ kind: 'Factory', what: p.goal || p.file_path, meta: [p.file_path, p.test && 'tests ' + p.test, p.verdict && 'review ' + p.verdict].filter(Boolean).join(' · '),
+            acts: [['Show the change', box => this.inboxToggle(box, () => { const pre = document.createElement('pre'); pre.textContent = p.diff; return pre; })], ['Apply', () => this.stagedAction(p, 'approve'), 'success'], ['Reject', () => this.stagedAction(p, 'reject'), 'danger']] }));
+        town.episodes.filter(e => e.status === 'staged').forEach(ep => items.push({ kind: 'Town', what: epTitle(ep), meta: `${showName[ep.show] || ep.show} · video ready to watch` + (ep.flagged ? ' · the Inspector left notes' : ''),
+            acts: [...(ep.hasVideo ? [['Watch', box => this.inboxToggle(box, () => { const v = document.createElement('video'); v.src = `/api/studio/videos/${ep.video.file}?v=${encodeURIComponent(ep.updatedAt)}`; v.controls = true; v.playsInline = true; return v; })]] : []),
+                ['Approve', () => this.townAction(ep, 'approve'), 'success'], ['Reject', () => this.townAction(ep, 'reject'), 'danger']] }));
+        town.episodes.filter(e => e.status === 'script').forEach(ep => items.push({ kind: 'Town', what: epTitle(ep), meta: `${showName[ep.show] || ep.show} · script ready to read`, acts: [['Read it', () => { this.townTab = 'todo'; this.townEpKey = null; this.showView('town'); }]] }));
+        town.episodes.filter(e => e.status === 'ready').forEach(ep => items.push({ kind: 'Town', what: epTitle(ep), meta: `${showName[ep.show] || ep.show} · approved, post it`,
+            acts: [['Copy title + description', () => this.copyText(`${ep.post.title}\n\n${ep.post.description}\n\n${(ep.post.tags || []).map(t => '#' + t.replace(/\s+/g, '')).join(' ')}`)], ['Paste the link', () => { this.townTab = 'todo'; this.townEpKey = null; this.showView('town'); }]] }));
+        const recent = Date.now() - 3 * 864e5;
+        Object.values(tasks || {}).filter(t => t.status === 'failed' && Date.parse(t.updatedAt || t.createdAt) > recent).forEach(t => items.push({ kind: 'Factory', what: t.goal, meta: 'failed' + (t.outcome ? ': ' + t.outcome : ''),
+            acts: [['Try again', () => { this.showView('factory'); this.retryGoal(t.goal); }], ['Dismiss', () => fetch(`/api/tasks/${t.id}/status`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: 'cancelled', outcome: t.outcome || 'dismissed' }) })]] }));
+        ((watch && watch.alerts) || []).filter(a => a.at > seenAt).forEach(a => items.push({ kind: 'Watch', what: a.message, meta: new Date(a.at).toLocaleString() + (a.ai ? ' · ' + a.ai : ''),
+            acts: [['Open Watch', () => this.showView('watch')], ['Mark read', () => { try { localStorage.setItem('ff-alerts-seen', a.at > seenAt ? a.at : seenAt); } catch {} }]] }));
+
+        const badge = document.getElementById('home-badge');
+        badge.hidden = !items.length; badge.textContent = items.length > 99 ? '99+' : items.length;
+        if (!visible) return;
+
+        const h = new Date().getHours();
+        document.getElementById('home-hello').textContent = h < 5 ? 'Working late' : h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening';
+        document.getElementById('home-sub').textContent = items.length ? `${items.length} thing${items.length > 1 ? 's' : ''} waiting for your OK.` : 'All caught up. Nothing is waiting for you.';
+
+        // Crews at a glance. Each tile opens its page.
+        const enabled = ((watch && watch.watchers) || []).filter(w => w.enabled), firing = enabled.filter(w => w.state && (w.state.firing || w.state.status === 'error'));
+        const townBusy = (town.crew || []).filter(c => c.doing);
+        const tiles = [
+            ['factory', '&#127981; Factory', this.currentTask ? `Working: ${this.currentTask.goal}` : this.taskQueue.length ? `${this.taskQueue.length} work order${this.taskQueue.length > 1 ? 's' : ''} waiting` : 'Idle. Give it a work order.', !!this.currentTask],
+            ['town', '&#127960;&#65039; Town', townBusy.length ? `${townBusy[0].name}: ${townBusy[0].doing}` : town.queue ? `${town.queue} recording${town.queue > 1 ? 's' : ''} waiting` : 'Idle. Make an episode.', townBusy.length > 0],
+            ['watch', '&#128225; Watch', enabled.length ? (firing.length ? `${firing.length} of ${enabled.length} need a look` : `${enabled.length} watched, all OK`) : 'Nothing watched yet.', enabled.length > 0 && !firing.length]
+        ];
+        const crews = document.getElementById('home-crews');
+        crews.innerHTML = '';
+        tiles.forEach(([view, name, text, live]) => {
+            const b = document.createElement('button');
+            b.className = 'ghost crew-tile';
+            b.innerHTML = `<b>${name}</b><span${live ? ' class="live"' : ''}></span>`;
+            b.querySelector('span').textContent = text;
+            b.onclick = () => this.showView(view);
+            crews.appendChild(b);
+        });
+
+        // The inbox. Leave it alone while a diff or video is open, so a refresh doesn't close it.
+        const box = document.getElementById('home-inbox');
+        const key = JSON.stringify(items.map(i => [i.kind, i.what, i.meta]));
+        if (key !== this.homeKey && !box.querySelector('.inbox-item [data-open]')) {
+            this.homeKey = key;
+            box.innerHTML = '';
+            box.classList.toggle('hint', !items.length);
+            if (!items.length) box.textContent = 'Nothing waiting. New work from any crew shows up here.';
+            items.forEach(it => {
+                const div = document.createElement('div');
+                div.className = 'inbox-item';
+                div.innerHTML = '<div><span class="kind"></span><span class="what"></span></div><div class="meta"></div><div class="row"></div>';
+                div.querySelector('.kind').textContent = it.kind;
+                div.querySelector('.what').textContent = it.what;
+                div.querySelector('.meta').textContent = it.meta;
+                it.acts.forEach(([text, fn, cls]) => {
+                    const b = document.createElement('button');
+                    b.className = cls || 'ghost'; b.textContent = text;
+                    b.onclick = async () => { b.disabled = true; await fn(div); b.disabled = false; if (!/^(Show|Watch)/.test(text)) { div.querySelectorAll('[data-open]').forEach(e => e.remove()); await this.pollTown(); this.homeKey = null; this.refreshHome(); } };
+                    div.querySelector('.row').appendChild(b);
+                });
+                box.appendChild(div);
+            });
+        }
+        this.renderShifts(Array.isArray(shifts) ? shifts : [], town);
+    }
+
+    // Opens or closes a diff or video under an inbox item.
+    inboxToggle(div, make) {
+        const open = div.querySelector('[data-open]');
+        if (open) return open.remove();
+        const el = make();
+        el.dataset.open = '1';
+        div.appendChild(el);
+    }
+
+    // Work orders a shift started go onto the floor; restored ones from a shift run without waiting for a press.
+    pickUpShiftTasks(tasks) {
+        if (!tasks) return;
+        const queued = new Set(this.taskQueue.map(t => t.id));
+        if (this.currentTask) queued.add(this.currentTask.id);
+        const fresh = Object.values(tasks).filter(t => t.shift && t.status === 'pending' && !queued.has(t.id));
+        fresh.forEach(t => this.taskQueue.push(t));
+        if (fresh.length) { this.renderTaskList(); this.toast(`A shift started: ${fresh[0].goal.slice(0, 60)}`); }
+        if (this.taskQueue.some(t => t.shift) && !this.currentTask) this.processNextTask();
+    }
+
+    renderShifts(list, town) {
+        const DAY = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+        const when = s => (s.days.length === 7 ? 'Every day' : s.days.join() === '1,2,3,4,5' ? 'Weekdays' : s.days.join() === '0,6' ? 'Weekends' : s.days.map(d => DAY[d]).join(', ')) + ' at ' + s.time;
+        const showName = Object.fromEntries((town.shows || []).map(x => [x.id, x.name]));
+        const box = document.getElementById('shift-list');
+        const key = JSON.stringify([list, town.shows && town.shows.length]);
+        if (key !== this.shiftKey) {
+            this.shiftKey = key;
+            box.innerHTML = list.length ? '' : '<div class="hint">No shifts yet.</div>';
+            list.forEach(s => {
+                const row = document.createElement('div');
+                row.className = 'shift' + (s.enabled ? '' : ' off');
+                row.innerHTML = '<div class="what"><b></b><div class="meta"></div></div><button class="ghost mini" data-a="run">Run now</button><button class="ghost mini" data-a="pause"></button><button class="ghost mini" data-a="del">Delete</button>';
+                row.querySelector('b').textContent = `${when(s)} · ${s.crew === 'town' ? 'Town: ' + (showName[s.show] || 'the selected show') + (s.idea ? ` (${s.idea})` : '') : 'Factory: ' + s.goal}`;
+                const next = (() => { for (let i = 0; i < 8; i++) { const d = new Date(); d.setDate(d.getDate() + i); d.setHours(+s.time.slice(0, 2), +s.time.slice(3), 0, 0); if (s.days.includes(d.getDay()) && d > new Date()) return d; } })();
+                row.querySelector('.meta').textContent = [s.enabled && next && `Next: ${next.toLocaleString(undefined, { weekday: 'short', hour: 'numeric', minute: '2-digit' })}`, s.lastRun && `last ran ${new Date(s.lastRun).toLocaleString()}`, s.lastError && `last try: ${s.lastError}`].filter(Boolean).join(' · ');
+                row.querySelector('[data-a=pause]').textContent = s.enabled ? 'Pause' : 'Resume';
+                const post = (p, body) => fetch(p, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).then(async r => { const d = await r.json().catch(() => ({})); if (!r.ok) this.toast(d.error || 'That did not work'); return d; });
+                row.querySelector('[data-a=run]').onclick = async () => { const d = await post('/api/shifts/run', { id: s.id }); this.toast(d.lastError ? d.lastError : 'Started'); this.shiftKey = null; this.pollTown(); this.refreshHome(); };
+                row.querySelector('[data-a=pause]').onclick = async () => { await post('/api/shifts', { ...s, enabled: !s.enabled }); this.shiftKey = null; this.refreshHome(); };
+                row.querySelector('[data-a=del]').onclick = async () => { await post('/api/shifts/delete', { id: s.id }); this.shiftKey = null; this.refreshHome(); };
+                box.appendChild(row);
+            });
+        }
+        // The form's show list and day buttons (built once; the show list follows the Town's shows).
+        const sel = document.getElementById('sh-show'), shows = town.shows || [];
+        if (sel.options.length !== shows.length) sel.innerHTML = shows.map(x => `<option value="${escapeHtml(x.id)}">${escapeHtml(x.name)}</option>`).join('');
+        const days = document.getElementById('sh-days');
+        if (!days.children.length) DAY.forEach((d, i) => {
+            const b = document.createElement('button');
+            b.type = 'button'; b.className = 'tab'; b.textContent = d; b.dataset.day = i; b.setAttribute('aria-pressed', 'true');
+            b.onclick = () => b.setAttribute('aria-pressed', String(b.getAttribute('aria-pressed') !== 'true'));
+            days.appendChild(b);
+        });
+    }
+
+    shiftCrew() {
+        const crew = document.getElementById('sh-crew').value;
+        document.querySelectorAll('#shift-new [data-crew]').forEach(el => { el.hidden = el.dataset.crew !== crew; });
+    }
+
+    async saveShift() {
+        const v = id => document.getElementById(id).value;
+        const body = { crew: v('sh-crew'), time: v('sh-time'), goal: v('sh-goal'), show: v('sh-show'), idea: v('sh-idea'),
+            days: [...document.querySelectorAll('#sh-days [aria-pressed="true"]')].map(b => +b.dataset.day) };
+        const r = await fetch('/api/shifts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+        const d = await r.json().catch(() => ({}));
+        document.getElementById('sh-msg').textContent = r.ok ? '' : d.error || 'Could not save';
+        if (!r.ok) return;
+        document.getElementById('sh-goal').value = ''; document.getElementById('sh-idea').value = '';
+        document.getElementById('shift-new').open = false;
+        this.toast('Shift added');
+        this.shiftKey = null; this.refreshHome();
     }
 
     // ---------- Worker tuning ----------
@@ -3550,7 +3771,7 @@ class App {
         this.pollTown(); // keeps an eye on the crew even when the Town page is closed
         this.pollProjects();
         setInterval(() => this.pollProjects(), 1500);
-        this.restoreQueue();
+        this.restoreQueue().then(() => this.refreshHome());
         document.addEventListener('keydown', e => {
             if (e.key !== 'Escape') return;
             const open = [...document.querySelectorAll('.modal')].find(m => !m.hidden);
@@ -3586,7 +3807,9 @@ class App {
             const r = await fetch(`${CONFIG.apiBase}/api/models`);
             if (!r.ok) throw new Error('model server offline');
             document.getElementById('api-status').innerHTML = '<span style="color:var(--success)">Connected</span>';
+            document.getElementById('home-offline').hidden = true;
         } catch (e) {
+            document.getElementById('home-offline').hidden = false;
             document.getElementById('api-status').innerHTML = '<span style="color:var(--error)">Offline</span>';
             this.logToConsole("Model server unreachable. Click the model name at the top to set it up.", "warn");
         }

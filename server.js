@@ -49,6 +49,15 @@ function saveTasks(tasks) {
   writeJsonAtomic(path.join(DATA_DIR, 'tasks.json'), tasks);
 }
 
+// A work order waiting for the Factory floor. The page picks up pending ones (including those a shift starts).
+function newTask(goal, extra = {}) {
+  const tasks = loadTasks();
+  const id = `task_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  tasks[id] = { id, goal: String(goal || ''), status: 'pending', createdAt: new Date().toISOString(), plan: null, proposals: [], ...extra };
+  saveTasks(tasks);
+  return tasks[id];
+}
+
 // Write to a temp file and rename it over the original, so a crash or power cut mid-write never leaves half a file.
 function writeJsonAtomic(file, value, opts = {}) {
   const tmp = `${file}.${process.pid}.tmp`;
@@ -272,20 +281,7 @@ const server = http.createServer(async (req, res) => {
           }
 
           const data = JSON.parse(body || '{}');
-          const tasks = loadTasks();
-          const taskId = `task_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-          
-          const task = {
-            id: taskId,
-            goal: data.goal || '',
-            status: 'pending',
-            createdAt: new Date().toISOString(),
-            plan: null,
-            proposals: []
-          };
-
-          tasks[taskId] = task;
-          saveTasks(tasks);
+          const task = newTask(data.goal);
 
           res.writeHead(201);
           res.end(JSON.stringify(task));
@@ -867,6 +863,20 @@ if (pathname.startsWith('/api/tasks/') && pathname.endsWith('/approve')) {
     } catch (e) { res.writeHead(400); return res.end(JSON.stringify({ error: e.message })); }
   }
 
+  // SHIFTS: crews that start work on a schedule
+  if (pathname === '/api/shifts' && method === 'GET') { res.writeHead(200); return res.end(JSON.stringify(shifts.list())); }
+  if (pathname.startsWith('/api/shifts') && method === 'POST') {
+    try {
+      const b = await readJsonBody(req);
+      let out;
+      if (pathname === '/api/shifts') out = shifts.upsert(b);
+      else if (pathname === '/api/shifts/delete') { shifts.remove(String(b.id || '')); out = { ok: true }; }
+      else if (pathname === '/api/shifts/run') out = await shifts.runNow(String(b.id || ''));
+      else { res.writeHead(404); return res.end(JSON.stringify({ error: 'Not found' })); }
+      res.writeHead(200); return res.end(JSON.stringify(out));
+    } catch (e) { res.writeHead(400); return res.end(JSON.stringify({ error: e.message })); }
+  }
+
   // LAN FOUNDRY: find model servers on the local network, list a machine's models
   if (pathname === '/api/machines/scan' && method === 'GET') {
     try { const found = await require('./lan').scan(); res.writeHead(200); return res.end(JSON.stringify({ subnets: require('./lan').localSubnets(), found })); }
@@ -1400,6 +1410,11 @@ async function projectAction(p, action) {
 // The Town's crew follows only skills ticked for it ("Town crew"): factory skills such as House style are about code.
 const townSkills = text => loadSkills().filter(k => k.enabled && k.roles.includes('town') && (!k.triggers.length || k.triggers.some(t => String(text).toLowerCase().includes(t))));
 const studio = require('./studio').createStudio({ dataDir: DATA_DIR, callModel: (m, role, id) => callLMStudio(withSkills(m, townSkills(m[m.length - 1].content)), role, id), getKey, writeJsonAtomic, port: PORT, attempts: () => loadSettings().attempts, context: extraContext, perms });
+
+const shifts = require('./shifts').createShifts(path.join(DATA_DIR, 'shifts.json'), {
+  writeJsonAtomic,
+  start: s => s.crew === 'town' ? studio.run({ show: s.show, idea: s.idea }) : newTask(s.goal, { shift: s.id })
+});
 
 const watchers = require('./watchers').createWatchers(path.join(DATA_DIR, 'watchers.json'), {
   // Optional: ask the model to explain an alert, using the latest reading.
