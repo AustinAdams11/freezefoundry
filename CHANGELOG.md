@@ -2,6 +2,10 @@
 
 Everything that changed in Freeze Foundry, newest first.
 
+## 0.17.0 · 2026-11-02
+
+- **The Town has moved out.** Frostpeak Mining Co. (the Shorts crew) is no longer part of Freeze Foundry; it is being rebuilt as its own app. Your episodes, videos and shows are untouched in your data folder (data/studio). Home, Shifts and Skills now cover the Factory and Watch.
+
 ## 0.16.0 · 2026-11-02
 
 - **Home.** The app now opens on one page that shows everything waiting for your OK, from every crew: code changes (see the change, apply or reject), Town videos (watch, approve or reject), scripts to read, approved videos to post, Watch alerts and failed work orders (try again or dismiss). A red number on the Home button counts them, and three tiles show what the Factory, Town and Watch are doing right now.

@@ -501,7 +501,7 @@
         .rail .badge { position: absolute; top: 4px; right: 6px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: var(--error); color: #fff; font: 600 11px/18px var(--ui-font); font-style: normal; }
         .home-offline ol { margin: 0; padding-left: 20px; display: grid; gap: 4px; }
         .rail-sep { width: 32px; border: 0; border-top: 1px solid var(--border-color); margin: 4px 0; }
-        .home-crews { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; max-width: 860px; margin-bottom: 16px; }
+        .home-crews { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; max-width: 860px; margin-bottom: 16px; }
         button.ghost.crew-tile { display: grid; gap: 4px; text-align: left; padding: 14px 16px; border-radius: 14px; background: var(--bg-panel); font-weight: 400; }
         .crew-tile b { font-size: 14px; } .crew-tile span { font-size: 12px; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .crew-tile .live { color: var(--success); }
@@ -562,99 +562,6 @@
         .proj-card .row button { padding: 4px 9px; font-size: 11px; }
         @keyframes pulse { 50% { opacity: .35; } }
         @media (prefers-reduced-motion: reduce) { .st { animation: none !important; } }
-        /* ---------- Town ---------- */
-        #view-town { max-width: none; }
-        .town-top { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-bottom: 14px; }
-        .town-top h1 { margin: 0; }
-        .town-top .spacer { flex: 1; }
-        .bank-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-bottom: 14px; max-width: 1100px; }
-        .bank-stats div { background: var(--bg-panel); border: 1px solid var(--border-color); border-radius: 12px; padding: 12px 14px; display: grid; gap: 4px; }
-        .bank-stats b { font-size: 22px; letter-spacing: -0.02em; }
-        .bank-stats span { font-size: 12px; color: var(--text-muted); }
-        .goal-bar { height: 6px; border-radius: 6px; background: var(--border-color); overflow: hidden; }
-        .goal-bar i { display: block; height: 100%; background: linear-gradient(90deg, #ffbe3d, #ff8a1f); }
-        .town-wrap { position: relative; max-width: 1100px; aspect-ratio: 2576 / 1438; border-radius: 8px; overflow: hidden; border: 2px solid #334155; background: #0f172a; box-shadow: 0 20px 50px rgba(0,0,0,0.85); }
-        #town-canvas { display: block; width: 100%; height: 100%; image-rendering: -moz-crisp-edges; image-rendering: -webkit-crisp-edges; image-rendering: pixelated; image-rendering: crisp-edges; background-color: #5b718c; cursor: pointer; }
-        /* The valley's own chrome floats on the picture as frosted glass, so the page leads with the work. */
-        .frost-title, .town-tools { position: absolute; top: 10px; display: flex; align-items: center; gap: 6px; padding: 5px; border-radius: 10px;
-            background: rgba(12, 15, 21, 0.55); backdrop-filter: blur(12px) saturate(160%); -webkit-backdrop-filter: blur(12px) saturate(160%); border: 1px solid rgba(255,255,255,0.12); }
-        .frost-title { left: 10px; padding: 6px 10px; gap: 10px; font: 11px/1.4 'Press Start 2P', ui-monospace, monospace; letter-spacing: .05em; text-transform: uppercase; color: #fef3c7; pointer-events: none; }
-        .town-tools { right: 10px; }
-        .town-tools button { font-size: 12px; padding: 5px 10px; border-radius: 7px; background: transparent; border: 0; color: #e5edf5; }
-        .town-tools button:hover { background: rgba(255,255,255,0.12); }
-        @media (prefers-reduced-transparency: reduce) { .frost-title, .town-tools { background: #0c0f15; backdrop-filter: none; -webkit-backdrop-filter: none; } }
-        .frost-dot { width: 12px; height: 12px; border-radius: 50%; background: #fbbf24; box-shadow: 0 0 8px #fbbf24; animation: pulse-dot 2s cubic-bezier(.4,0,.6,1) infinite; }
-        @keyframes pulse-dot { 50% { opacity: .5; } }
-        .town-overlay { position: absolute; inset: 0; pointer-events: none; }
-        .town-tag { position: absolute; transform: translate(-50%, 6px); font: 700 12px/1.25 system-ui, sans-serif; color: #f3f6fa; background: rgba(12,15,21,0.85); padding: 4px 10px 4px 8px; border-radius: 6px; white-space: nowrap; border: 2px solid var(--tag, #64748b); box-shadow: 0 4px 12px rgba(0,0,0,0.35); transition: transform .25s cubic-bezier(.22,1,.36,1), box-shadow .25s; text-align: center; }
-        .town-tag .doing { display: block; color: #ffd27a; font-weight: 500; font-size: 11px; max-width: 220px; overflow: hidden; text-overflow: ellipsis; }
-        .town-tag.busy { box-shadow: 0 0 0 3px color-mix(in srgb, var(--tag) 35%, transparent), 0 4px 12px rgba(0,0,0,0.35); }
-        .town-tag.hl { transform: translate(-50%, 6px) scale(1.18); box-shadow: 0 0 0 4px color-mix(in srgb, var(--tag) 45%, transparent), 0 6px 18px rgba(0,0,0,0.45); z-index: 2; }
-        .town-key { max-width: 1100px; display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; margin-top: 12px; }
-        .town-key button { display: grid; grid-template-columns: auto 1fr; gap: 2px 8px; align-items: center; text-align: left; padding: 8px 10px; border-radius: 10px; background: var(--bg-panel); border: 1px solid var(--border-color); border-left: 4px solid var(--tag); color: var(--text-main); font: inherit; cursor: pointer; }
-        #town-key button:hover, #town-key button:focus-visible { background: var(--bg-input); color: var(--text-main); }
-        .town-key .ic { grid-row: span 2; font-size: 20px; }
-        .town-key b { font-size: 13px; } .town-key span { font-size: 11px; color: var(--text-muted); }
-        .town-key button.busy span { color: #ffd27a; }
-        .town-bubble { position: absolute; transform: translate(-50%, -100%); max-width: 220px; font: 500 11.5px/1.35 system-ui, sans-serif; color: #1d1d1f; background: #fff; padding: 6px 9px; border-radius: 10px; box-shadow: 0 6px 18px rgba(0,0,0,0.35); transition: opacity .4s ease, transform .4s ease; animation: bubble-in .35s cubic-bezier(.22,1,.36,1); }
-        .town-bubble::after { content: ""; position: absolute; left: 50%; bottom: -5px; margin-left: -5px; border: 5px solid transparent; border-bottom: 0; border-top-color: #fff; }
-        .town-bubble.out { opacity: 0; transform: translate(-50%, -110%); }
-        @keyframes bubble-in { from { opacity: 0; transform: translate(-50%, -80%) scale(.9); } }
-        .town-cols { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: 16px; max-width: 1100px; margin-top: 16px; align-items: start; }
-        .town-cols .card { max-width: none; }
-        .town-cols .grid2 { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
-        .town-cols input, .town-cols textarea { width: 100%; min-width: 0; box-sizing: border-box; }
-        .town-cols label.check input { width: auto; flex: none; }
-        .ep { border: 1px solid var(--border-color); border-radius: 12px; padding: 12px; display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 12px; background: var(--bg-input); }
-        .ep video, .ep .ep-thumb { width: 96px; aspect-ratio: 9 / 16; border-radius: 8px; background: #000; object-fit: cover; }
-        .ep .ep-thumb { display: grid; place-items: center; font-size: 22px; color: var(--text-muted); }
-        .ep h3 { margin: 0; font-size: 14px; line-height: 1.3; }
-        .ep .meta { font-size: 12px; color: var(--text-muted); }
-        .ep .row button, .ep .row input { font-size: 12px; }
-        .ep-status { display: inline-block; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: var(--border-color); }
-        .ep-status.staged { background: #ff8a1f; color: #1a0f04; } .ep-status.posted { background: var(--success); color: #04120c; } .ep-status.failed { background: var(--error); }
-        .crew-card { display: grid; gap: 6px; }
-        .town-settings > summary { list-style: none; cursor: pointer; display: flex; align-items: center; justify-content: space-between; }
-        .town-settings > summary::-webkit-details-marker { display: none; }
-        .town-settings > summary::after { content: '›'; font-size: 20px; color: var(--text-muted); transition: transform .2s ease; }
-        .town-settings[open] > summary::after { transform: rotate(90deg); }
-        .town-settings > summary h2 { margin: 0; }
-        .town-settings[open] > summary { margin-bottom: 12px; }
-        .ep.ep-compact { grid-template-columns: minmax(0, 1fr); }
-        .crew-card .who { font-weight: 700; } .crew-card .doing { color: #ffd27a; font-size: 12px; }
-        @media (max-width: 1000px) { .town-cols { grid-template-columns: 1fr; } .bank-stats { grid-template-columns: 1fr 1fr; } }
-        @media (prefers-reduced-motion: reduce) { .town-bubble { animation: none; } }
-        .new-ep { display: grid; gap: 10px; }
-        .new-ep .shows { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 6px; }
-        .new-ep .shows button { text-align: left; padding: 8px 10px; border-radius: 10px; background: var(--bg-input); border: 1px solid var(--border-color); color: var(--text-main); font: inherit; font-size: 12px; cursor: pointer; display: grid; gap: 2px; }
-        .new-ep .shows button b { font-size: 13px; }
-        .new-ep .shows button:hover { border-color: var(--accent); }
-        .new-ep .shows button.new-show { border-style: dashed; color: var(--text-muted); }
-        .show-about { font-size: 12px; color: var(--text-muted); display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline; }
-        .show-about .link-btn { font-size: 12px; }
-        .show-form { display: grid; gap: 10px; padding: 14px; border: 1px solid var(--border-color); border-radius: 12px; background: var(--bg-input); }
-        .show-form h3 { margin: 0; font-size: 14px; }
-        .new-ep .shows button[aria-pressed="true"] { border-color: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 35%, transparent); }
-        .new-ep .voice-row { display: flex; gap: 8px; align-items: end; flex-wrap: wrap; }
-        .new-ep .voice-row label { flex: 1; min-width: 160px; }
-        #town-episodes:not(.hint) { display: grid; gap: 10px; }
-        .ep-tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border-color); margin: 4px 0 10px; flex-wrap: wrap; }
-        .ep-tabs button { background: none; border: 0; border-bottom: 2px solid transparent; border-radius: 0; padding: 6px 10px; color: var(--text-muted); font: inherit; font-size: 13px; cursor: pointer; }
-        .ep-tabs button:hover, .ep-chips button:hover { color: var(--text-main); }
-        .ep-tabs button[aria-pressed="true"] { color: var(--text-main); border-bottom-color: var(--accent); font-weight: 600; }
-        .ep-chips { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
-        .ep-chips button { background: var(--bg-input); border: 1px solid var(--border-color); border-radius: 999px; padding: 3px 10px; color: var(--text-muted); font: inherit; font-size: 12px; cursor: pointer; }
-        .ep-chips button[aria-pressed="true"] { color: var(--text-main); border-color: var(--accent); }
-        .ep-group { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--text-muted); margin: 8px 0 -2px; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-        .ep-group button { text-transform: none; letter-spacing: 0; font-size: 12px; padding: 4px 12px; }
-        .ep .ep-thumb-img { width: 96px; aspect-ratio: 9 / 16; border-radius: 8px; object-fit: cover; cursor: pointer; display: block; }
-        .ep .ep-media { display: grid; gap: 6px; align-content: start; }
-        .ep-status.script { background: #7dd3fc; color: #04121c; } .ep-status.ready { background: #fde68a; color: #1a1204; }
-        .script-ed { display: grid; gap: 8px; margin-top: 4px; }
-        .script-ed label { font-size: 11px; color: var(--text-muted); display: grid; gap: 3px; }
-        .script-ed textarea { font: inherit; font-size: 13px; line-height: 1.4; resize: vertical; }
-        .script-ed .words { font-size: 11px; color: var(--text-muted); }
-    .ep-notes { white-space: pre-wrap; font-size: 12px; max-height: 260px; overflow: auto; margin: 0; padding: 8px; background: var(--bg-alt, rgba(0,0,0,.25)); border-radius: 6px; }
 </style>
 </head>
 <body>
@@ -680,7 +587,6 @@
 <nav class="rail">
     <button class="active" data-view="home" onclick="app.showView('home')"><span>&#127968;</span>Home<i class="badge" id="home-badge" hidden></i></button>
     <button data-view="factory" onclick="app.showView('factory')"><span>&#127981;</span>Factory</button>
-    <button data-view="town" onclick="app.showView('town')"><span>&#127960;&#65039;</span>Town</button>
     <button data-view="watch" onclick="app.showView('watch')"><span>&#128225;</span>Watch</button>
     <hr class="rail-sep">
     <button data-view="models" onclick="app.showView('models')"><span>&#129504;</span>Models</button>
@@ -756,7 +662,7 @@
     <p class="sub" id="home-sub">What your crews made for you, and what they do next.</p>
     <div class="card home-offline" id="home-offline" hidden>
         <h2>Your model isn't answering</h2>
-        <p class="hint">Every crew thinks with a model server on this computer. Start one, then press Check again.</p>
+        <p class="hint">Freeze Foundry thinks with a model server on this computer. Start one, then press Check again.</p>
         <ol class="hint"><li><b>LM Studio:</b> open it, go to the Developer tab and switch the server on.</li><li><b>Ollama:</b> open the Ollama app, or run <code>ollama serve</code> in a terminal.</li></ol>
         <div class="row"><button onclick="app.checkApiConnection()">Check again</button><button class="ghost" onclick="app.showView('models')">Model settings</button></div>
     </div>
@@ -767,19 +673,12 @@
     </div>
     <div class="card">
         <h2>Shifts</h2>
-        <p class="hint">Give a crew a standing job. It starts on its own while the app is open (a shift missed while the app was closed runs when it opens, the same day), and what it makes waits above for your OK.</p>
+        <p class="hint">Give the Factory a standing work order. It starts on its own while the app is open (a shift missed while the app was closed runs when it opens, the same day), and what it makes waits above for your OK.</p>
         <div id="shift-list"></div>
         <details class="shift-new" id="shift-new">
             <summary>+ New shift</summary>
-            <div class="grid2">
-                <label>Crew<select id="sh-crew" onchange="app.shiftCrew()"><option value="town">Town: make an episode</option><option value="factory">Factory: run a work order</option></select></label>
-                <label>Start at<input type="time" id="sh-time" value="01:00"></label>
-            </div>
-            <label data-crew="factory" hidden>Work order<textarea id="sh-goal" rows="3" placeholder="e.g. Update prices.json with today's BTC and LTC prices from the CoinGecko API"></textarea></label>
-            <div class="grid2" data-crew="town">
-                <label>Show<select id="sh-show"></select></label>
-                <label>Idea (optional)<input id="sh-idea" placeholder="Blank: the Prospector picks the topic"></label>
-            </div>
+            <label>Work order<textarea id="sh-goal" rows="3" placeholder="e.g. Update prices.json with today's BTC and LTC prices from the CoinGecko API"></textarea></label>
+            <label>Start at<input type="time" id="sh-time" value="01:00" style="max-width: 200px"></label>
             <div class="days" id="sh-days" role="group" aria-label="Days"></div>
             <div class="row"><button onclick="app.saveShift()">Add shift</button><span class="hint" id="sh-msg"></span></div>
         </details>
@@ -861,7 +760,6 @@
             <label class="check"><input type="checkbox" class="sk-role" value="planner"> Planner</label>
             <label class="check"><input type="checkbox" class="sk-role" value="builder"> Builder</label>
             <label class="check"><input type="checkbox" class="sk-role" value="reviewer"> Reviewer</label>
-            <label class="check" title="The Town's video crew. Only skills ticked here reach it."><input type="checkbox" class="sk-role" value="town"> Town crew</label>
             (none ticked = all factory workers)</div>
         <label>Instructions <textarea id="sk-body" rows="10"></textarea></label>
         <div class="row"><button onclick="app.saveSkill()">Save skill</button><button class="ghost" onclick="document.getElementById('skill-editor').hidden = true">Cancel</button><span id="sk-msg" class="hint"></span></div>
@@ -883,109 +781,6 @@
     <div id="sources-list"></div>
 </section>
 
-<section class="view" id="view-town" hidden>
-    <div class="town-top">
-        <h1>Town</h1>
-        <span class="hint" id="town-sub">A crew of AI agents that makes Shorts on your models.</span>
-        <span class="spacer"></span>
-        <label class="toggle" title="While the app is open, start an episode every few hours (never more than the waiting limit)"><input type="checkbox" id="town-auto" onchange="app.townSettings({ auto: this.checked })"> Autopilot</label>
-        <button id="town-run" onclick="app.townRun()">Make an episode</button>
-    </div>
-    <div class="bank-stats">
-        <div><span>Views</span><b id="bank-views">0</b></div>
-        <div><span>Posted</span><b id="bank-posts">0</b></div>
-        <div><span>Est. earnings</span><b id="bank-money">$0.00</b></div>
-        <div><span id="bank-goal-label">Goal</span><div class="goal-bar"><i id="bank-goal" style="width:0%"></i></div></div>
-    </div>
-    <div class="town-wrap">
-        <canvas id="town-canvas" width="1288" height="719" aria-label="Frostpeak Mining Co.: six mines in snowy mountains around a central foundry"></canvas>
-        <div class="town-overlay" id="town-overlay"></div>
-        <div class="frost-title"><i class="frost-dot"></i>Frostpeak Mining Co.</div>
-        <div class="town-tools" role="group" aria-label="Valley">
-            <button class="tab" id="frost-snow" onclick="this.textContent = app.town.scene.cycleSnow()">Snow: Heavy</button>
-            <button class="tab" onclick="app.town.scene.dispatchCart()">+ Cart</button>
-            <button class="tab" onclick="app.saveTownPng()" title="Save the valley as a picture">Save picture</button>
-        </div>
-    </div>
-    <div class="town-key" id="town-key" aria-label="Who works where"></div>
-    <div class="town-cols">
-        <div>
-        <div class="card new-ep">
-            <h2>New episode</h2>
-            <div class="shows" id="town-shows" role="group" aria-label="Show"></div>
-            <div class="show-about" id="town-show-about"></div>
-            <div class="show-form" id="show-form" hidden>
-                <h3 id="sf-title">New show</h3>
-                <label>Name <input id="sf-name" maxlength="40" placeholder="Sea Tales"></label>
-                <label>What it's about <textarea id="sf-describe" rows="2" maxlength="400" placeholder="Gentle stories about animals at sea, for all ages."></textarea></label>
-                <label>How to write it <textarea id="sf-write" rows="7" maxlength="4000" placeholder="Tone, structure, what every episode must do, what to avoid. For example: warm, like a grandparent by the fire; open on the most surprising moment; end on a small twist."></textarea></label>
-                <div class="grid2">
-                    <label>Look <select id="sf-look">
-                        <option value="night">Night: the valley after dark, fog and lightning</option>
-                        <option value="cold">Cold: the valley under a cold blue night</option>
-                        <option value="tour">Valley tour: the camera visits each worker's mine</option>
-                        <option value="countdown">Countdown: a ranked top 5 with numbers</option>
-                    </select></label>
-                    <label>Length <select id="sf-length">
-                        <option value="short">Short, about 30 to 45 seconds</option>
-                        <option value="medium">Medium, about 45 to 70 seconds</option>
-                        <option value="long">Long, about 70 to 100 seconds</option>
-                    </select></label>
-                </div>
-                <label class="check"><input type="checkbox" id="sf-research"> Facts must come from sources: Wikipedia, links in the idea, and your Sources</label>
-                <div class="row"><button onclick="app.saveShow()">Save show</button><button class="ghost" onclick="app.closeShowForm()">Cancel</button></div>
-            </div>
-            <div class="ep-tabs" role="group" aria-label="Start from">
-                <button type="button" class="tab" id="town-mode-idea" aria-pressed="true" onclick="app.townMode('idea')">From an idea</button>
-                <button type="button" class="tab" id="town-mode-script" aria-pressed="false" onclick="app.townMode('script')">From my script</button>
-            </div>
-            <div id="town-from-idea">
-                <label>Your idea (optional) <textarea id="town-idea" rows="3" placeholder="Leave empty and the Prospector picks a topic. Paste links to articles and the crew writes only from them."></textarea></label>
-            </div>
-            <div id="town-from-script" hidden>
-                <label>Title <input id="town-own-title" placeholder="Shown on screen and in the thumbnail"></label>
-                <label>Script <textarea id="town-own-text" rows="8" placeholder="Write it in paragraphs, with a blank line between them.&#10;&#10;The first paragraph is the hook, spoken over the title.&#10;&#10;Each paragraph after that is one scene.&#10;&#10;The last paragraph is the ending."></textarea></label>
-                <div class="hint" id="town-own-count"></div>
-            </div>
-            <div class="voice-row">
-                <label>Narrator for this show <select id="town-voice" onchange="app.townVoicePick()"></select></label>
-                <button class="ghost" id="town-hear" onclick="app.townHear()">Hear it</button>
-            </div>
-            <div class="hint" id="town-voice-msg"></div>
-            <div class="row"><button id="town-make" onclick="app.townRun()">Make it</button><span class="hint" id="town-make-hint"></span></div>
-        </div>
-        <div class="card">
-            <h2>Episodes</h2>
-            <div class="ep-tabs" id="town-tabs" role="tablist" aria-label="Episodes by stage"></div>
-            <div class="ep-chips" id="town-filter" aria-label="Show"></div>
-            <div id="town-episodes" class="hint">No episodes yet. Press Make an episode, and watch the crew pass it around town.</div>
-        </div>
-        </div>
-        <div>
-            <div class="card">
-                <h2 id="town-house-title">The crew</h2>
-                <div id="town-house" class="crew-card hint">Click a mine, or a worker in the key, to see what it's doing.</div>
-            </div>
-            <details class="card town-settings">
-                <summary><h2>Town settings</h2></summary>
-                <label>Topic ideas (one per line; the Prospector prefers these when you leave the idea empty) <textarea id="town-topics" rows="4" placeholder="fastest animals&#10;tallest buildings&#10;most expensive cars"></textarea></label>
-                <div class="grid2">
-                    <label>Autopilot: an episode every (hours) <input id="town-every" type="number" min="1" max="168"></label>
-                    <label>Stop when this many wait for you <input id="town-max" type="number" min="1" max="20"></label>
-                    <label>Views goal <input id="town-goal" type="number" min="100"></label>
-                    <label>Earnings per 1,000 views ($) <input id="town-rpm" type="number" min="0" step="0.01"></label>
-                </div>
-                <label class="check"><input type="checkbox" id="town-approve"> Let me read and edit the script before it's recorded</label>
-                <label class="check"><input type="checkbox" id="town-voiceon"> Narrate with an AI voice (Kokoro, runs on this computer)</label>
-                <label>Voice speed: <span id="town-speed-val"></span> <input id="town-speed" type="range" min="0.8" max="1.2" step="0.05" oninput="document.getElementById('town-speed-val').textContent = this.value + 'x'"></label>
-                <label>YouTube API key (to read view counts) <input id="town-ytkey" type="password" placeholder="Paste a key; it's stored encrypted"></label>
-                <p class="hint">Get one free at console.cloud.google.com: create a project, enable "YouTube Data API v3", then Credentials &gt; Create credentials &gt; API key.</p>
-                <div class="row"><button onclick="app.saveTownSettings()">Save</button><button class="ghost" onclick="app.townTrack()">Refresh views now</button><button class="ghost" onclick="app.openFolder('videos')">Open videos folder</button></div>
-                <div id="town-lessons" class="hint"></div>
-            </details>
-        </div>
-    </div>
-</section>
 
 <section class="view" id="view-watch" hidden>
     <h1>Watch</h1>
@@ -1050,8 +845,8 @@
       <div class="row"><button onclick="app.openSetup()">Run the setup wizard</button></div>
 
       <h2 id="g-home" data-toc="Home and shifts">Home and shifts</h2>
-      <p><b>Home</b> is where every crew hands you its work. Code changes from the Factory, videos and scripts from the Town, Watch alerts and failed work orders all wait under <b>Waiting for you</b>, and you can apply, approve, watch or reject them right there. The red number on the Home button counts them. The three tiles show what each crew is doing; click one to open its page.</p>
-      <p><b>Shifts</b> give a crew a standing job: "every night at 1 am, make a Mysteries episode", or "weekdays at 7:30, run this work order". A shift starts on its own while the app is open. If the app was closed at that time, it runs once when you open it, the same day. A busy crew is tried again a minute later. Whatever it makes waits on Home for your OK (or is applied, if Auto-apply is on and it passes the Tester and Reviewer). <b>Run now</b> starts a shift straight away.</p>
+      <p><b>Home</b> is where everything that needs you lands. Code changes from the Factory, Watch alerts and failed work orders all wait under <b>Waiting for you</b>, and you can see a change, apply or reject it right there. The red number on the Home button counts them. The tiles show what the Factory and Watch are doing; click one to open its page.</p>
+      <p><b>Shifts</b> give the Factory a standing work order: "every night at 1 am, refresh the price report", or "weekdays at 7:30, update the README with yesterday's changes". A shift starts on its own while the app is open. If the app was closed at that time, it runs once when you open it, the same day. A busy crew is tried again a minute later. Whatever it makes waits on Home for your OK (or is applied, if Auto-apply is on and it passes the Tester and Reviewer). <b>Run now</b> starts a shift straight away.</p>
 
       <h2 id="g-line" data-toc="How the line works">How the line works</h2>
       <table>
@@ -1086,19 +881,6 @@
         <li><b>One approval.</b> Nothing touches your workspace until the project is done. Apply writes every file at once with backups; Undo puts them all back. With Auto-apply on, a project that passes inspection applies itself.</li>
       </ul>
       <p class="hint">The Foreman plans with the Planner's model and inspects with the Reviewer's, so a stronger model there pays off. Projects show up in the left drawer with each file's progress; click a file to read it. A project that was running when the app closed comes back paused.</p>
-
-      <h2 id="g-town" data-toc="Town: the Shorts crew">Town: a crew that makes Shorts</h2>
-      <p>The Town is Frostpeak Mining Co.: a second crew working six mines and a foundry. They make vertical Shorts on your models; hover a worker in the key under the scene to light up its mine.</p>
-      <ul>
-        <li><b>&#129517; Prospector</b> finds the next vein: picks a topic, skipping old ones and preferring your Topic ideas and what the Surveyor has learned.</li>
-        <li><b>&#9935;&#65039; Miner</b> digs out the story: writes a Ranked countdown: five items, a real number each, a one-line fact, and a question to end on.</li>
-        <li><b>&#128269; Inspector</b> grades the ore: checks every number and sends the draft back when something's wrong (as many tries as Attempts in Settings).</li>
-        <li><b>&#128642; Dispatcher</b> ships it out: writes the title, description and tags.</li>
-        <li><b>&#128293; Smelter</b> works the foundry: animates and records a 1080×1920 video with original chiptune music, in a hidden window of the app. It saves as MP4, which YouTube, TikTok and Instagram all take.</li>
-        <li><b>&#128208; Surveyor</b> surveys the claims: reads view counts for posted videos every 30 minutes and, once a few are posted, tells the Prospector what's working.</li>
-      </ul>
-      <p>Finished episodes wait under <b>Episodes</b> for your OK. Watch it, <b>Approve</b>, post it, then paste the link so the Surveyor can follow its views. <b>Autopilot</b> starts a new episode every few hours while the app is open, and stops when enough are waiting for you. The Vault adds up views and an earnings estimate at the rate you set.</p>
-      <p class="hint">Reading view counts needs a free YouTube Data API key (Town settings explains how). Bigger models write better facts; check the Inspector's notes on anything flagged before you post.</p>
 
       <h2 id="g-approve" data-toc="Approvals and the queue">Approvals, Auto-apply and the queue</h2>
       <p>With <b>Auto-apply</b> off, every finished change waits in <b>Staged changes</b>. Click it to see the diff, then apply or reject. With it on, a change applies itself only when tests didn't fail <i>and</i> the Reviewer approved; everything else waits for you.</p>
@@ -1317,7 +1099,6 @@ roles: [builder, reviewer]
     </div>
 </div>
 
-<script src="town.js"></script>
 <script>
 // Escape text before it goes into HTML (model names, server errors and goals can contain anything).
 const escapeHtml = t => String(t ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -1922,8 +1703,7 @@ class App {
 
     showView(name) {
         document.getElementById('view-factory').hidden = name !== 'factory';
-        ['home', 'town', 'models', 'skills', 'sources', 'watch', 'ship', 'settings', 'guide'].forEach(v => { document.getElementById('view-' + v).hidden = name !== v; });
-        if (name === 'town') this.openTown(); else if (this.town) this.town.stop();
+        ['home', 'models', 'skills', 'sources', 'watch', 'ship', 'settings', 'guide'].forEach(v => { document.getElementById('view-' + v).hidden = name !== v; });
         document.querySelectorAll('.rail [data-view]').forEach(b => b.classList.toggle('active', b.dataset.view === name));
         if (name === 'models') {
             document.getElementById('set-base').value = (this.settings && this.settings.baseUrl) || '';
@@ -1950,20 +1730,11 @@ class App {
         const get = u => fetch(u).then(r => r.ok ? r.json() : null).catch(() => null);
         const [props, tasks, shifts, watch] = await Promise.all([get('/api/proposals'), get('/api/tasks'), get('/api/shifts'), get('/api/watchers')]);
         this.pickUpShiftTasks(tasks);
-        const town = this.townState || { episodes: [], crew: [], shows: [] };
         const seenAt = (() => { try { return localStorage.getItem('ff-alerts-seen') || ''; } catch { return ''; } })();
         const items = [];
-        const showName = Object.fromEntries((town.shows || []).map(x => [x.id, x.name]));
-        const epTitle = ep => (ep.post && ep.post.title) || (ep.spec && ep.spec.title) || ep.topic || 'New episode';
         const busyIds = new Set(this.currentTask ? [this.currentTask.id] : []);
         (Array.isArray(props) ? props : []).filter(p => !busyIds.has(p.task_id)).forEach(p => items.push({ kind: 'Factory', what: p.goal || p.file_path, meta: [p.file_path, p.test && 'tests ' + p.test, p.verdict && 'review ' + p.verdict].filter(Boolean).join(' · '),
             acts: [['Show the change', box => this.inboxToggle(box, () => { const pre = document.createElement('pre'); pre.textContent = p.diff; return pre; })], ['Apply', () => this.stagedAction(p, 'approve'), 'success'], ['Reject', () => this.stagedAction(p, 'reject'), 'danger']] }));
-        town.episodes.filter(e => e.status === 'staged').forEach(ep => items.push({ kind: 'Town', what: epTitle(ep), meta: `${showName[ep.show] || ep.show} · video ready to watch` + (ep.flagged ? ' · the Inspector left notes' : ''),
-            acts: [...(ep.hasVideo ? [['Watch', box => this.inboxToggle(box, () => { const v = document.createElement('video'); v.src = `/api/studio/videos/${ep.video.file}?v=${encodeURIComponent(ep.updatedAt)}`; v.controls = true; v.playsInline = true; return v; })]] : []),
-                ['Approve', () => this.townAction(ep, 'approve'), 'success'], ['Reject', () => this.townAction(ep, 'reject'), 'danger']] }));
-        town.episodes.filter(e => e.status === 'script').forEach(ep => items.push({ kind: 'Town', what: epTitle(ep), meta: `${showName[ep.show] || ep.show} · script ready to read`, acts: [['Read it', () => { this.townTab = 'todo'; this.townEpKey = null; this.showView('town'); }]] }));
-        town.episodes.filter(e => e.status === 'ready').forEach(ep => items.push({ kind: 'Town', what: epTitle(ep), meta: `${showName[ep.show] || ep.show} · approved, post it`,
-            acts: [['Copy title + description', () => this.copyText(`${ep.post.title}\n\n${ep.post.description}\n\n${(ep.post.tags || []).map(t => '#' + t.replace(/\s+/g, '')).join(' ')}`)], ['Paste the link', () => { this.townTab = 'todo'; this.townEpKey = null; this.showView('town'); }]] }));
         const recent = Date.now() - 3 * 864e5;
         Object.values(tasks || {}).filter(t => t.status === 'failed' && Date.parse(t.updatedAt || t.createdAt) > recent).forEach(t => items.push({ kind: 'Factory', what: t.goal, meta: 'failed' + (t.outcome ? ': ' + t.outcome : ''),
             acts: [['Try again', () => { this.showView('factory'); this.retryGoal(t.goal); }], ['Dismiss', () => fetch(`/api/tasks/${t.id}/status`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: 'cancelled', outcome: t.outcome || 'dismissed' }) })]] }));
@@ -1980,10 +1751,8 @@ class App {
 
         // Crews at a glance. Each tile opens its page.
         const enabled = ((watch && watch.watchers) || []).filter(w => w.enabled), firing = enabled.filter(w => w.state && (w.state.firing || w.state.status === 'error'));
-        const townBusy = (town.crew || []).filter(c => c.doing);
         const tiles = [
             ['factory', '&#127981; Factory', this.currentTask ? `Working: ${this.currentTask.goal}` : this.taskQueue.length ? `${this.taskQueue.length} work order${this.taskQueue.length > 1 ? 's' : ''} waiting` : 'Idle. Give it a work order.', !!this.currentTask],
-            ['town', '&#127960;&#65039; Town', townBusy.length ? `${townBusy[0].name}: ${townBusy[0].doing}` : town.queue ? `${town.queue} recording${town.queue > 1 ? 's' : ''} waiting` : 'Idle. Make an episode.', townBusy.length > 0],
             ['watch', '&#128225; Watch', enabled.length ? (firing.length ? `${firing.length} of ${enabled.length} need a look` : `${enabled.length} watched, all OK`) : 'Nothing watched yet.', enabled.length > 0 && !firing.length]
         ];
         const crews = document.getElementById('home-crews');
@@ -2004,7 +1773,7 @@ class App {
             this.homeKey = key;
             box.innerHTML = '';
             box.classList.toggle('hint', !items.length);
-            if (!items.length) box.textContent = 'Nothing waiting. New work from any crew shows up here.';
+            if (!items.length) box.textContent = 'Nothing waiting. New work shows up here.';
             items.forEach(it => {
                 const div = document.createElement('div');
                 div.className = 'inbox-item';
@@ -2015,13 +1784,13 @@ class App {
                 it.acts.forEach(([text, fn, cls]) => {
                     const b = document.createElement('button');
                     b.className = cls || 'ghost'; b.textContent = text;
-                    b.onclick = async () => { b.disabled = true; await fn(div); b.disabled = false; if (!/^(Show|Watch)/.test(text)) { div.querySelectorAll('[data-open]').forEach(e => e.remove()); await this.pollTown(); this.homeKey = null; this.refreshHome(); } };
+                    b.onclick = async () => { b.disabled = true; await fn(div); b.disabled = false; if (!/^Show/.test(text)) { div.querySelectorAll('[data-open]').forEach(e => e.remove()); this.homeKey = null; this.refreshHome(); } };
                     div.querySelector('.row').appendChild(b);
                 });
                 box.appendChild(div);
             });
         }
-        this.renderShifts(Array.isArray(shifts) ? shifts : [], town);
+        this.renderShifts(Array.isArray(shifts) ? shifts : []);
     }
 
     // Opens or closes a diff or video under an inbox item.
@@ -2044,12 +1813,11 @@ class App {
         if (this.taskQueue.some(t => t.shift) && !this.currentTask) this.processNextTask();
     }
 
-    renderShifts(list, town) {
+    renderShifts(list) {
         const DAY = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
         const when = s => (s.days.length === 7 ? 'Every day' : s.days.join() === '1,2,3,4,5' ? 'Weekdays' : s.days.join() === '0,6' ? 'Weekends' : s.days.map(d => DAY[d]).join(', ')) + ' at ' + s.time;
-        const showName = Object.fromEntries((town.shows || []).map(x => [x.id, x.name]));
         const box = document.getElementById('shift-list');
-        const key = JSON.stringify([list, town.shows && town.shows.length]);
+        const key = JSON.stringify(list);
         if (key !== this.shiftKey) {
             this.shiftKey = key;
             box.innerHTML = list.length ? '' : '<div class="hint">No shifts yet.</div>';
@@ -2057,20 +1825,18 @@ class App {
                 const row = document.createElement('div');
                 row.className = 'shift' + (s.enabled ? '' : ' off');
                 row.innerHTML = '<div class="what"><b></b><div class="meta"></div></div><button class="ghost mini" data-a="run">Run now</button><button class="ghost mini" data-a="pause"></button><button class="ghost mini" data-a="del">Delete</button>';
-                row.querySelector('b').textContent = `${when(s)} · ${s.crew === 'town' ? 'Town: ' + (showName[s.show] || 'the selected show') + (s.idea ? ` (${s.idea})` : '') : 'Factory: ' + s.goal}`;
+                row.querySelector('b').textContent = `${when(s)} · ${s.goal}`;
                 const next = (() => { for (let i = 0; i < 8; i++) { const d = new Date(); d.setDate(d.getDate() + i); d.setHours(+s.time.slice(0, 2), +s.time.slice(3), 0, 0); if (s.days.includes(d.getDay()) && d > new Date()) return d; } })();
                 row.querySelector('.meta').textContent = [s.enabled && next && `Next: ${next.toLocaleString(undefined, { weekday: 'short', hour: 'numeric', minute: '2-digit' })}`, s.lastRun && `last ran ${new Date(s.lastRun).toLocaleString()}`, s.lastError && `last try: ${s.lastError}`].filter(Boolean).join(' · ');
                 row.querySelector('[data-a=pause]').textContent = s.enabled ? 'Pause' : 'Resume';
                 const post = (p, body) => fetch(p, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).then(async r => { const d = await r.json().catch(() => ({})); if (!r.ok) this.toast(d.error || 'That did not work'); return d; });
-                row.querySelector('[data-a=run]').onclick = async () => { const d = await post('/api/shifts/run', { id: s.id }); this.toast(d.lastError ? d.lastError : 'Started'); this.shiftKey = null; this.pollTown(); this.refreshHome(); };
+                row.querySelector('[data-a=run]').onclick = async () => { const d = await post('/api/shifts/run', { id: s.id }); this.toast(d.lastError ? d.lastError : 'Started'); this.shiftKey = null; this.refreshHome(); };
                 row.querySelector('[data-a=pause]').onclick = async () => { await post('/api/shifts', { ...s, enabled: !s.enabled }); this.shiftKey = null; this.refreshHome(); };
                 row.querySelector('[data-a=del]').onclick = async () => { await post('/api/shifts/delete', { id: s.id }); this.shiftKey = null; this.refreshHome(); };
                 box.appendChild(row);
             });
         }
-        // The form's show list and day buttons (built once; the show list follows the Town's shows).
-        const sel = document.getElementById('sh-show'), shows = town.shows || [];
-        if (sel.options.length !== shows.length) sel.innerHTML = shows.map(x => `<option value="${escapeHtml(x.id)}">${escapeHtml(x.name)}</option>`).join('');
+        // The form's day buttons, built once.
         const days = document.getElementById('sh-days');
         if (!days.children.length) DAY.forEach((d, i) => {
             const b = document.createElement('button');
@@ -2080,20 +1846,15 @@ class App {
         });
     }
 
-    shiftCrew() {
-        const crew = document.getElementById('sh-crew').value;
-        document.querySelectorAll('#shift-new [data-crew]').forEach(el => { el.hidden = el.dataset.crew !== crew; });
-    }
-
     async saveShift() {
         const v = id => document.getElementById(id).value;
-        const body = { crew: v('sh-crew'), time: v('sh-time'), goal: v('sh-goal'), show: v('sh-show'), idea: v('sh-idea'),
+        const body = { crew: 'factory', time: v('sh-time'), goal: v('sh-goal'),
             days: [...document.querySelectorAll('#sh-days [aria-pressed="true"]')].map(b => +b.dataset.day) };
         const r = await fetch('/api/shifts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
         const d = await r.json().catch(() => ({}));
         document.getElementById('sh-msg').textContent = r.ok ? '' : d.error || 'Could not save';
         if (!r.ok) return;
-        document.getElementById('sh-goal').value = ''; document.getElementById('sh-idea').value = '';
+        document.getElementById('sh-goal').value = '';
         document.getElementById('shift-new').open = false;
         this.toast('Shift added');
         this.shiftKey = null; this.refreshHome();
@@ -2207,485 +1968,6 @@ class App {
     }
 
     // ---------- Watch ----------
-    // ---------- Town: the Shorts crew ----------
-    openTown() {
-        if (!this.town) {
-            this.town = new TownMap(document.getElementById('town-canvas'), document.getElementById('town-overlay'), id => this.townPick(id));
-            this.townSince = null;
-        }
-        this.town.start();
-        this.pollTown();
-    }
-
-    async pollTown() {
-        const visible = !document.getElementById('view-town').hidden;
-        clearTimeout(this.townTimer);
-        this.townTimer = setTimeout(() => this.pollTown(), visible ? 1500 : 20000);
-        const d = await fetch('/api/studio' + (this.townSince ? `?since=${this.townSince}` : '')).then(r => r.json()).catch(() => null);
-        if (!d) return;
-        const first = this.townSince === null;
-        const last = d.events.length ? d.events[d.events.length - 1].n : this.townSince || 0;
-        if (!first && this.town) d.events.forEach(e => this.town.send(e.from, e.to, e.msg));
-        if (!first) d.events.filter(e => e.from === 'studio' && e.to === 'bank').forEach(e => { this.toast(e.msg); this.sfx('ready'); });
-        this.townSince = last;
-        this.townState = d;
-        if (visible) this.renderTown(d);
-    }
-
-    renderTown(d) {
-        const b = d.bank, fmt = n => n.toLocaleString('en-US');
-        document.getElementById('bank-views').textContent = fmt(b.views);
-        document.getElementById('bank-posts').textContent = fmt(b.posts);
-        document.getElementById('bank-money').textContent = '$' + b.earnings.toFixed(2);
-        document.getElementById('bank-goal-label').textContent = `Goal: ${fmt(b.goal)} views (${Math.min(100, Math.floor(b.views / b.goal * 100))}%)`;
-        document.getElementById('bank-goal').style.width = Math.min(100, b.views / b.goal * 100) + '%';
-        document.getElementById('town-run').disabled = d.running;
-        document.getElementById('town-run').textContent = d.running ? 'Crew at work...' : 'Make an episode';
-        document.getElementById('town-make').disabled = d.running;
-        document.getElementById('town-make-hint').textContent = d.running ? 'The crew is busy with an episode; this one can start when it is done.' : '';
-        this.renderNewEpisode(d);
-        document.getElementById('town-auto').checked = d.settings.auto;
-        if (!d.canRecord) document.getElementById('town-sub').textContent = 'Developer mode: videos are recorded by the desktop app. Here, open /studio/render.html?ep=<id> to record one.';
-        if (this.town) {
-            this.town.busy = Object.fromEntries(d.crew.filter(c => c.doing).map(c => [c.id, true]));
-            const ov = document.getElementById('town-overlay');
-            ov.querySelectorAll('.town-tag').forEach(t => t.remove());
-            const everyone = [...d.crew, { id: 'bank', name: 'Vault', icon: '💰', color: '#ffd147', job: 'holds the takings: views and earnings' }];
-            everyone.forEach(c => {
-                const h = this.town.tagSpot(c.id), tag = document.createElement('div');
-                tag.className = 'town-tag' + (c.doing ? ' busy' : '') + (this.townHover === c.id ? ' hl' : '');
-                tag.dataset.id = c.id;
-                tag.style.setProperty('--tag', c.color);
-                tag.style.left = (h.x / this.town.W * 100) + '%';
-                tag.style.top = (h.y / this.town.H * 100) + '%';
-                tag.innerHTML = `${c.icon} ${escapeHtml(c.name)}${c.doing ? `<span class="doing">${escapeHtml(c.doing)}</span>` : ''}`;
-                ov.appendChild(tag);
-            });
-            // The key: one chip per worker; hovering one lights up its mine.
-            const key = document.getElementById('town-key');
-            key.innerHTML = '';
-            everyone.forEach(c => {
-                const b = document.createElement('button');
-                b.style.setProperty('--tag', c.color);
-                if (c.doing) b.className = 'busy';
-                b.innerHTML = `<span class="ic">${c.icon}</span><b>${escapeHtml(c.name)}</b><span>${escapeHtml(c.doing || c.job)}</span>`;
-                const hl = on => { this.townHover = on ? c.id : null; this.town.highlight = this.townHover; ov.querySelectorAll('.town-tag').forEach(t => t.classList.toggle('hl', t.dataset.id === this.townHover)); };
-                b.onmouseenter = b.onfocus = () => hl(true);
-                b.onmouseleave = b.onblur = () => hl(false);
-                b.onclick = () => this.townPick(c.id);
-                key.appendChild(b);
-            });
-        }
-        if (this.townPicked) this.townPick(this.townPicked);
-        const lessons = d.lessons || [];
-        document.getElementById('town-lessons').innerHTML = lessons.length ? '<b>What the Surveyor learned:</b><br>' + lessons.map(escapeHtml).join('<br>') : '';
-        if (!this.townSettingsFilled) {
-            this.townSettingsFilled = true;
-            const st = d.settings;
-            document.getElementById('town-topics').value = st.topics;
-            document.getElementById('town-every').value = st.everyHours;
-            document.getElementById('town-max').value = st.maxWaiting;
-            document.getElementById('town-goal').value = st.goal;
-            document.getElementById('town-rpm').value = st.rpm;
-            document.getElementById('town-approve').checked = st.approveScript;
-            document.getElementById('town-voiceon').checked = st.voiceOn;
-            document.getElementById('town-speed').value = st.speed;
-            document.getElementById('town-speed-val').textContent = st.speed + 'x';
-            document.getElementById('town-ytkey').placeholder = d.youtubeKey ? 'Key saved. Paste a new one to replace it' : 'Paste a key; it\'s stored encrypted';
-        }
-        // Episodes by stage (tabs) and show (chips). "To do" groups what is waiting for you, in the order to do it.
-        const TABS = [['todo', 'To do', ['staged', 'ready', 'script']], ['work', 'In progress', ['scouting', 'writing', 'checking', 'titling', 'rendering']], ['posted', 'Posted', ['posted']], ['archive', 'Archive', ['rejected', 'failed']]];
-        this.townTab = this.townTab || 'todo';
-        this.townFilter = this.townFilter || 'all';
-        const key = JSON.stringify([this.townTab, this.townFilter, d.queue, d.episodes.map(e => [e.id, e.status, e.updatedAt, e.stats])]);
-        if (key === this.townEpKey) return;
-        this.townEpKey = key;
-        const pick = (el, items, current, set) => {
-            el.innerHTML = '';
-            items.forEach(([id, text]) => {
-                const b = document.createElement('button');
-                b.type = 'button'; b.className = 'tab'; b.textContent = text;
-                b.setAttribute('aria-pressed', String(id === current));
-                b.onclick = () => { set(id); this.renderTown(this.townState); };
-                el.appendChild(b);
-            });
-        };
-        const inShow = e => this.townFilter === 'all' || e.show === this.townFilter;
-        pick(document.getElementById('town-tabs'), TABS.map(([id, name, sts]) => { const n = d.episodes.filter(e => sts.includes(e.status) && inShow(e)).length; return [id, n ? `${name} · ${n}` : name]; }), this.townTab, v => { this.townTab = v; });
-        pick(document.getElementById('town-filter'), [['all', 'All shows'], ...(d.shows || []).map(x => [x.id, x.name])], this.townFilter, v => { this.townFilter = v; });
-        const box = document.getElementById('town-episodes');
-        if (!d.episodes.length) { box.className = 'hint'; box.textContent = 'No episodes yet. Press Make an episode, and watch the crew pass it around town.'; return; }
-        const tab = TABS.find(t => t[0] === this.townTab);
-        const eps = d.episodes.filter(e => tab[2].includes(e.status) && inShow(e));
-        box.innerHTML = '';
-        box.classList.toggle('hint', !eps.length);
-        if (!eps.length) { box.textContent = { todo: 'Nothing waiting for you.', work: 'The crew is idle.', posted: 'Nothing posted yet.', archive: 'Nothing rejected or failed.' }[tab[0]]; return; }
-        const groups = tab[0] === 'todo' ? [['staged', 'Watch and approve'], ['ready', 'Post it'], ['script', 'Read the script']] : [[null, null]];
-        const label = { scouting: 'Scouting', writing: 'Writing', checking: 'Fact check', titling: 'Titling', script: 'Script ready: read it', rendering: 'Recording', staged: 'Needs your OK', ready: 'Approved, post it', posted: 'Posted', rejected: 'Rejected', failed: 'Failed' };
-        const showName = Object.fromEntries((d.shows || []).map(x => [x.id, x.name]));
-        const card = ep => {
-            const div = document.createElement('div');
-            div.className = 'ep';
-            const views = ep.stats && ep.stats.youtube ? `${ep.stats.youtube.views.toLocaleString('en-US')} views · ${ep.stats.youtube.likes.toLocaleString('en-US')} likes` : '';
-            const v = ep.updatedAt ? `?v=${encodeURIComponent(ep.updatedAt)}` : '';
-            const compact = !ep.hasVideo && !ep.hasThumb; // nothing to show yet: no empty video tile
-            if (compact) div.classList.add('ep-compact');
-            div.innerHTML = compact ? `<div style="display:grid;gap:6px;min-width:0"><div><span class="ep-status ${escapeHtml(ep.status)}">${escapeHtml(label[ep.status] || ep.status)}</span></div>
-                <h3></h3><div class="meta"></div><div class="row"></div></div>` : `<div class="ep-media">${ep.hasVideo ? `<video src="/api/studio/videos/${ep.video && ep.video.file || ep.id}${v}" controls preload="metadata" playsinline></video>` : '<div class="ep-thumb">&#127916;</div>'}` +
-                (ep.hasThumb ? `<a href="/api/studio/thumbs/${ep.id}.jpg${v}" download="${ep.id}-thumbnail.jpg" title="Save the thumbnail"><img class="ep-thumb-img" src="/api/studio/thumbs/${ep.id}.jpg${v}" alt="Thumbnail"></a>` : '') + '</div>' +
-                `<div style="display:grid;gap:6px;min-width:0"><div><span class="ep-status ${escapeHtml(ep.status)}">${escapeHtml(label[ep.status] || ep.status)}</span></div>
-                <h3></h3><div class="meta"></div><div class="row"></div></div>`;
-            div.querySelector('h3').textContent = (ep.post && ep.post.title) || (ep.spec && ep.spec.title) || ep.topic || 'New episode';
-            div.querySelector('.meta').textContent = [showName[ep.show] || ep.show, ep.topic, views, ep.flagged ? 'The Inspector was not fully satisfied: read its notes' : '', ep.error || ''].filter(Boolean).join(' · ');
-            const row = div.querySelector('.row');
-            const btn = (text, fn, cls = 'ghost') => { const b = document.createElement('button'); b.className = cls; b.textContent = text; b.onclick = fn; row.appendChild(b); };
-            if (ep.status === 'script') { this.scriptEditor(ep, div.lastElementChild, btn); }
-            if (ep.status === 'staged') { btn('Approve', () => this.townAction(ep, 'approve'), 'success'); btn('Reject', () => this.townAction(ep, 'reject'), 'danger'); }
-            const save = (href, name) => { const a = document.createElement('a'); a.href = href; a.download = name; a.click(); };
-            if (ep.hasVideo && ['staged', 'ready', 'posted'].includes(ep.status)) btn('Save video', () => save(`/api/studio/videos/${ep.video.file}`, ep.video.file));
-            if (ep.hasThumb && ['staged', 'ready', 'posted'].includes(ep.status)) btn('Save thumbnail', () => save(`/api/studio/thumbs/${ep.id}.jpg`, `${ep.id}-thumbnail.jpg`));
-            if (ep.post && ['failed', 'rejected'].includes(ep.status)) btn('Record again', () => this.townAction(ep, 'record'));
-            if (ep.spec && ['failed', 'rejected'].includes(ep.status)) btn('Ask for changes', () => this.townRevisePrompt(ep, div.lastElementChild));
-            if (ep.post && ['staged', 'ready'].includes(ep.status)) btn('Copy title + description', () => this.copyText(`${ep.post.title}\n\n${ep.post.description}\n\n${(ep.post.tags || []).map(t => '#' + t.replace(/\s+/g, '')).join(' ')}`));
-            if (['ready', 'posted'].includes(ep.status)) {
-                const input = document.createElement('input');
-                input.placeholder = 'Paste the YouTube link after posting';
-                input.value = (ep.links && ep.links.youtube) || '';
-                input.style.flex = '1 1 100%'; // its own line: a YouTube link is long
-                row.appendChild(input);
-                btn(ep.status === 'posted' ? 'Update link' : 'Save link', () => this.townLink(ep, input.value));
-            }
-            if (ep.log && ep.log.length) {
-                // The detail panel lives on the Factory page, so the notes open inside the card.
-                const notes = document.createElement('pre');
-                notes.className = 'ep-notes';
-                notes.hidden = !(this.townNotes || {})[ep.id];
-                notes.textContent = ep.log.map(l => `${new Date(l.at).toLocaleTimeString()}  ${l.who}: ${l.msg}`).join('\n');
-                btn('Crew notes', () => { notes.hidden = !notes.hidden; (this.townNotes = this.townNotes || {})[ep.id] = !notes.hidden; });
-                div.lastElementChild.appendChild(notes);
-            }
-            if (!['scouting', 'writing', 'checking', 'titling', 'rendering'].includes(ep.status)) btn('Delete', () => this.townAction(ep, 'delete'));
-            return div;
-        };
-        for (const [status, heading] of groups) {
-            // Scripts oldest first, so a series reads in episode order; everything else newest first.
-            const list = eps.filter(e => !status || e.status === status).sort((a, b) => status === 'script' ? a.createdAt.localeCompare(b.createdAt) : 0);
-            if (!list.length) continue;
-            if (heading) {
-                const h = document.createElement('h3'); h.className = 'ep-group'; h.textContent = `${heading} (${list.length})`;
-                if (status === 'script') {
-                    // Record all: one after another, oldest first. While it runs, the button stops it after the current one.
-                    const b = document.createElement('button');
-                    b.type = 'button'; b.className = d.queue ? 'ghost' : 'success';
-                    b.textContent = d.queue ? `Stop after this one (${d.queue} waiting)` : `Record all ${list.length}`;
-                    b.onclick = async () => {
-                        const r = await fetch('/api/studio/record-all', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(d.queue ? { stop: true } : { show: this.townFilter === 'all' ? null : this.townFilter }) });
-                        const res = await r.json().catch(() => ({}));
-                        if (!r.ok) return this.toast(res.error || 'Could not start');
-                        this.toast(d.queue ? 'The queue stops after this recording' : `Recording ${list.length}, oldest first. They'll land in Watch and approve.`);
-                        this.townEpKey = null; this.pollTown();
-                    };
-                    h.appendChild(b);
-                }
-                box.appendChild(h);
-            }
-            list.forEach(ep => box.appendChild(card(ep)));
-        }
-    }
-
-    townPick(id) {
-        this.townPicked = id;
-        const d = this.townState;
-        if (!d) return;
-        const box = document.getElementById('town-house');
-        box.classList.remove('hint');
-        if (id === 'bank') {
-            document.getElementById('town-house-title').textContent = '💰 The Vault';
-            box.innerHTML = `<div>Everything the crew earns ends up here.</div><div class="hint">${d.bank.made} videos made · ${d.bank.waiting} waiting for you · ${d.bank.posts} posted · ${d.bank.views.toLocaleString('en-US')} views. Earnings are an estimate at $${d.bank.rpm} per 1,000 views; change it in Town settings.</div>`;
-            return;
-        }
-        const c = d.crew.find(x => x.id === id);
-        document.getElementById('town-house-title').textContent = `${c.icon} ${c.name}`;
-        const recent = d.episodes.flatMap(e => (e.log || []).filter(l => l.who === c.name).map(l => l.msg)).slice(0, 4);
-        box.innerHTML = `<div class="who">The ${escapeHtml(c.name)} ${escapeHtml(c.job.replace(':', ','))}</div>${c.doing ? `<div class="doing">Now: ${escapeHtml(c.doing)}</div>` : '<div class="hint">Waiting for work.</div>'}` +
-            (recent.length ? `<div class="hint">${recent.map(escapeHtml).join('<br>')}</div>` : '');
-    }
-
-    saveTownPng() {
-        const link = document.createElement('a');
-        link.download = 'frostpeak-mining-co.png';
-        link.href = this.town.scene.png();
-        link.click();
-    }
-
-    // The New episode panel: pick a show, give an idea (or not), pick its narrator.
-    renderNewEpisode(d) {
-        const box = document.getElementById('town-shows');
-        this.townShow = this.townShow || d.settings.show;
-        if (!box.childElementCount || this.townShowsKey !== this.townShow) {
-            this.townShowsKey = this.townShow;
-            box.innerHTML = '';
-            d.shows.forEach(sh => {
-                const b = document.createElement('button');
-                b.type = 'button'; b.className = 'tab';
-                b.setAttribute('aria-pressed', String(sh.id === this.townShow));
-                b.title = sh.describe;
-                b.innerHTML = `<b>${escapeHtml(sh.name)}</b>`;
-                b.onclick = () => { this.townShow = sh.id; this.townSettings({ show: sh.id }); this.renderNewEpisode(this.townState); };
-                box.appendChild(b);
-            });
-            const add = document.createElement('button');
-            add.type = 'button'; add.className = 'tab new-show';
-            add.innerHTML = '<b>+ New show</b>';
-            add.onclick = () => this.openShowForm(null);
-            box.appendChild(add);
-            // What the selected show is, and what you can do with it: copy a built-in, edit or delete your own.
-            const sh = d.shows.find(x => x.id === this.townShow), about = document.getElementById('town-show-about');
-            about.innerHTML = '';
-            if (sh) {
-                const p = document.createElement('span'); p.textContent = sh.describe + (sh.research ? ' Writes only from sources.' : ''); about.appendChild(p);
-                const act = (text, fn) => { const a = document.createElement('button'); a.type = 'button'; a.className = 'link-btn'; a.textContent = text; a.onclick = fn; about.appendChild(a); };
-                if (sh.custom) { act('Edit', () => this.openShowForm(sh)); act('Delete', () => this.deleteShow(sh)); }
-                else act('Copy and edit', () => this.openShowForm({ ...sh, id: null, name: sh.name + ' (mine)', write: sh.style, length: 'medium' }));
-            }
-        }
-        const sel = document.getElementById('town-voice');
-        if (sel.dataset.show !== this.townShow || !sel.options.length) {
-            sel.dataset.show = this.townShow;
-            sel.innerHTML = '';
-            d.voices.forEach(v => sel.add(new Option(v.name, v.id)));
-            sel.value = d.settings.voices[this.townShow];
-        }
-        const off = !d.settings.voiceOn;
-        sel.disabled = off;
-        document.getElementById('town-hear').disabled = off || this.townHearing;
-        if (off) document.getElementById('town-voice-msg').textContent = 'Narration is off (Town settings).';
-        else if (!this.townHearing && /off/.test(document.getElementById('town-voice-msg').textContent)) document.getElementById('town-voice-msg').textContent = '';
-    }
-
-    townVoicePick() {
-        const sel = document.getElementById('town-voice');
-        this.townSettings({ voices: { [this.townShow]: sel.value } });
-    }
-
-    // Speak a sample line in the chosen voice, right here. The first time, the voice model downloads (about 90 MB).
-    async townHear() {
-        const msg = document.getElementById('town-voice-msg'), btn = document.getElementById('town-hear');
-        const voiceId = document.getElementById('town-voice').value, speed = +document.getElementById('town-speed').value || 1;
-        this.townHearing = true; btn.disabled = true;
-        try {
-            this.voiceWorker = this.voiceWorker || new window.Worker('/studio/voice-worker.js', { type: 'module' });
-            msg.textContent = 'Loading the voice...';
-            const sample = { frostpeak: 'Welcome to Frostpeak Mining Company, where the workers are made of math and never need coffee.', spooky: 'The house had been empty for years. So who kept leaving the porch light on?', mystery: 'In eighteen seventy-two, a ship was found drifting in the Atlantic. Every sailor was gone.', ranked: 'Number one is so fast, it would get a speeding ticket on the highway.' }[this.townShow] || 'Hello from Freeze Foundry.';
-            const a = await new Promise((resolve, reject) => {
-                this.voiceWorker.onmessage = ({ data }) => {
-                    if (data.progress) msg.textContent = `Downloading the voice (first time only): ${Math.round(data.progress.loaded / 1e6)} of ${Math.round(data.progress.total / 1e6)} MB`;
-                    else if (data.speaking) msg.textContent = 'Speaking...';
-                    else if (data.error) reject(new Error(data.error));
-                    else resolve(data);
-                };
-                this.voiceWorker.onerror = e => reject(new Error(e.message || 'the voice engine stopped'));
-                this.voiceWorker.postMessage({ text: sample, voice: voiceId, speed });
-            });
-            const ac = new AudioContext(), buf = ac.createBuffer(1, a.samples.length, a.rate);
-            buf.copyToChannel(a.samples, 0);
-            const src = ac.createBufferSource(); src.buffer = buf; src.connect(ac.destination); src.start();
-            src.onended = () => ac.close();
-            msg.textContent = '';
-        } catch (e) {
-            if (this.voiceWorker) { this.voiceWorker.terminate(); this.voiceWorker = null; }
-            msg.textContent = 'The voice could not load: ' + (e.message || e) + '. The first time needs an internet connection.';
-        } finally { this.townHearing = false; btn.disabled = false; }
-    }
-
-    // Your own shows: a name, what it is about, how to write it, and a built-in look to draw it in.
-    openShowForm(sh) {
-        this.showEditing = sh && sh.custom ? sh.id : null;
-        document.getElementById('sf-title').textContent = this.showEditing ? `Edit ${sh.name}` : sh ? 'Copy of a built-in show' : 'New show';
-        const v = (id, x) => { document.getElementById(id).value = x || ''; };
-        v('sf-name', sh && sh.name); v('sf-describe', sh && sh.describe); v('sf-write', sh && (sh.write || sh.style));
-        document.getElementById('sf-look').value = (sh && sh.look) || 'night';
-        document.getElementById('sf-length').value = (sh && sh.length) || 'medium';
-        document.getElementById('sf-research').checked = !!(sh && sh.research);
-        const f = document.getElementById('show-form');
-        f.hidden = false;
-        document.getElementById('sf-name').focus();
-        f.scrollIntoView({ block: 'nearest', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
-    }
-
-    closeShowForm() { document.getElementById('show-form').hidden = true; }
-
-    async saveShow() {
-        const v = id => document.getElementById(id).value;
-        const r = await fetch('/api/studio/shows', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
-            id: this.showEditing, name: v('sf-name'), describe: v('sf-describe'), write: v('sf-write'), look: v('sf-look'), length: v('sf-length'),
-            research: document.getElementById('sf-research').checked, voice: v('town-voice'), select: true }) });
-        const d = await r.json().catch(() => ({}));
-        if (!r.ok) return this.toast(d.error || 'Could not save the show');
-        this.closeShowForm();
-        this.townShow = d.settings.show; this.townShowsKey = null; this.townEpKey = null;
-        document.getElementById('town-voice').dataset.show = '';
-        this.toast('Show saved');
-        this.pollTown();
-    }
-
-    async deleteShow(sh) {
-        if (!confirm(`Delete the show "${sh.name}"? Its posted episodes stay.`)) return;
-        const r = await fetch('/api/studio/shows/delete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: sh.id }) });
-        const d = await r.json().catch(() => ({}));
-        if (!r.ok) return this.toast(d.error || 'Could not delete the show');
-        this.townShow = d.settings.show; this.townShowsKey = null; this.townEpKey = null;
-        document.getElementById('town-voice').dataset.show = '';
-        this.pollTown();
-    }
-
-    // Start from an idea (the crew writes) or from your own script (the crew only titles, voices and records it).
-    townMode(mode) {
-        this.townModeNow = mode;
-        document.getElementById('town-mode-idea').setAttribute('aria-pressed', String(mode === 'idea'));
-        document.getElementById('town-mode-script').setAttribute('aria-pressed', String(mode === 'script'));
-        document.getElementById('town-from-idea').hidden = mode !== 'idea';
-        document.getElementById('town-from-script').hidden = mode !== 'script';
-        const t = document.getElementById('town-own-text');
-        t.oninput = t.oninput || (() => {
-            const paras = t.value.split(/\n\s*\n/).filter(x => x.trim()), words = t.value.split(/\s+/).filter(Boolean).length;
-            document.getElementById('town-own-count').textContent = paras.length ? `${paras.length < 4 ? 'Needs at least 4 paragraphs. ' : ''}Hook, ${Math.max(0, paras.length - 2)} scene${paras.length === 3 ? '' : 's'}, ending · ${words} words, about ${Math.round(words / 2.6 / 1.1)} seconds` : '';
-        });
-    }
-
-    async townRun() {
-        if (this.townModeNow === 'script') {
-            const r = await fetch('/api/studio/script', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ show: this.townShow, title: document.getElementById('town-own-title').value, text: document.getElementById('town-own-text').value }) });
-            const d = await r.json().catch(() => ({}));
-            if (!r.ok) return this.toast(d.error || 'That script could not be used');
-            document.getElementById('town-own-title').value = ''; document.getElementById('town-own-text').value = ''; document.getElementById('town-own-count').textContent = '';
-            this.toast('Got it. The Dispatcher is writing the title; then it waits in Read the script.');
-            this.sfx('start');
-            return this.pollTown();
-        }
-        const idea = document.getElementById('town-idea').value.trim();
-        const r = await fetch('/api/studio/run', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ show: this.townShow, idea }) });
-        const d = await r.json().catch(() => ({}));
-        if (!r.ok) return this.toast(d.error || 'The crew could not start');
-        document.getElementById('town-idea').value = '';
-        this.toast('The crew is on it');
-        this.sfx('start');
-        this.pollTown();
-    }
-
-    // The script, ready to read: every spoken line can be edited before the Smelter records it.
-    scriptEditor(ep, box, btn) {
-        const row = box.querySelector('.row'), ed = document.createElement('div');
-        ed.className = 'script-ed';
-        this.townDrafts = this.townDrafts || {};
-        const drafts = this.townDrafts[ep.id] = this.townDrafts[ep.id] || {};
-        const field = (key, labelText, value, rows) => {
-            const l = document.createElement('label'), t = document.createElement('textarea');
-            l.textContent = labelText;
-            t.rows = rows; t.value = drafts[key] != null ? drafts[key] : value;
-            t.oninput = () => { drafts[key] = t.value; };
-            l.appendChild(t); ed.appendChild(l);
-            return t;
-        };
-        const n = ep.lines.length - 2, ranked = ep.show === 'ranked';
-        const title = field('title', 'Title on screen', ep.spec.title, 1);
-        const lines = ep.lines.map((text, i) => field('l' + i, i === 0 ? 'Hook (spoken over the title)' : i === n + 1 ? 'Ending (spoken)' : ranked ? `#${n - i + 1}: ${ep.spec.items[i - 1].label}` : `Scene ${i}`, text, i === 0 || i === n + 1 ? 2 : 3));
-        const ptitle = field('ptitle', 'YouTube title', ep.post.title, 1);
-        const pdesc = field('pdesc', 'YouTube description', ep.post.description, 3);
-        const words = document.createElement('div');
-        words.className = 'words';
-        const count = () => { const w = lines.reduce((k, t) => k + t.value.split(/\s+/).filter(Boolean).length, 0); words.textContent = `${w} spoken words, about ${Math.round(w / 2.6)} seconds`; };
-        lines.forEach(t => t.addEventListener('input', count)); count();
-        ed.appendChild(words);
-        box.insertBefore(ed, row);
-        const save = async () => {
-            const r = await fetch(`/api/studio/episodes/${ep.id}/script`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: title.value, lines: lines.map(t => t.value), post: { title: ptitle.value, description: pdesc.value } }) });
-            const d = await r.json().catch(() => ({}));
-            if (!r.ok) { this.toast(d.error || 'Could not save the script'); return false; }
-            delete this.townDrafts[ep.id];
-            return true;
-        };
-        // Collapsed until you open it, so a long queue of scripts stays easy to scan.
-        this.townOpen = this.townOpen || {};
-        ed.hidden = !this.townOpen[ep.id];
-        btn('Record it', async () => { if (await save()) this.townAction(ep, 'record'); }, 'success');
-        btn(ed.hidden ? 'Read script' : 'Hide script', e => {
-            ed.hidden = !ed.hidden; this.townOpen[ep.id] = !ed.hidden;
-            e.target.textContent = ed.hidden ? 'Read script' : 'Hide script';
-            saveBtn.hidden = ed.hidden;
-        });
-        btn('Save edits', async () => { if (await save()) { this.toast('Script saved'); this.pollTown(); } });
-        const saveBtn = row.lastElementChild; // only useful while the script is open
-        saveBtn.hidden = ed.hidden;
-        btn('Ask for changes', () => this.townRevisePrompt(ep, box));
-    }
-
-    // A note for the Miner: the crew rewrites, re-checks and brings the script back.
-    townRevisePrompt(ep, box) {
-        if (box.querySelector('.revise')) return box.querySelector('.revise input').focus();
-        const wrap = document.createElement('div'), input = document.createElement('input'), go = document.createElement('button');
-        wrap.className = 'row revise';
-        input.placeholder = 'What should change? For example: make the ending scarier, explain tokens more simply';
-        input.style.flex = '1';
-        go.textContent = 'Send to the Miner';
-        const send = async () => {
-            const r = await fetch(`/api/studio/episodes/${ep.id}/revise`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ note: input.value }) });
-            const d = await r.json().catch(() => ({}));
-            if (!r.ok) return this.toast(d.error || 'Could not send it back');
-            if (this.townDrafts) delete this.townDrafts[ep.id];
-            this.toast('Back to the Miner');
-            this.pollTown();
-        };
-        go.onclick = send;
-        input.onkeydown = e => { if (e.key === 'Enter') send(); };
-        wrap.append(input, go);
-        box.appendChild(wrap);
-        input.focus();
-    }
-
-    async townAction(ep, action) {
-        const r = await fetch(`/api/studio/episodes/${ep.id}/${action}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
-        const d = await r.json().catch(() => ({}));
-        if (!r.ok) return this.toast(d.error || 'That did not work');
-        if (action === 'approve') this.toast('Approved. Post it, then paste the link to start tracking views.');
-        if (action === 'record') this.toast(d.status === 'rendering' ? 'The Smelter is recording it' : 'Recording');
-        this.pollTown();
-    }
-
-    async townLink(ep, url) {
-        const r = await fetch(`/api/studio/episodes/${ep.id}/link`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url }) });
-        const d = await r.json().catch(() => ({}));
-        if (!r.ok) return this.toast(d.error || 'That link did not work');
-        this.toast('Linked. The Surveyor will follow its views.');
-        this.pollTown();
-    }
-
-    async townSettings(b) {
-        await fetch('/api/studio/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b) });
-        this.pollTown();
-    }
-
-    async saveTownSettings() {
-        const v = id => document.getElementById(id).value;
-        await this.townSettings({ topics: v('town-topics'), everyHours: +v('town-every'), maxWaiting: +v('town-max'), goal: +v('town-goal'), rpm: +v('town-rpm'),
-            approveScript: document.getElementById('town-approve').checked, voiceOn: document.getElementById('town-voiceon').checked, speed: +v('town-speed') });
-        const key = v('town-ytkey').trim();
-        if (key) {
-            const r = await fetch('/api/keys', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ provider: 'youtube', key }) });
-            if (!r.ok) return this.toast((await r.json().catch(() => ({}))).error || 'Could not save the key');
-            document.getElementById('town-ytkey').value = '';
-            this.townSettingsFilled = false;
-        }
-        this.toast('Town settings saved');
-    }
-
-    async townTrack() {
-        const r = await fetch('/api/studio/track', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
-        const d = await r.json().catch(() => ({}));
-        this.toast(!r.ok ? (d.error || 'Could not read views') : d.reason || `Updated ${d.tracked} video${d.tracked === 1 ? '' : 's'}`);
-        this.pollTown();
-    }
-
     async refreshWatch() {
         const d = await fetch('/api/watchers').then(r => r.json()).catch(() => null);
         if (!d) return;
@@ -3768,7 +3050,6 @@ class App {
         this.renderBlueprints();
         this.refreshWatch();
         setInterval(() => this.refreshWatch(), 10000);
-        this.pollTown(); // keeps an eye on the crew even when the Town page is closed
         this.pollProjects();
         setInterval(() => this.pollProjects(), 1500);
         this.restoreQueue().then(() => this.refreshHome());

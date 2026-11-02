@@ -8,3 +8,4 @@ _to_delete/
 .DS_Store
 repomix-output*
 *.tmp
+backup/

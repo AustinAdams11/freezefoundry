@@ -6,13 +6,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 
-const PORT = 4188, WIKI_PORT = 4189;
-// A stand-in for Wikipedia's API: one search hit, one article.
-const wiki = require('node:http').createServer((q, r) => {
-  const u = new URL(q.url, 'http://x');
-  if (u.searchParams.get('list') === 'search') return r.end(JSON.stringify({ query: { search: [{ title: 'List of tallest buildings' }] } }));
-  r.end(JSON.stringify({ query: { pages: { 1: { title: 'List of tallest buildings', extract: 'The Burj Khalifa in Dubai is 828 m tall. Merdeka 118 is 679 m. Shanghai Tower is 632 m. Abraj Al-Bait is 601 m. Ping An Finance Centre is 599 m.' } } } }));
-}).listen(WIKI_PORT);
+const PORT = 4188;
 const BASE = `http://127.0.0.1:${PORT}`;
 const home = fs.mkdtempSync(path.join(os.tmpdir(), 'ff-test-'));
 let server;
@@ -20,7 +14,7 @@ let server;
 const post = (p, body, headers = {}) => fetch(BASE + p, { method: 'POST', headers: { 'Content-Type': 'application/json', ...headers }, body: JSON.stringify(body) });
 
 before(async () => {
-  server = spawn(process.execPath, [path.join(__dirname, '..', 'server.js')], { env: { ...process.env, FF_HOME: home, FF_PORT: String(PORT), FF_WIKI_API: `http://127.0.0.1:${WIKI_PORT}/w/api.php` } });
+  server = spawn(process.execPath, [path.join(__dirname, '..', 'server.js')], { env: { ...process.env, FF_HOME: home, FF_PORT: String(PORT)} });
   server.stderr.on('data', d => { if (process.env.FF_TEST_LOG) process.stderr.write(d); });
   await new Promise((resolve, reject) => {
     server.stdout.on('data', d => { if (String(d).includes('running at')) resolve(); });
@@ -28,7 +22,7 @@ before(async () => {
   });
 });
 
-after(() => { server.kill(); wiki.close(); fs.rmSync(home, { recursive: true, force: true }); });
+after(() => { server.kill(); fs.rmSync(home, { recursive: true, force: true }); });
 
 test('settings load with defaults', async () => {
   const s = await (await fetch(BASE + '/api/settings')).json();
@@ -365,214 +359,14 @@ test('a project set to pause waits for you when an order fails', async () => {
   }
 });
 
-test('the Town crew makes an episode: prospector, miner, inspector, dispatcher, recording, approval, link', async () => {
-  const http = require('node:http');
-  let checks = 0, minerSaw = '', inspectorSaw = '';
-  const mock = http.createServer((q, r) => {
-    let b = ''; q.on('data', d => b += d); q.on('end', () => {
-      const sys = JSON.parse(b).messages[0].content, user = JSON.parse(b).messages[1].content;
-      if (/You are the Miner/.test(sys)) minerSaw = user;
-      if (/You are the Inspector/.test(sys)) inspectorSaw = user;
-      let text = '{}';
-      if (/You are the Prospector/.test(sys)) text = '{"topic": "Tallest buildings", "angle": "Height doubled in 20 years."}';
-      if (/You are the Miner/.test(sys)) text = JSON.stringify({ title: 'The 5 tallest buildings', unit: 'm', items: [['Burj Khalifa', 828], ['Merdeka 118', 679], ['Shanghai Tower', 632], ['Abraj Al-Bait', 601], ['Ping An', 599]].map(([label, value]) => ({ label, value, icon: '🏙️', fact: 'Tall.' })), outro: 'Would you go up?' });
-      if (/You are the Inspector/.test(sys)) text = ++checks === 1 ? '{"verdict": "revise", "issues": ["Ping An: 599 m is right, keep it"]}' : '{"verdict": "approve", "issues": []}';
-      if (/You are the Dispatcher/.test(sys)) text = '{"title": "Number one is twice the Eiffel Tower #Shorts", "description": "Ranked.", "tags": ["buildings"]}';
-      r.end(JSON.stringify({ choices: [{ message: { content: text } }], usage: {} }));
-    });
-  }).listen(0);
-  await new Promise(r => setTimeout(r, 100));
-  const before = await (await fetch(BASE + '/api/settings')).json();
-  const state = async () => (await fetch(BASE + '/api/studio')).json();
-  try {
-    await post('/api/settings', { provider: 'local', baseUrl: `http://127.0.0.1:${mock.address().port}/v1`, model: 'm', attempts: 2 });
-    // Ranked only writes from sources: with internet access off and no Sources, it stops and says why.
-    await post('/api/settings', { permissions: { internet: false, sources: false } });
-    const blocked = (await (await post('/api/studio/run', { show: 'ranked' })).json()).id;
-    let b; for (let i = 0; i < 50; i++) { b = (await state()).episodes.find(e => e.id === blocked); if (b.status === 'failed') break; await new Promise(r => setTimeout(r, 100)); }
-    assert.equal(b.status, 'failed');
-    assert.match(b.error, /internet access/);
-    assert.equal((await post(`/api/studio/episodes/${blocked}/delete`, {})).status, 200);
-    await post('/api/settings', { permissions: { internet: true, sources: true } });
-    const { id } = await (await post('/api/studio/run', { show: 'ranked' })).json();
-    assert.equal((await post('/api/studio/run', {})).status, 400, 'one episode at a time');
-    let ep;
-    for (let i = 0; i < 50; i++) { ep = (await state()).episodes.find(e => e.id === id); if (ep.status === 'script') break; await new Promise(r => setTimeout(r, 100)); }
-    assert.equal(ep.status, 'script', 'the script waits for the owner');
-    assert.equal(ep.lines.length, 7, 'hook, five items, outro');
-    assert.match(minerSaw, /Write ONLY from these[\s\S]*Burj Khalifa in Dubai is 828 m/, 'the Miner writes from the article');
-    assert.match(inspectorSaw, /only source of truth[\s\S]*Ping An Finance Centre is 599 m/, 'the Inspector checks against it');
-    assert.deepEqual(ep.sources, [{ name: 'Wikipedia: List of tallest buildings', url: 'https://en.wikipedia.org/wiki/List_of_tallest_buildings' }]);
-    assert.match(ep.post.description, /Sources: https:\/\/en\.wikipedia\.org\/wiki\/List_of_tallest_buildings/);
-    assert.equal(ep.checks.length, 2, 'the Fact Desk sent the first draft back');
-    assert.equal(ep.spec.items[ep.spec.items.length - 1].label, 'Burj Khalifa', 'number one comes last in the countdown');
-    assert.match(ep.post.title, /#Shorts$/);
-    const spec = await (await fetch(`${BASE}/api/studio/episodes/${id}`)).json();
-    assert.equal(spec.show, 'ranked');
-
-    // The owner edits the script, then records it.
-    const lines = ep.lines.map((l, i) => i === 0 ? 'The tallest buildings on Earth.' : l);
-    assert.equal((await post(`/api/studio/episodes/${id}/script`, { lines: lines.slice(1) })).status, 400, 'every line is needed');
-    assert.equal((await post(`/api/studio/episodes/${id}/script`, { title: 'Tallest', lines, post: { title: 'Sky high #Shorts' } })).status, 200);
-    assert.equal((await post(`/api/studio/episodes/${id}/revise`, { note: '' })).status, 400, 'a rewrite needs a note');
-    assert.equal((await post(`/api/studio/episodes/${id}/thumb`, {})).status, 409, 'no thumbnail before recording');
-    assert.equal((await post(`/api/studio/episodes/${id}/record`, {})).status, 200);
-    ep = (await state()).episodes.find(e => e.id === id);
-    assert.equal(ep.status, 'rendering');
-    assert.equal(ep.spec.title, 'Tallest');
-    assert.equal(ep.spec.hook, 'The tallest buildings on Earth.');
-    assert.equal(ep.post.title, 'Sky high #Shorts');
-    const rendered = await (await fetch(`${BASE}/api/studio/episodes/${id}`)).json();
-    assert.equal(rendered.voice.id, 'af_heart', 'the renderer gets the show\'s narrator');
-
-    // The renderer hands back the thumbnail, then the recording.
-    const jpg = await fetch(`${BASE}/api/studio/episodes/${id}/thumb`, { method: 'POST', headers: { 'Content-Type': 'image/jpeg' }, body: Buffer.from([0xff, 0xd8, 0xff, 0xd9]) });
-    assert.equal(jpg.status, 200);
-    assert.equal((await fetch(`${BASE}/api/studio/thumbs/${id}.jpg`)).headers.get('content-type'), 'image/jpeg');
-    const video = Buffer.alloc(4096, 1);
-    const up = await fetch(`${BASE}/api/studio/episodes/${id}/video`, { method: 'POST', headers: { 'Content-Type': 'video/mp4' }, body: video });
-    assert.equal(up.status, 200);
-    ep = (await state()).episodes.find(e => e.id === id);
-    assert.equal(ep.status, 'staged');
-    assert.equal((await fetch(`${BASE}/api/studio/videos/${id}.mp4`, { headers: { Range: 'bytes=0-9' } })).status, 206);
-    assert.equal((await fetch(`${BASE}/api/studio/videos/..%2Fsettings.json`)).status, 404);
-
-    assert.equal((await post(`/api/studio/episodes/${id}/link`, { url: 'https://example.com/x' })).status, 400);
-    assert.equal((await post(`/api/studio/episodes/${id}/approve`, {})).status, 200);
-    assert.equal((await post(`/api/studio/episodes/${id}/link`, { url: 'https://youtube.com/shorts/abcdefghijk' })).status, 200);
-    const s = await state();
-    assert.equal(s.bank.posts, 1);
-    assert.match((await (await post('/api/studio/track', {})).json()).reason, /API key/);
-    assert.equal((await post('/api/studio/settings', { everyHours: 0, rpm: 0.1 })).status, 200);
-    assert.equal((await state()).settings.everyHours, 6, 'out-of-range values are ignored');
-    assert.equal((await post(`/api/studio/episodes/${id}/delete`, {})).status, 200);
-  } finally {
-    mock.close();
-    await post('/api/settings', { baseUrl: before.baseUrl, model: before.model, attempts: before.attempts });
-  }
-});
-
-test('a story show starts from the owner\'s idea, and the owner can send the script back', async () => {
-  const http = require('node:http');
-  let prospectorSaw = '', rewrites = 0;
-  const mock = http.createServer((q, r) => {
-    let b = ''; q.on('data', d => b += d); q.on('end', () => {
-      const m = JSON.parse(b).messages, sys = m[0].content;
-      let text = '{}';
-      if (/You are the Prospector/.test(sys)) { prospectorSaw = m[1].content; text = '{"topic": "Welcome to Frostpeak", "angle": "Meet the town."}'; }
-      if (/You are the Miner/.test(sys)) {
-        if (/owner asked for these changes/.test(m[1].content)) rewrites++;
-        text = JSON.stringify({ title: 'Welcome to Frostpeak', hook: 'Six mines, one foundry.', scenes: [{ say: 'This is the Prospector.', focus: 'scout', icon: '🧭' }, { say: 'This is the Miner.', focus: 'writer', icon: '⛏️' }, { say: 'And the foundry.', focus: 'nowhere', icon: 'x' }], outro: 'Which worker next?', thumb: 'Meet the crew' });
-      }
-      if (/You are the Inspector/.test(sys)) text = '{"verdict": "approve", "issues": []}';
-      if (/You are the Dispatcher/.test(sys)) text = '{"title": "Welcome #Shorts", "description": "Hi.", "tags": ["ai"]}';
-      r.end(JSON.stringify({ choices: [{ message: { content: text } }], usage: {} }));
-    });
-  }).listen(0);
-  await new Promise(r => setTimeout(r, 100));
-  const before = await (await fetch(BASE + '/api/settings')).json();
-  const find = async id => (await (await fetch(BASE + '/api/studio')).json()).episodes.find(e => e.id === id);
-  const until = async (id, status) => { let ep; for (let i = 0; i < 50; i++) { ep = await find(id); if (ep.status === status) break; await new Promise(r => setTimeout(r, 100)); } return ep; };
-  try {
-    await post('/api/settings', { provider: 'local', baseUrl: `http://127.0.0.1:${mock.address().port}/v1`, model: 'm', attempts: 1 });
-    const { id } = await (await post('/api/studio/run', { show: 'frostpeak', idea: 'Episode 1: a friendly hello to the town' })).json();
-    let ep = await until(id, 'script');
-    assert.equal(ep.status, 'script');
-    assert.equal(ep.show, 'frostpeak');
-    assert.match(prospectorSaw, /a friendly hello to the town/, 'the idea reaches the Prospector');
-    assert.equal(ep.spec.scenes[2].focus, undefined, 'an unknown camera spot is dropped; the camera shows the whole town');
-    assert.match(ep.post.description, /AI voice/, 'the description says the narration is an AI voice');
-    assert.equal((await post(`/api/studio/episodes/${id}/revise`, { note: 'Say hello first' })).status, 200);
-    ep = await until(id, 'script');
-    assert.equal(rewrites, 1, 'the note went to the Miner');
-
-    // Your own script: paragraphs become hook, scenes and ending; the camera follows the worker each scene names.
-    assert.equal((await post('/api/studio/script', { show: 'ranked', text: 'a\n\nb\n\nc\n\nd' })).status, 400, 'Ranked builds its own list');
-    assert.equal((await post('/api/studio/script', { show: 'frostpeak', text: 'Only a hook.\n\nAnd an end.' })).status, 400, 'too short');
-    const own = await (await post('/api/studio/script', { show: 'frostpeak', title: 'My Own Tour', text: 'Six mines, one foundry.\n\nUp top, the Miner writes.\n\nThe Vault counts it all.\n\nSee you next time.' })).json();
-    const mine = await until(own.id, 'script');
-    assert.equal(mine.status, 'script', 'your script waits for your last look');
-    assert.equal(mine.spec.hook, 'Six mines, one foundry.');
-    assert.deepEqual(mine.spec.scenes.map(x => x.focus), ['writer', 'bank']);
-    assert.equal(mine.spec.outro, 'See you next time.');
-    assert.equal(mine.post.title, 'Welcome #Shorts', 'the Dispatcher titled it');
-    // Record all: every waiting script, oldest first, one at a time (without the desktop app each waits at the renderer).
-    const all = await (await post('/api/studio/record-all', {})).json();
-    assert.equal(all.queue, 1, 'one script recording, one waiting');
-    assert.equal((await find(id)).status, 'rendering', 'the older script goes first');
-    await fetch(`${BASE}/api/studio/episodes/${id}/video`, { method: 'POST', headers: { 'Content-Type': 'video/mp4' }, body: Buffer.alloc(4096, 1) });
-    assert.equal((await find(own.id)).status, 'rendering', 'then the next one starts by itself');
-    assert.equal((await (await post('/api/studio/record-all', { stop: true })).json()).queue, 0);
-    await fetch(`${BASE}/api/studio/episodes/${own.id}/video`, { method: 'POST', headers: { 'Content-Type': 'video/mp4' }, body: Buffer.alloc(4096, 1) });
-    assert.equal((await post(`/api/studio/episodes/${own.id}/delete`, {})).status, 200);
-    assert.equal((await post(`/api/studio/episodes/${id}/delete`, {})).status, 200);
-  } finally {
-    mock.close();
-    await post('/api/settings', { baseUrl: before.baseUrl, model: before.model, attempts: before.attempts });
-  }
-});
-
-test('your own show: its description and style reach the crew, and it is drawn in the look you chose', async () => {
-  const http = require('node:http');
-  let minerSys = '';
-  const mock = http.createServer((q, r) => {
-    let b = ''; q.on('data', d => b += d); q.on('end', () => {
-      const sys = JSON.parse(b).messages[0].content;
-      let text = '{}';
-      if (/You are the Prospector/.test(sys)) text = '{"topic": "The lighthouse cat", "angle": "A cat that kept a light."}';
-      if (/You are the Miner/.test(sys)) { minerSys = sys; text = JSON.stringify({ title: 'The Lighthouse Cat', hook: 'One cat kept the light on.', scenes: [{ say: 'Every night at nine, the cat climbed the stairs, all one hundred and twelve of them.' }, { say: 'The keeper never trained it. Nobody knows why it went.' }, { say: 'When the cat stopped climbing, the keeper knew the storm was coming.' }], outro: 'Would you trust the cat?', thumb: 'The Cat Knew' }); }
-      if (/You are the Inspector/.test(sys)) text = '{"verdict": "approve", "issues": []}';
-      if (/You are the Dispatcher/.test(sys)) text = '{"title": "The Cat Knew #Shorts", "description": "A tale.", "tags": ["cats"]}';
-      r.end(JSON.stringify({ choices: [{ message: { content: text } }], usage: {} }));
-    });
-  }).listen(0);
-  await new Promise(r => setTimeout(r, 100));
-  const before = await (await fetch(BASE + '/api/settings')).json();
-  const find = async id => (await (await fetch(BASE + '/api/studio')).json()).episodes.find(e => e.id === id);
-  try {
-    await post('/api/settings', { provider: 'local', baseUrl: `http://127.0.0.1:${mock.address().port}/v1`, model: 'm', attempts: 1 });
-    assert.equal((await post('/api/studio/shows', { name: 'x' })).status, 400, 'a show needs a description and a style');
-    const st = await (await post('/api/studio/shows', { name: 'Sea Tales', describe: 'Gentle stories about animals at sea.', write: 'Warm, like a grandparent by the fire. Always end on a small surprise.', look: 'night', length: 'short', voice: 'bm_george', select: true })).json();
-    const show = st.shows.find(s => s.name === 'Sea Tales');
-    assert.ok(show && show.custom);
-    assert.equal(st.settings.show, show.id, 'the new show is selected');
-    assert.equal(st.settings.voices[show.id], 'bm_george');
-    const builtIn = st.shows.find(s => s.id === 'spooky');
-    assert.match(builtIn.style, /twist/, 'a built-in shows its style, so it can be copied');
-    assert.doesNotMatch(builtIn.style, /Output ONLY JSON/);
-
-    assert.equal((await post('/api/skills', { name: 'Moon Rule', triggers: '', roles: ['town'], body: 'Always mention the moon.' })).status, 200);
-    const { id } = await (await post('/api/studio/run', { show: show.id, idea: 'a cat in a lighthouse' })).json();
-    let ep; for (let i = 0; i < 50; i++) { ep = await find(id); if (ep.status === 'script') break; await new Promise(r => setTimeout(r, 100)); }
-    assert.equal(ep.status, 'script');
-    assert.match(minerSys, /Sea Tales[\s\S]*Gentle stories about animals at sea[\s\S]*grandparent by the fire[\s\S]*60 to 110 spoken words/);
-    assert.match(minerSys, /Always mention the moon/, 'a skill ticked for the Town crew reaches it');
-    assert.doesNotMatch(minerSys, /## House style/, 'factory skills stay with the factory');
-    await post('/api/skills/delete', { id: 'moon-rule' });
-    assert.equal(ep.spec.label, 'Sea Tales', 'the on-screen label is the show name');
-    const forRender = await (await fetch(`${BASE}/api/studio/episodes/${id}`)).json();
-    assert.equal(forRender.look, 'spooky', 'drawn in the night look');
-    assert.equal(forRender.voice.id, 'bm_george');
-
-    assert.equal((await post('/api/studio/shows/delete', { id: show.id })).status, 400, 'not while an episode is in the works');
-    await post(`/api/studio/episodes/${id}/delete`, {});
-    const after = await (await post('/api/studio/shows/delete', { id: show.id })).json();
-    assert.ok(!after.shows.some(s => s.id === show.id));
-    assert.equal(after.settings.show, 'ranked', 'the selection falls back to a built-in');
-  } finally {
-    mock.close();
-    await post('/api/settings', { baseUrl: before.baseUrl, model: before.model, attempts: before.attempts });
-  }
-});
-
 test('shifts: due ones start once a day, a new one waits for its next time, a busy crew is tried again', async () => {
   const { createShifts } = require('../shifts');
   const file = path.join(home, 'shifts-unit.json'), started = [];
   let busy = false;
   const sh = createShifts(file, { writeJsonAtomic: (f, v) => fs.writeFileSync(f, JSON.stringify(v)), every: 1e9, start: async s => { if (busy) throw new Error('The crew is already busy'); started.push(s.id); } });
   assert.throws(() => sh.upsert({ crew: 'factory', time: '01:00', days: [0, 1, 2, 3, 4, 5, 6] }), /work order/);
-  assert.throws(() => sh.upsert({ crew: 'town', time: '25:00', days: [1] }), /start time/);
-  assert.throws(() => sh.upsert({ crew: 'town', time: '01:00', days: [] }), /day/);
+  assert.throws(() => sh.upsert({ crew: 'factory', goal: 'x', time: '25:00', days: [1] }), /start time/);
+  assert.throws(() => sh.upsert({ crew: 'factory', goal: 'x', time: '01:00', days: [] }), /day/);
   const s = sh.upsert({ crew: 'factory', goal: 'Make a.txt', time: '01:00', days: [0, 1, 2, 3, 4, 5, 6] });
   s.createdAt = '2026-11-01T00:00:00'; // made just after midnight
   assert.equal(s.lastRun, null);

@@ -10,8 +10,8 @@ Runs on your own local model through [LM Studio](https://lmstudio.ai) or [Ollama
 
 ## Features
 
-- **Home**: everything every crew made for you in one list (code changes, videos, scripts, alerts, failures) to approve or reject in place, and what each crew is doing now.
-- **Shifts**: give a crew a standing job on a schedule, like a new episode every night at 1 am or a work order every weekday morning. Results wait on Home for your OK.
+- **Home**: everything that needs you in one list (code changes, alerts, failed work orders) to apply or reject in place, and what the Factory and Watch are doing now.
+- **Shifts**: give the Factory a standing work order on a schedule, like every weekday at 7:30. Results wait on Home for your OK.
 - **Four-worker pipeline** with real checks: the Tester runs `node --check`, JSON validation and your workspace's `npm test` in a throwaway copy; the Reviewer judges the diff and test results, and failed work goes back to the Builder with the feedback.
 - **Undo, retry and stop**: roll back any applied change, retry failed goals from the Report, stop a run mid-way; unfinished work orders survive a restart. Optional git commit per applied change.
 - **Approval gate**: see the diff, then apply or reject. Every applied change keeps a backup.
@@ -23,7 +23,6 @@ Runs on your own local model through [LM Studio](https://lmstudio.ai) or [Ollama
 - **Sources**: upload reference files or add web pages; workers read them while planning and building.
 - **Permissions**: choose whether the AI may read workspace files, run tests, use sources and reach the internet.
 - **Training bay (PyTorch)**: the PyTorch blueprint has the workers write a training script; approve it, click **Run** on the `.py` file and watch its output and loss curve live. Off until you allow "Run Python scripts" in Permissions; uses your own Python with torch installed. Works on NVIDIA (CUDA), Apple Silicon (MPS), AMD Radeon (ROCm build of PyTorch, Windows or Linux) and CPU.
-- **Town**: a crew of six agents in a pixel town that makes vertical Shorts on your models. Four built-in shows plus any show you describe yourself, your own idea, their idea or your own finished script, facts grounded in Wikipedia and your Sources, a local AI narrator (Kokoro) with word-by-word captions, music, a thumbnail, Record all, and view tracking once you post. Every script and video waits for your OK.
 - **Foreman**: describe a whole project and the Foreman runs it to the end. It plans one-file work orders, builds independent files at the same time on several lines (this PC plus LAN machines), re-plans around failures, inspects every file together, and stages the whole project for one approval and one undo.
 - **LAN Foundry**: run workers on other machines' LM Studio or Ollama servers. Plan on your Mac, build on your gaming PC.
 - **Worker tuning**: give the Planner, Builder and Reviewer each their own provider, model, temperature, top-p, token limit and standing instructions, e.g. plan with Claude and build on your local GPU.

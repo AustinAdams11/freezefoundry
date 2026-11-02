@@ -1,6 +1,6 @@
 {
   "name": "freeze-foundry",
-  "version": "0.16.0",
+  "version": "0.17.0",
   "private": true,
   "description": "Local-first AI software factory: four local-model workers plan, build, test and review code on a pixel-art factory floor.",
   "scripts": {
@@ -8,7 +8,7 @@
     "app": "electron .",
     "dist:win": "electron-builder --win",
     "dist:mac": "electron-builder --mac",
-    "test": "node --test"
+    "test": "node --test \"test/*.test.js\""
   },
   "main": "app/main.js",
   "devDependencies": {
@@ -22,7 +22,6 @@
       "server.js",
       "watchers.js",
       "lan.js",
-      "studio.js",
       "shifts.js",
       "CHANGELOG.md",
       "public/**",

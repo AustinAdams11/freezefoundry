@@ -1,8 +1,8 @@
-// Shifts: a crew starts work on a schedule while the app is open. A shift missed while the app was closed runs
+// Shifts: the Factory starts a work order on a schedule while the app is open. A shift missed while the app was closed runs
 // once when it opens, the same day. A busy crew is tried again on the next tick.
 const fs = require('fs');
 
-const CREWS = ['factory', 'town'];
+const CREWS = ['factory'];
 
 function createShifts(file, { writeJsonAtomic, start, every = 30e3 }) {
   let list = [];
@@ -39,19 +39,17 @@ function createShifts(file, { writeJsonAtomic, start, every = 30e3 }) {
 
   function upsert(b) {
     const crew = CREWS.includes(b.crew) ? b.crew : null;
-    if (!crew) throw new Error('Pick a crew: the Factory or the Town.');
+    if (!crew) throw new Error('Unknown crew.');
     if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(String(b.time))) throw new Error('Pick a start time.');
     const days = [...new Set((Array.isArray(b.days) ? b.days : []).map(Number).filter(d => Number.isInteger(d) && d >= 0 && d <= 6))].sort();
     if (!days.length) throw new Error('Pick at least one day.');
     const goal = String(b.goal || '').trim().slice(0, 4000);
-    if (crew === 'factory' && !goal) throw new Error('Write the work order the Factory should run.');
+    if (!goal) throw new Error('Write the work order the Factory should run.');
     const old = list.find(s => s.id === b.id);
     const s = {
       id: old ? old.id : 'sh_' + Date.now().toString(36),
       crew, time: b.time, days, enabled: b.enabled !== false,
-      goal: crew === 'factory' ? goal : '',
-      show: crew === 'town' ? String(b.show || '') : '',
-      idea: crew === 'town' ? String(b.idea || '').trim().slice(0, 1000) : '',
+      goal,
       // A new shift counts from when it was made, so one made at 3 pm for 1 am doesn't fire straight away.
       createdAt: old ? old.createdAt : new Date().toISOString(), lastRun: old ? old.lastRun : null, lastError: old ? old.lastError : null
     };
