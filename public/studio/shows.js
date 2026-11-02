@@ -123,8 +123,6 @@
       if (c.length === 3 || len > 16 || /[.!?,;:]$/.test(ws[i]) || i === ws.length - 1) { chunks.push(c); c = []; }
     }
     const chunk = chunks.find(c => c.includes(cur)) || chunks[0];
-    const chunkAt = times[chunk[0]].at;
-    const appear = settle((t - Math.max(seg.start, chunkAt - 0.05)) / 0.22);
     ctx.save();
     ctx.font = `900 92px ${FONT}`;
     if ('letterSpacing' in ctx) ctx.letterSpacing = '-2px';
@@ -133,16 +131,24 @@
     // Wrap the chunk onto two lines if it is too wide.
     const rows = [[]];
     parts.forEach(p => { const row = rows[rows.length - 1], rw = row.reduce((n, q) => n + q.w + gap, 0); if (row.length && rw + p.w > 900) rows.push([p]); else row.push(p); });
+    // Each word appears the moment it is spoken (a quick, critically damped pop); the line is laid out for the whole
+    // chunk up front, so words land in place and nothing shifts. Showing words before they are said reads as "ahead".
     rows.forEach((row, r) => {
       let x = W / 2 - (row.reduce((n, q) => n + q.w, 0) + gap * (row.length - 1)) / 2;
-      const yy = y + r * 104 + (1 - appear) * 18;
+      const yy = y + r * 104;
       row.forEach(p => {
-        const lit = p.k === cur && t >= times[0].at;
-        ctx.globalAlpha = appear;
-        ctx.lineWidth = 16; ctx.lineJoin = 'round'; ctx.strokeStyle = 'rgba(0,0,0,0.85)';
-        ctx.strokeText(ws[p.k].toUpperCase(), x, yy);
-        ctx.fillStyle = lit ? accent : '#ffffff';
-        ctx.fillText(ws[p.k].toUpperCase(), x, yy);
+        const pop = settle((t - times[p.k].at + 0.02) / 0.12);
+        if (pop > 0) {
+          const lit = p.k === cur, s = 0.9 + 0.1 * pop, cx = x + p.w / 2;
+          ctx.save();
+          ctx.globalAlpha = pop;
+          ctx.translate(cx, yy); ctx.scale(s, s); ctx.translate(-cx, -yy);
+          ctx.lineWidth = 16; ctx.lineJoin = 'round'; ctx.strokeStyle = 'rgba(0,0,0,0.85)';
+          ctx.strokeText(ws[p.k].toUpperCase(), x, yy);
+          ctx.fillStyle = lit ? accent : '#ffffff';
+          ctx.fillText(ws[p.k].toUpperCase(), x, yy);
+          ctx.restore();
+        }
         x += p.w + gap;
       });
     });
@@ -174,7 +180,7 @@
 
       // Hook, then the title moves up and stays, so anyone scrolling in knows what this is.
       const head = settle((t - 0.05) / 0.6), morph = settle((t - hookLen) / 0.7);
-      pill(ctx, 'RANKED', W / 2, 230 + (1 - head) * 30, C.molten, head);
+      pill(ctx, (spec.label || 'Ranked').toUpperCase(), W / 2, 230 + (1 - head) * 30, C.molten, head);
       text(ctx, spec.title, W / 2, 820 - 480 * morph, { size: 112 - 50 * morph, weight: 800, track: -0.035, alpha: head, maxW: 900 - 40 * morph });
       if (t < hookLen + 0.6) text(ctx, `Counting down from ${n} to 1`, W / 2, 1230, { size: 46, weight: 600, color: C.dim, alpha: settle((t - 0.7) / 0.6) * (1 - morph) });
 
@@ -232,7 +238,7 @@
     thumb(ctx, spec) {
       background(ctx, 3, 1.4);
       const top = spec.items[spec.items.length - 1];
-      pill(ctx, 'RANKED', W / 2, 520, C.molten);
+      pill(ctx, (spec.label || 'Ranked').toUpperCase(), W / 2, 520, C.molten);
       thumbWords(ctx, spec.thumb || spec.title, 1040, C.amber);
     }
   };
@@ -341,7 +347,7 @@
         band.addColorStop(0, 'rgba(0,0,0,0)'); band.addColorStop(0.25, 'rgba(0,0,0,0.55)'); band.addColorStop(1, 'rgba(0,0,0,0.6)');
         ctx.fillStyle = band; ctx.fillRect(0, 1050, W, H - 1050);
         const head = settle((t - 0.05) / 0.6);
-        pill(ctx, S.label, W / 2, 230 + (1 - head) * 30, S.pill, head);
+        pill(ctx, spec.label ? spec.label.toUpperCase() : S.label, W / 2, 230 + (1 - head) * 30, S.pill, head);
         if (i === 0) {
           // Hook: the title, big, then the spoken hook as captions.
           text(ctx, spec.title, W / 2, 700, { size: 104, weight: 900, track: -0.035, alpha: head, maxW: 900, stroke: true });
@@ -365,7 +371,7 @@
           frostCamera(ctx, k >= 0 ? tl.segs[k + 1].start + 2 : 2, spec, tl);
           ctx.fillStyle = 'rgba(0,0,0,0.35)'; ctx.fillRect(0, 0, W, H);
         } else footage(ctx, tl.segs[1].start + 2, spec, tl, style);
-        pill(ctx, S.label, W / 2, 520, S.pill);
+        pill(ctx, spec.label ? spec.label.toUpperCase() : S.label, W / 2, 520, S.pill);
         thumbWords(ctx, spec.thumb || spec.title, 1060, S.accent);
       }
     };
@@ -465,7 +471,7 @@
     })).filter(i => i.label && Number.isFinite(i.value) && i.value > 0);
     if (items.length < 3 || items.length > 7) throw new Error('A ranking needs 3 to 7 items, each with a label and a positive number.');
     items.sort((a, b) => a.value - b.value); // countdown: smallest first, biggest is number one
-    return { title: str(spec.title, 70) || 'Ranked', hook: str(spec.hook, 200), unit: str(spec.unit, 16), outro: str(spec.outro, 90), thumb: str(spec.thumb, 40), items };
+    return { ...(spec.label ? { label: str(spec.label, 40) } : {}), title: str(spec.title, 70) || 'Ranked', hook: str(spec.hook, 200), unit: str(spec.unit, 16), outro: str(spec.outro, 90), thumb: str(spec.thumb, 40), items };
   }
   const str = (v, n) => String(v == null ? '' : v).replace(/\s+/g, ' ').trim().slice(0, n);
 
@@ -476,7 +482,7 @@
       ...(FOCUS[sc && sc.focus] ? { focus: sc.focus } : {}) // only Frostpeak scenes have a camera spot
     })).filter(sc => sc.say);
     if (scenes.length < 2 || scenes.length > 12) throw new Error('A story needs 2 to 12 scenes, each with a line to say.');
-    return { title: str(spec.title, 70) || 'Untitled', hook: str(spec.hook, 240), outro: str(spec.outro, 120), thumb: str(spec.thumb, 40), scenes };
+    return { title: str(spec.title, 70) || 'Untitled', hook: str(spec.hook, 240), outro: str(spec.outro, 120), thumb: str(spec.thumb, 40), scenes, ...(spec.label ? { label: str(spec.label, 40) } : {}) };
   }
 
   const shows = { ranked, frostpeak: story('frostpeak'), spooky: story('spooky'), mystery: story('mystery') };

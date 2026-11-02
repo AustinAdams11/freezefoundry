@@ -1397,7 +1397,9 @@ async function projectAction(p, action) {
   throw new Error('Unknown action');
 }
 
-const studio = require('./studio').createStudio({ dataDir: DATA_DIR, callModel: callLMStudio, getKey, writeJsonAtomic, port: PORT, attempts: () => loadSettings().attempts });
+// The Town's crew follows only skills ticked for it ("Town crew"): factory skills such as House style are about code.
+const townSkills = text => loadSkills().filter(k => k.enabled && k.roles.includes('town') && (!k.triggers.length || k.triggers.some(t => String(text).toLowerCase().includes(t))));
+const studio = require('./studio').createStudio({ dataDir: DATA_DIR, callModel: (m, role, id) => callLMStudio(withSkills(m, townSkills(m[m.length - 1].content)), role, id), getKey, writeJsonAtomic, port: PORT, attempts: () => loadSettings().attempts, context: extraContext, perms });
 
 const watchers = require('./watchers').createWatchers(path.join(DATA_DIR, 'watchers.json'), {
   // Optional: ask the model to explain an alert, using the latest reading.

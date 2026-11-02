@@ -27,6 +27,8 @@ const VOICES = [
   { id: 'bf_emma', name: 'Emma: British' }, { id: 'bm_george', name: 'George: storyteller, British' }, { id: 'bm_fable', name: 'Fable: British' }
 ];
 const VOICE_IDS = VOICES.map(v => v.id);
+// Wikipedia's API; the tests point this at a local stand-in.
+const WIKI = process.env.FF_WIKI_API || 'https://en.wikipedia.org/w/api.php';
 const ACTIVE = ['scouting', 'writing', 'checking', 'titling', 'rendering'];
 // Waiting for you: a script to read, or a finished video to approve.
 const WAITING = ['script', 'staged'];
@@ -50,6 +52,7 @@ const PACE = 'Pace it for Shorts, where viewers scroll away within two seconds. 
 // Per show: how the Prospector picks, how the Miner writes, what the Inspector checks.
 const AI = {
   ranked: {
+    research: 'wikipedia',
     scout: 'Pick something people are curious about and that has real, well-known numbers (speeds, sizes, weights, distances, records, prices, populations).',
     write: 'Write a "Ranked" countdown Short: exactly 5 items, each with a real, widely published number in the SAME unit and measured the SAME way (never mix, for example, running speeds with diving speeds: narrow the topic instead). Every item must be a genuine member of the true top 5 for that exact topic; never pad the list with filler. Number one is the BIGGEST number. Use accurate, mainstream figures (round them); never invent items or numbers. Each "fact" is one punchy on-screen line under 80 characters. Each "say" is what the narrator says for that item, one sentence under 25 words, starting with its rank ("Number five: ..."), with units written out in words (kilometers per hour, not km/h). The title is a hook under 55 characters, like "The 5 fastest animals on Earth". The hook is one spoken sentence that makes people stay. The outro is a short question that makes people comment. "thumb" is 2 to 4 punchy words for the thumbnail. Output ONLY JSON: {"title": "", "hook": "", "unit": "<short unit, e.g. km/h>", "items": [{"label": "<under 24 characters>", "value": <number>, "fact": "", "say": ""}], "outro": "", "thumb": ""}',
     check: 'For each item, is the number right for that item and unit, as commonly published? Is every item a real member of the top 5 for this exact topic (filler that does not belong is wrong)? Is the same measure used for all items? Is number one really the biggest? Are the facts and spoken lines true? Choose "revise" ONLY for wrong numbers, wrong units, items that do not belong, false facts or a ranking that does not hold; small rounding is fine.'
@@ -78,6 +81,7 @@ Rules: concrete nouns and sounds, not adjectives like "creepy" or "eerie"; short
     check: 'Grade it as a story editor. Is it a complete story: a concrete setup, escalation where every scene adds something new, and a twist that pays off a detail planted early? Is it original (not a known story), easy to follow when heard once, and free of filler lines ("it was so creepy")? Is anything gory or unsuitable for teenagers? Choose "revise" for any of these, and say exactly which scene to fix and how.'
   },
   mystery: {
+    research: 'wikipedia',
     minWords: 140,
     scout: 'Pick a real unsolved mystery, legend or strange historical event with good records (for example a disappearance at sea, an undeciphered manuscript, a lost expedition). Never about private living people, and never a theory that blames a group of people or denies a tragedy.',
     write: `Write a Short that tells a real mystery or legend as a gripping story, with a narrator.
@@ -104,7 +108,37 @@ function parseJson(raw) {
   return JSON.parse(t.slice(a, b + 1));
 }
 
-function createStudio({ dataDir, callModel, getKey, writeJsonAtomic, port, attempts = () => 3 }) {
+// ---------- your own shows ----------
+// A custom show borrows a built-in look (how it is drawn) and is written from the owner's own description and style.
+// Custom shows live in the data folder, never in the code, and plug into the same three tables as the built-ins.
+const BUILT_IN = Object.keys(AI);
+const LOOKS = { tour: 'frostpeak', night: 'spooky', cold: 'mystery', countdown: 'ranked' };
+const LENGTHS = { short: [60, 110, 50], medium: [110, 170, 100], long: [170, 240, 150] }; // words: from, to, floor
+const lookOf = id => (shows[id] && shows[id].look) || id;
+// What a show is told about writing, minus the output format: the starting point when you copy a built-in.
+const styleOf = id => AI[id].write.replace(/\n*Output ONLY JSON:[\s\S]*$/, '').replace(/^Write an? [^.]*\.\s*/, '').trim();
+function installShow(c) {
+  const base = LOOKS[c.look], [from, to, floor] = LENGTHS[c.length], tour = c.look === 'tour';
+  shows[c.id] = { ...shows[base], name: c.name, describe: c.describe, look: base };
+  clean[c.id] = spec => ({ ...clean[base](spec), label: c.name });
+  const shape = base === 'ranked'
+    ? 'Exactly 5 items, each with a real number in the same unit, number one the biggest; each item has a "label", a "value", a one-line on-screen "fact" and a spoken "say" line that starts with its rank. Output ONLY JSON: {"title": "", "hook": "", "unit": "", "items": [{"label": "", "value": 0, "fact": "", "say": ""}], "outro": "", "thumb": ""}'
+    : `6 to 9 scenes; each scene's "say" is one to three short spoken sentences.${tour ? ' Each scene has a "focus": which place the camera shows (town, scout, writer, checker, publisher, studio, analyst or bank).' : ''} The hook is one spoken sentence over the title. The outro is a short question that makes people comment. "thumb" is 2 to 4 punchy words for the thumbnail. Output ONLY JSON: {"title": "<under 55 characters>", "hook": "", "scenes": [{"say": ""${tour ? ', "focus": ""' : ''}}], "outro": "", "thumb": ""}`;
+  AI[c.id] = {
+    research: c.research ? 'wikipedia' : undefined, minWords: base === 'ranked' ? 0 : floor,
+    scout: `Pick a topic that fits this show: ${c.describe} Never repeat a past topic.${tour ? '\n\n' + CREW_FACTS : ''}`,
+    write: `Write a narrated Short for the show "${c.name}": ${c.describe}\n\nHow to write it:\n${c.write}\n\nLength (this overrides any length above): ${from} to ${to} spoken words in all. ${shape}${tour ? '\n\n' + CREW_FACTS : ''}`,
+    check: `${c.check ? c.check + ' ' : ''}Is it true, clear when heard once, and does it follow this show's style (${c.describe})? Choose "revise" for false or unsupported claims, a confusing script, or one that ignores the style, and say exactly which part to fix.${tour ? '\n\n' + CREW_FACTS : ''}`
+  };
+}
+function cleanShow(b, id) {
+  const str = (v, n) => String(v || '').trim().slice(0, n);
+  const c = { id, name: str(b.name, 40), describe: str(b.describe, 400), write: str(b.write, 4000), check: str(b.check, 1000), look: LOOKS[b.look] ? b.look : 'night', length: LENGTHS[b.length] ? b.length : 'medium', research: !!b.research };
+  if (!c.name || !c.describe || !c.write) throw new Error('A show needs a name, what it is about, and how to write it.');
+  return c;
+}
+
+function createStudio({ dataDir, callModel, getKey, writeJsonAtomic, port, attempts = () => 3, context = async () => '', perms = () => ({}) }) {
   const dir = path.join(dataDir, 'studio'), videos = path.join(dir, 'videos');
   fs.mkdirSync(videos, { recursive: true });
   const file = name => path.join(dir, name);
@@ -115,8 +149,12 @@ function createStudio({ dataDir, callModel, getKey, writeJsonAtomic, port, attem
     memory: load('memory.json', { lessons: [], lastRunAt: null, lastTrackAt: null }),
     events: [],
     busy: {}, // agent id -> what it is doing right now
-    running: false
+    running: false,
+    queue: [] // episode ids waiting to be recorded (Record all)
   };
+  let custom = load('shows.json', []);
+  custom.forEach(installShow);
+  const saveShows = () => writeJsonAtomic(file('shows.json'), custom);
   // A recording is MP4 when the app's engine can encode H.264, WebM otherwise. The thumbnail sits next to it.
   const thumbFile = id => path.join(videos, id + '.jpg');
   const videoFile = id => ['.mp4', '.webm'].map(x => path.join(videos, id + x)).find(f => fs.existsSync(f)) || null;
@@ -145,6 +183,39 @@ function createStudio({ dataDir, callModel, getKey, writeJsonAtomic, port, attem
     throw new Error(`The ${c.name}'s answer was not valid JSON. It began: ${String(raw || '').trim().slice(0, 150)}`);
   }
 
+  // ---------- research: what the crew may write from ----------
+  // Fact shows are written only from material the crew has actually read: links in the idea and the Sources the owner
+  // turned on (both through the app's own context), plus the topic's Wikipedia article. The notes are saved per
+  // episode, and both the Miner and the Inspector see them.
+  const notesFile = id => path.join(dir, 'notes', id + '.txt');
+  const notesOf = ep => { try { return fs.readFileSync(notesFile(ep.id), 'utf8'); } catch { return ''; } };
+  async function wikipedia(topic) {
+    const get = async q => {
+      const r = await fetch(`${WIKI}?format=json&${q}`, { signal: AbortSignal.timeout(15000), headers: { 'User-Agent': 'FreezeFoundry/1.0 (+local app)' } });
+      if (!r.ok) throw new Error(`Wikipedia said ${r.status}`);
+      return r.json();
+    };
+    const hit = ((await get('action=query&list=search&srlimit=1&srsearch=' + encodeURIComponent(topic))).query || {}).search;
+    if (!hit || !hit.length) return null;
+    const page = Object.values(((await get('action=query&prop=extracts&explaintext=1&redirects=1&titles=' + encodeURIComponent(hit[0].title))).query || {}).pages || {})[0];
+    return page && page.extract ? { name: 'Wikipedia: ' + page.title, url: 'https://en.wikipedia.org/wiki/' + encodeURIComponent(page.title.replace(/ /g, '_')), text: page.extract.slice(0, 12000) } : null;
+  }
+  async function research(ep) {
+    const needs = AI[ep.show].research, online = !!perms().internet;
+    let notes = await context(ep.idea || '');
+    if (needs && online) {
+      const w = await wikipedia(ep.topic).catch(e => { log(ep, 'Prospector', 'Wikipedia lookup failed: ' + e.message); return null; });
+      if (w) notes += `\n\n### Source: ${w.name} (${w.url})\n${w.text}`;
+    }
+    ep.sources = [...notes.matchAll(/^### (?:Source: (.+?)(?: \((https?:\/\/[^)]+)\))?|Web page: (\S+))$/gm)].map(m => ({ name: m[1] || m[3], url: m[2] || m[3] || null }));
+    if (needs && !notes.trim()) throw new Error(online ? `No sources found for "${ep.topic}". Put a link in your idea, or turn on a source on the Sources page.`
+      : 'This show only writes from facts it can check. Turn on internet access in Settings > Permissions so the crew can read Wikipedia, or turn on a source on the Sources page.');
+    if (!notes.trim()) return;
+    fs.mkdirSync(path.dirname(notesFile(ep.id)), { recursive: true });
+    fs.writeFileSync(notesFile(ep.id), notes);
+    log(ep, 'Prospector', 'Read: ' + ep.sources.map(s => s.name).join('; '));
+  }
+
   // ---------- the crew ----------
   async function scout(ep) {
     const past = Object.values(S.episodes).filter(e => e.topic && e.id !== ep.id && e.show === ep.show).sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 40).map(e => e.topic);
@@ -163,14 +234,16 @@ function createStudio({ dataDir, callModel, getKey, writeJsonAtomic, port, attem
     const j = await askJson('writer',
       `You are the Miner, the writer for a YouTube Shorts channel. ${AI[ep.show].write}\n\n${PACE}`,
       `Topic: ${ep.topic}\nAngle: ${ep.angle}` + (ep.idea ? `\nThe owner's request: ${ep.idea}` : '') +
-      (feedback ? `\n\nYour last draft was sent back. Fix these problems:\n${feedback}\n\nYour last draft:\n${JSON.stringify(ep.spec)}` : ''));
+      (feedback ? `\n\nYour last draft was sent back. Fix these problems:\n${feedback}\n\nYour last draft:\n${JSON.stringify(ep.spec)}` : '') +
+      (notesOf(ep) ? `\n\nResearch notes. Write ONLY from these: every name, date, number and event in the script must appear in them. Leave out anything they do not cover, however well you think you know it.${notesOf(ep)}` : ''));
     try { ep.spec = clean[ep.show](j); } catch (e) { throw new Error('The Miner\'s draft was not usable: ' + e.message); }
   }
 
   async function check(ep) {
     const j = await askJson('checker',
       `You are the Inspector. Check a Short before it is published. ${AI[ep.show].check} Keep each issue to one short line under 120 characters, and never put double quotes inside the text. Output ONLY JSON: {"verdict": "approve" or "revise", "issues": ["<where>: <what is wrong and the fix>"]}`,
-      JSON.stringify(ep.spec, null, 1));
+      JSON.stringify(ep.spec, null, 1) +
+      (notesOf(ep) ? `\n\nThe research notes the script was written from. They are the only source of truth: any name, date, number or event in the script that they do not support is wrong, and so is anything they contradict.${notesOf(ep)}` : ''));
     return { verdict: j.verdict === 'revise' ? 'revise' : 'approve', issues: (Array.isArray(j.issues) ? j.issues : []).map(String).slice(0, 8) };
   }
 
@@ -179,6 +252,8 @@ function createStudio({ dataDir, callModel, getKey, writeJsonAtomic, port, attem
       'You are the Dispatcher. Write the post for a YouTube Short. Title: under 70 characters, curiosity first, ends with " #Shorts". Description: two short sentences, then 3-5 relevant hashtags. Tags: 5-10 plain keywords. Output ONLY JSON: {"title": "", "description": "", "tags": [""]}',
       `Show: ${shows[ep.show].name}\nShort: ${ep.spec.title}\nScript: ${shows[ep.show].lines(ep.spec).filter(Boolean).join(' ')}\nAngle: ${ep.angle}`);
     let description = String(j.description || '').slice(0, 1900);
+    const links = (ep.sources || []).filter(s => s.url).map(s => s.url);
+    if (links.length) description += '\n\nSources: ' + links.join(' ');
     if (S.settings.voiceOn) description += '\n\nNarrated with an AI voice.';
     ep.post = {
       title: String(j.title || ep.spec.title).slice(0, 100),
@@ -209,15 +284,21 @@ function createStudio({ dataDir, callModel, getKey, writeJsonAtomic, port, attem
     }
     ep.flagged = ep.checks[ep.checks.length - 1].verdict !== 'approve';
     event('checker', 'publisher', ep.flagged ? 'Passing it on, but read my notes first' : 'Approved', ep.id);
+    await finish(ep);
+  }
+
+  // The Dispatcher titles it; then it waits for you (script approval on) or goes straight to the Smelter.
+  async function finish(ep) {
     ep.status = 'titling';
     await work('publisher', 'writing the title and tags', () => title(ep));
     log(ep, 'Dispatcher', ep.post.title);
-    if (S.settings.approveScript) {
+    if (S.settings.approveScript || ep.own) { // your own script always waits for your last look
       ep.status = 'script';
       S.running = false;
       log(ep, 'Dispatcher', 'Script ready. Read it, edit it, then press Record.');
       event('publisher', 'bank', `Script ready: ${ep.spec.title}`, ep.id);
       save();
+      setImmediate(next); // the crew is free again: carry on with Record all
       return;
     }
     record(ep);
@@ -246,9 +327,30 @@ function createStudio({ dataDir, callModel, getKey, writeJsonAtomic, port, attem
     guard(ep, async () => {
       await work('scout', ep.idea ? 'reading your idea' : 'looking for a topic', () => scout(ep));
       log(ep, 'Prospector', `Topic: ${ep.topic}. ${ep.angle}`);
+      await work('scout', `reading up on ${ep.topic}`, () => research(ep));
       event('scout', 'writer', `New topic: ${ep.topic}`, id);
       await produce(ep);
     });
+    return ep;
+  }
+
+  // Your own script: paragraphs in, an episode out. The first paragraph is the hook, the last the ending, and each one
+  // between is a scene. On Frostpeak Tour the camera visits whichever worker a scene names. The crew only titles it.
+  const FOCUS_WORDS = [['scout', /prospector/i], ['writer', /\bminer\b/i], ['checker', /inspector/i], ['publisher', /dispatcher/i],
+    ['studio', /smelter|foundry/i], ['analyst', /surveyor/i], ['bank', /\bvault\b/i]];
+  function fromScript({ show, title, text }) {
+    if (S.running) throw new Error('The crew is already busy with an episode.');
+    if (!shows[show] || lookOf(show) === 'ranked') throw new Error('Pick a story show for your own script. A countdown builds its list from sources.');
+    const paras = String(text || '').split(/\n\s*\n/).map(x => x.replace(/\s+/g, ' ').trim()).filter(Boolean);
+    if (paras.length < 4) throw new Error('Write at least four paragraphs, separated by a blank line: a hook, two or more scenes, and an ending.');
+    title = String(title || '').trim() || paras[0].split(/[.!?]/)[0].slice(0, 60);
+    const spec = clean[show]({ title, hook: paras[0], outro: paras[paras.length - 1], thumb: title,
+      scenes: paras.slice(1, -1).map(say => ({ say, focus: (FOCUS_WORDS.find(([, re]) => re.test(say)) || ['town'])[0] })) });
+    const id = 'ep_' + Date.now().toString(36);
+    const ep = S.episodes[id] = { id, show, own: true, topic: spec.title, angle: spec.hook, spec, status: 'titling', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), log: [], checks: [], links: {}, stats: {}, history: [] };
+    S.running = true;
+    log(ep, 'You', `Your script: ${spec.scenes.length} scenes.`);
+    guard(ep, () => finish(ep));
     return ep;
   }
 
@@ -258,6 +360,7 @@ function createStudio({ dataDir, callModel, getKey, writeJsonAtomic, port, attem
       ep.status = 'failed'; ep.error = e.message;
       log(ep, 'Town', 'Stopped: ' + e.message);
       S.running = false;
+      setImmediate(next);
     });
   }
 
@@ -284,10 +387,21 @@ function createStudio({ dataDir, callModel, getKey, writeJsonAtomic, port, attem
     clearTimeout(ep.renderTimer); delete ep.renderTimer;
     delete S.busy.studio;
     S.running = false;
-    if (error) { ep.status = 'failed'; ep.error = error; log(ep, 'Smelter', 'Recording failed: ' + error); return; }
-    ep.status = 'staged';
-    log(ep, 'Smelter', 'Recorded. Waiting for your OK.');
-    event('studio', 'bank', `"${ep.spec.title}" is ready for your OK`, id);
+    if (error) { ep.status = 'failed'; ep.error = error; log(ep, 'Smelter', 'Recording failed: ' + error); }
+    else {
+      ep.status = 'staged';
+      log(ep, 'Smelter', 'Recorded. Waiting for your OK.');
+      event('studio', 'bank', `"${ep.spec.title}" is ready for your OK`, id);
+    }
+    setImmediate(next);
+  }
+
+  // Record all: the waiting scripts, one after another, oldest first (so a series records in episode order).
+  function next() {
+    while (S.queue.length && !S.running) {
+      const ep = S.episodes[S.queue.shift()];
+      if (ep && ep.status === 'script' && ep.post) record(ep);
+    }
   }
 
   // ---------- the Surveyor: view counts and lessons ----------
@@ -349,7 +463,7 @@ function createStudio({ dataDir, callModel, getKey, writeJsonAtomic, port, attem
 
   function summary(ep) {
     const { log: l, renderTimer, ...rest } = ep;
-    return { ...rest, log: l.slice(-20), hasVideo: !!videoFile(ep.id), hasThumb: fs.existsSync(thumbFile(ep.id)), lines: ep.spec ? shows[ep.show].lines(ep.spec) : [] };
+    return { ...rest, log: l.slice(-20), hasVideo: !!videoFile(ep.id), hasThumb: fs.existsSync(thumbFile(ep.id)), lines: ep.spec && shows[ep.show] ? shows[ep.show].lines(ep.spec) : [] };
   }
   function state(since = 0) {
     return {
@@ -358,8 +472,9 @@ function createStudio({ dataDir, callModel, getKey, writeJsonAtomic, port, attem
       bank: { ...totals(), goal: S.settings.goal, rpm: S.settings.rpm },
       events: S.events.filter(e => e.n > since),
       settings: S.settings, running: S.running, lessons: S.memory.lessons,
-      youtubeKey: !!getKey('youtube'), canRecord: !!electron,
-      shows: Object.entries(shows).map(([id, sh]) => ({ id, name: sh.name, describe: sh.describe })), voices: VOICES
+      youtubeKey: !!getKey('youtube'), canRecord: !!electron, queue: S.queue.length,
+      shows: [...BUILT_IN.map(id => ({ id, name: shows[id].name, describe: shows[id].describe, custom: false, style: styleOf(id), research: !!AI[id].research,
+        look: Object.keys(LOOKS).find(k => LOOKS[k] === id) })), ...custom.map(c => ({ ...c, custom: true }))], voices: VOICES
     };
   }
 
@@ -394,6 +509,37 @@ function createStudio({ dataDir, callModel, getKey, writeJsonAtomic, port, attem
     const parts = pathname.split('/').slice(3); // after /api/studio
     try {
       if (!parts.length && method === 'GET') return send(res, 200, state(+new URL(req.url, 'http://x').searchParams.get('since') || 0)), true;
+      if (parts[0] === 'shows' && method === 'POST') {
+        const b = await readBody(req);
+        if (parts[1] === 'delete') {
+          const busy = Object.values(S.episodes).some(e => e.show === b.id && !['posted', 'rejected', 'failed'].includes(e.status));
+          if (busy) throw new Error('Episodes of this show are still in the works. Finish or delete them first.');
+          custom = custom.filter(c => c.id !== b.id);
+          if (!BUILT_IN.includes(b.id)) { delete shows[b.id]; delete clean[b.id]; delete AI[b.id]; }
+          if (S.settings.show === b.id) { S.settings.show = DEFAULTS.show; writeJsonAtomic(file('settings.json'), S.settings); }
+        } else {
+          const id = custom.some(c => c.id === b.id) ? b.id : 'show_' + Date.now().toString(36);
+          const c = cleanShow(b, id);
+          custom = [...custom.filter(x => x.id !== id), c];
+          installShow(c);
+          if (!S.settings.voices[id]) S.settings.voices[id] = VOICE_IDS.includes(b.voice) ? b.voice : 'am_michael';
+          if (b.select) S.settings.show = id;
+          writeJsonAtomic(file('settings.json'), S.settings);
+        }
+        saveShows();
+        return send(res, 200, state()), true;
+      }
+      if (parts[0] === 'record-all' && method === 'POST') {
+        const b = await readBody(req);
+        if (b.stop) S.queue = [];
+        else {
+          S.queue = Object.values(S.episodes).filter(e => e.status === 'script' && e.post && (!b.show || e.show === b.show)).sort((x, y) => x.createdAt.localeCompare(y.createdAt)).map(e => e.id);
+          if (!S.queue.length) throw new Error('No scripts are waiting to be recorded.');
+          next();
+        }
+        return send(res, 200, state()), true;
+      }
+      if (parts[0] === 'script' && method === 'POST') { const b = await readBody(req); return send(res, 200, summary(fromScript(b))), true; }
       if (parts[0] === 'run' && method === 'POST') { const b = await readBody(req); return send(res, 200, summary(await run({ show: b.show, idea: b.idea }))), true; }
       if (parts[0] === 'track' && method === 'POST') return send(res, 200, await track()), true;
       if (parts[0] === 'settings' && method === 'POST') { updateSettings(await readBody(req)); return send(res, 200, state()), true; }
@@ -425,7 +571,7 @@ function createStudio({ dataDir, callModel, getKey, writeJsonAtomic, port, attem
         if (!ep && parts[2] === 'delete') return send(res, 200, { ok: true }), true; // already gone
         if (!ep) return send(res, 404, { error: 'Episode not found' }), true;
         const action = parts[2];
-        if (!action && method === 'GET') return send(res, 200, { id: ep.id, show: ep.show, spec: ep.spec, post: ep.post, status: ep.status, voice: { on: S.settings.voiceOn, id: S.settings.voices[ep.show], speed: S.settings.speed } }), true;
+        if (!action && method === 'GET') return send(res, 200, { id: ep.id, show: ep.show, look: lookOf(ep.show), spec: ep.spec, post: ep.post, status: ep.status, voice: { on: S.settings.voiceOn, id: S.settings.voices[ep.show], speed: S.settings.speed } }), true;
         if (method !== 'POST') return send(res, 405, { error: 'Method not allowed' }), true;
         if (action === 'video') {
           if (ep.status !== 'rendering') { req.resume(); return send(res, 409, { error: 'This episode is not being recorded' }), true; }
@@ -498,7 +644,8 @@ function createStudio({ dataDir, callModel, getKey, writeJsonAtomic, port, attem
         }
         if (action === 'delete') {
           if (ACTIVE.includes(ep.status)) throw new Error('Wait until the crew is done with this one.');
-          delete S.episodes[ep.id]; try { fs.unlinkSync(videoFile(ep.id)); } catch {} try { fs.unlinkSync(thumbFile(ep.id)); } catch {}
+          delete S.episodes[ep.id];
+          for (const f of [videoFile(ep.id), thumbFile(ep.id), notesFile(ep.id)]) try { fs.unlinkSync(f); } catch {}
           save(); return send(res, 200, { ok: true }), true;
         }
         return send(res, 404, { error: 'Unknown action' }), true;

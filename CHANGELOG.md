@@ -2,6 +2,16 @@
 
 Everything that changed in Freeze Foundry, newest first.
 
+## 0.15.0 · 2026-11-02
+
+- **Make any show.** Press + New show in the Town, say what it is about and how it should be written, pick a look (Tour, Night, Cold case or Countdown) and a length, and the crew makes it like a built-in one. Copy and edit starts from any built-in show. Your shows can be edited or deleted (not while an episode still uses them).
+- **Bring your own script.** The new From my script tab records exactly what you wrote: blank lines split it into scenes, the first paragraph is the hook and the last is the ending. The Dispatcher still writes the title and tags, and it waits for your OK like any other script.
+- **Facts from real sources.** Ranked and Mysteries now research before writing: the Wikipedia article on the topic, plus your enabled Sources and any links you paste into the idea. The Miner writes only from those notes, the Inspector checks against them, and the video description lists the sources. Needs internet access in Settings > Permissions.
+- **Captions that land on the word.** Each word now pops in the instant it is spoken, instead of a whole caption appearing at once, so captions never look ahead of the voice.
+- **Record all.** One button records every script that is waiting, one after another. Stop after the current one at any time.
+- **Town crew skills.** Tick Town crew on a skill and the Town's writers follow it too, so your house rules reach the videos.
+- **Cleaner Town.** The valley's title and tools float on frosted glass, Town settings fold away, episodes without a video take less room, and every button gives a small press when you click it. Respects Reduce motion and Reduce transparency.
+
 ## 0.14.0 · 2026-11-01
 
 - **A narrator.** Every Town episode can be read aloud by Kokoro, a natural-sounding text-to-speech model that runs on your own computer (no account, no cloud, free for commercial use). Pick a narrator per show and press Hear it to try it. The voice model downloads once (about 90 MB), then works offline. Scenes last as long as their lines, the music ducks under the voice, and a limiter keeps it from clipping.

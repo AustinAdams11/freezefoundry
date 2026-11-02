@@ -319,6 +319,10 @@
         #task-queue-panel, #system-inspector-panel { border: 1px solid var(--border-color); }
         .panel-header { background: transparent; color: var(--text-muted); font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; padding: 12px 14px; }
         button { font-family: var(--ui-font); text-transform: none; font-weight: 600; font-size: 13px; border-radius: 9px; padding: 9px 14px; border: 1px solid transparent; }
+        /* Press feedback the instant a button goes down, not when it is released. */
+        button { transition: background .2s, color .2s, border-color .2s, transform .1s ease-out; }
+        button:active:not(:disabled) { transform: scale(0.97); }
+        @media (prefers-reduced-motion: reduce) { .frost-dot { animation: none; } }
         button.ghost { background: var(--bg-raise); border-color: var(--border-color); color: var(--text-main); }
         button.ghost:hover { background: #29232f; }
         button.success { background: var(--success); } button.success:hover { background: #059669; }
@@ -373,7 +377,7 @@
             background: radial-gradient(circle at 30% 30%, #3b2a5c, #15111c); box-shadow: 0 0 0 1px #3a2f4f, 0 0 18px color-mix(in srgb, var(--accent) 40%, transparent); }
         .brand b { color: var(--primary-orange); }
         button.mini { padding: 4px 9px; font-size: 11px; }
-        button:not(.ghost):not(.success):not(.danger):not(.link-btn):not(.send):hover { background: var(--accent); filter: brightness(1.15); }
+        button:not(.ghost):not(.success):not(.danger):not(.link-btn):not(.send):not(.tab):hover { background: var(--accent); filter: brightness(1.15); }
         .rail button.active { background: color-mix(in srgb, var(--accent) 18%, transparent); color: var(--accent); }
         #view-factory { display: block; position: relative; padding: 0; overflow: hidden;
             background: radial-gradient(ellipse at 50% 38%, #251a35 0%, #120e18 55%, #09070c 100%); }
@@ -549,15 +553,16 @@
         .goal-bar i { display: block; height: 100%; background: linear-gradient(90deg, #ffbe3d, #ff8a1f); }
         .town-wrap { position: relative; max-width: 1100px; aspect-ratio: 2576 / 1438; border-radius: 8px; overflow: hidden; border: 2px solid #334155; background: #0f172a; box-shadow: 0 20px 50px rgba(0,0,0,0.85); }
         #town-canvas { display: block; width: 100%; height: 100%; image-rendering: -moz-crisp-edges; image-rendering: -webkit-crisp-edges; image-rendering: pixelated; image-rendering: crisp-edges; background-color: #5b718c; cursor: pointer; }
-        .frost-bar, .frost-foot { max-width: 1100px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 0 8px; }
-        .frost-bar { margin-bottom: 12px; } .frost-foot { margin-top: 12px; font-size: 12px; color: #94a3b8; }
-        .frost-title { display: flex; align-items: center; gap: 12px; font: 13px/1.4 'Press Start 2P', ui-monospace, monospace; letter-spacing: .05em; text-transform: uppercase; color: #fef3c7; }
+        /* The valley's own chrome floats on the picture as frosted glass, so the page leads with the work. */
+        .frost-title, .town-tools { position: absolute; top: 10px; display: flex; align-items: center; gap: 6px; padding: 5px; border-radius: 10px;
+            background: rgba(12, 15, 21, 0.55); backdrop-filter: blur(12px) saturate(160%); -webkit-backdrop-filter: blur(12px) saturate(160%); border: 1px solid rgba(255,255,255,0.12); }
+        .frost-title { left: 10px; padding: 6px 10px; gap: 10px; font: 11px/1.4 'Press Start 2P', ui-monospace, monospace; letter-spacing: .05em; text-transform: uppercase; color: #fef3c7; pointer-events: none; }
+        .town-tools { right: 10px; }
+        .town-tools button { font-size: 12px; padding: 5px 10px; border-radius: 7px; background: transparent; border: 0; color: #e5edf5; }
+        .town-tools button:hover { background: rgba(255,255,255,0.12); }
+        @media (prefers-reduced-transparency: reduce) { .frost-title, .town-tools { background: #0c0f15; backdrop-filter: none; -webkit-backdrop-filter: none; } }
         .frost-dot { width: 12px; height: 12px; border-radius: 50%; background: #fbbf24; box-shadow: 0 0 8px #fbbf24; animation: pulse-dot 2s cubic-bezier(.4,0,.6,1) infinite; }
         @keyframes pulse-dot { 50% { opacity: .5; } }
-        .frost-bar button { font-size: 12px; padding: 6px 12px; border-radius: 4px; }
-        .frost-cart { background: #b45309; border: 1px solid #f59e0b; color: #fffbeb; } .frost-cart:hover { background: #d97706; }
-        .frost-save { background: #065f46; border: 1px solid #059669; color: #d1fae5; } .frost-save:hover { background: #047857; }
-        .frost-ore { font-family: ui-monospace, monospace; color: rgba(251,191,36,0.9); }
         .town-overlay { position: absolute; inset: 0; pointer-events: none; }
         .town-tag { position: absolute; transform: translate(-50%, 6px); font: 700 12px/1.25 system-ui, sans-serif; color: #f3f6fa; background: rgba(12,15,21,0.85); padding: 4px 10px 4px 8px; border-radius: 6px; white-space: nowrap; border: 2px solid var(--tag, #64748b); box-shadow: 0 4px 12px rgba(0,0,0,0.35); transition: transform .25s cubic-bezier(.22,1,.36,1), box-shadow .25s; text-align: center; }
         .town-tag .doing { display: block; color: #ffd27a; font-weight: 500; font-size: 11px; max-width: 220px; overflow: hidden; text-overflow: ellipsis; }
@@ -587,6 +592,13 @@
         .ep-status { display: inline-block; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: var(--border-color); }
         .ep-status.staged { background: #ff8a1f; color: #1a0f04; } .ep-status.posted { background: var(--success); color: #04120c; } .ep-status.failed { background: var(--error); }
         .crew-card { display: grid; gap: 6px; }
+        .town-settings > summary { list-style: none; cursor: pointer; display: flex; align-items: center; justify-content: space-between; }
+        .town-settings > summary::-webkit-details-marker { display: none; }
+        .town-settings > summary::after { content: '›'; font-size: 20px; color: var(--text-muted); transition: transform .2s ease; }
+        .town-settings[open] > summary::after { transform: rotate(90deg); }
+        .town-settings > summary h2 { margin: 0; }
+        .town-settings[open] > summary { margin-bottom: 12px; }
+        .ep.ep-compact { grid-template-columns: minmax(0, 1fr); }
         .crew-card .who { font-weight: 700; } .crew-card .doing { color: #ffd27a; font-size: 12px; }
         @media (max-width: 1000px) { .town-cols { grid-template-columns: 1fr; } .bank-stats { grid-template-columns: 1fr 1fr; } }
         @media (prefers-reduced-motion: reduce) { .town-bubble { animation: none; } }
@@ -594,17 +606,25 @@
         .new-ep .shows { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 6px; }
         .new-ep .shows button { text-align: left; padding: 8px 10px; border-radius: 10px; background: var(--bg-input); border: 1px solid var(--border-color); color: var(--text-main); font: inherit; font-size: 12px; cursor: pointer; display: grid; gap: 2px; }
         .new-ep .shows button b { font-size: 13px; }
+        .new-ep .shows button:hover { border-color: var(--accent); }
+        .new-ep .shows button.new-show { border-style: dashed; color: var(--text-muted); }
+        .show-about { font-size: 12px; color: var(--text-muted); display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline; }
+        .show-about .link-btn { font-size: 12px; }
+        .show-form { display: grid; gap: 10px; padding: 14px; border: 1px solid var(--border-color); border-radius: 12px; background: var(--bg-input); }
+        .show-form h3 { margin: 0; font-size: 14px; }
         .new-ep .shows button[aria-pressed="true"] { border-color: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 35%, transparent); }
         .new-ep .voice-row { display: flex; gap: 8px; align-items: end; flex-wrap: wrap; }
         .new-ep .voice-row label { flex: 1; min-width: 160px; }
         #town-episodes:not(.hint) { display: grid; gap: 10px; }
         .ep-tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border-color); margin: 4px 0 10px; flex-wrap: wrap; }
         .ep-tabs button { background: none; border: 0; border-bottom: 2px solid transparent; border-radius: 0; padding: 6px 10px; color: var(--text-muted); font: inherit; font-size: 13px; cursor: pointer; }
+        .ep-tabs button:hover, .ep-chips button:hover { color: var(--text-main); }
         .ep-tabs button[aria-pressed="true"] { color: var(--text-main); border-bottom-color: var(--accent); font-weight: 600; }
         .ep-chips { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
         .ep-chips button { background: var(--bg-input); border: 1px solid var(--border-color); border-radius: 999px; padding: 3px 10px; color: var(--text-muted); font: inherit; font-size: 12px; cursor: pointer; }
         .ep-chips button[aria-pressed="true"] { color: var(--text-main); border-color: var(--accent); }
-        .ep-group { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--text-muted); margin: 8px 0 -2px; }
+        .ep-group { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--text-muted); margin: 8px 0 -2px; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+        .ep-group button { text-transform: none; letter-spacing: 0; font-size: 12px; padding: 4px 12px; }
         .ep .ep-thumb-img { width: 96px; aspect-ratio: 9 / 16; border-radius: 8px; object-fit: cover; cursor: pointer; display: block; }
         .ep .ep-media { display: grid; gap: 6px; align-content: start; }
         .ep-status.script { background: #7dd3fc; color: #04121c; } .ep-status.ready { background: #fde68a; color: #1a1204; }
@@ -782,7 +802,8 @@
             <label class="check"><input type="checkbox" class="sk-role" value="planner"> Planner</label>
             <label class="check"><input type="checkbox" class="sk-role" value="builder"> Builder</label>
             <label class="check"><input type="checkbox" class="sk-role" value="reviewer"> Reviewer</label>
-            (none ticked = all)</div>
+            <label class="check" title="The Town's video crew. Only skills ticked here reach it."><input type="checkbox" class="sk-role" value="town"> Town crew</label>
+            (none ticked = all factory workers)</div>
         <label>Instructions <textarea id="sk-body" rows="10"></textarea></label>
         <div class="row"><button onclick="app.saveSkill()">Save skill</button><button class="ghost" onclick="document.getElementById('skill-editor').hidden = true">Cancel</button><span id="sk-msg" class="hint"></span></div>
     </div>
@@ -817,22 +838,56 @@
         <div><span>Est. earnings</span><b id="bank-money">$0.00</b></div>
         <div><span id="bank-goal-label">Goal</span><div class="goal-bar"><i id="bank-goal" style="width:0%"></i></div></div>
     </div>
-    <div class="frost-bar">
-        <div class="frost-title"><i class="frost-dot"></i>Frostpeak Mining Co.</div>
-        <div class="row"><button class="ghost" id="frost-snow" onclick="this.textContent = app.town.scene.cycleSnow()">Snow: Heavy</button><button class="frost-cart" onclick="app.town.scene.dispatchCart()">+ Dispatch Cart</button><button class="frost-save" onclick="app.saveTownPng()">Save PNG</button></div>
-    </div>
     <div class="town-wrap">
         <canvas id="town-canvas" width="1288" height="719" aria-label="Frostpeak Mining Co.: six mines in snowy mountains around a central foundry"></canvas>
         <div class="town-overlay" id="town-overlay"></div>
+        <div class="frost-title"><i class="frost-dot"></i>Frostpeak Mining Co.</div>
+        <div class="town-tools" role="group" aria-label="Valley">
+            <button class="tab" id="frost-snow" onclick="this.textContent = app.town.scene.cycleSnow()">Snow: Heavy</button>
+            <button class="tab" onclick="app.town.scene.dispatchCart()">+ Cart</button>
+            <button class="tab" onclick="app.saveTownPng()" title="Save the valley as a picture">Save picture</button>
+        </div>
     </div>
-    <div class="frost-foot"><div>6 Active Mountain Mines &bull; Central Smelting Foundry</div><div id="statsReadout" class="frost-ore">Ore Smelted: 1,420 Tons</div></div>
     <div class="town-key" id="town-key" aria-label="Who works where"></div>
     <div class="town-cols">
         <div>
         <div class="card new-ep">
             <h2>New episode</h2>
             <div class="shows" id="town-shows" role="group" aria-label="Show"></div>
-            <label>Your idea (optional) <textarea id="town-idea" rows="3" placeholder="Leave empty and the Prospector picks a topic. Or, for example: Episode 1: welcome to Frostpeak, a friendly hello to the town"></textarea></label>
+            <div class="show-about" id="town-show-about"></div>
+            <div class="show-form" id="show-form" hidden>
+                <h3 id="sf-title">New show</h3>
+                <label>Name <input id="sf-name" maxlength="40" placeholder="Sea Tales"></label>
+                <label>What it's about <textarea id="sf-describe" rows="2" maxlength="400" placeholder="Gentle stories about animals at sea, for all ages."></textarea></label>
+                <label>How to write it <textarea id="sf-write" rows="7" maxlength="4000" placeholder="Tone, structure, what every episode must do, what to avoid. For example: warm, like a grandparent by the fire; open on the most surprising moment; end on a small twist."></textarea></label>
+                <div class="grid2">
+                    <label>Look <select id="sf-look">
+                        <option value="night">Night: the valley after dark, fog and lightning</option>
+                        <option value="cold">Cold: the valley under a cold blue night</option>
+                        <option value="tour">Valley tour: the camera visits each worker's mine</option>
+                        <option value="countdown">Countdown: a ranked top 5 with numbers</option>
+                    </select></label>
+                    <label>Length <select id="sf-length">
+                        <option value="short">Short, about 30 to 45 seconds</option>
+                        <option value="medium">Medium, about 45 to 70 seconds</option>
+                        <option value="long">Long, about 70 to 100 seconds</option>
+                    </select></label>
+                </div>
+                <label class="check"><input type="checkbox" id="sf-research"> Facts must come from sources: Wikipedia, links in the idea, and your Sources</label>
+                <div class="row"><button onclick="app.saveShow()">Save show</button><button class="ghost" onclick="app.closeShowForm()">Cancel</button></div>
+            </div>
+            <div class="ep-tabs" role="group" aria-label="Start from">
+                <button type="button" class="tab" id="town-mode-idea" aria-pressed="true" onclick="app.townMode('idea')">From an idea</button>
+                <button type="button" class="tab" id="town-mode-script" aria-pressed="false" onclick="app.townMode('script')">From my script</button>
+            </div>
+            <div id="town-from-idea">
+                <label>Your idea (optional) <textarea id="town-idea" rows="3" placeholder="Leave empty and the Prospector picks a topic. Paste links to articles and the crew writes only from them."></textarea></label>
+            </div>
+            <div id="town-from-script" hidden>
+                <label>Title <input id="town-own-title" placeholder="Shown on screen and in the thumbnail"></label>
+                <label>Script <textarea id="town-own-text" rows="8" placeholder="Write it in paragraphs, with a blank line between them.&#10;&#10;The first paragraph is the hook, spoken over the title.&#10;&#10;Each paragraph after that is one scene.&#10;&#10;The last paragraph is the ending."></textarea></label>
+                <div class="hint" id="town-own-count"></div>
+            </div>
             <div class="voice-row">
                 <label>Narrator for this show <select id="town-voice" onchange="app.townVoicePick()"></select></label>
                 <button class="ghost" id="town-hear" onclick="app.townHear()">Hear it</button>
@@ -852,8 +907,8 @@
                 <h2 id="town-house-title">The crew</h2>
                 <div id="town-house" class="crew-card hint">Click a mine, or a worker in the key, to see what it's doing.</div>
             </div>
-            <div class="card">
-                <h2>Town settings</h2>
+            <details class="card town-settings">
+                <summary><h2>Town settings</h2></summary>
                 <label>Topic ideas (one per line; the Prospector prefers these when you leave the idea empty) <textarea id="town-topics" rows="4" placeholder="fastest animals&#10;tallest buildings&#10;most expensive cars"></textarea></label>
                 <div class="grid2">
                     <label>Autopilot: an episode every (hours) <input id="town-every" type="number" min="1" max="168"></label>
@@ -868,7 +923,7 @@
                 <p class="hint">Get one free at console.cloud.google.com: create a project, enable "YouTube Data API v3", then Credentials &gt; Create credentials &gt; API key.</p>
                 <div class="row"><button onclick="app.saveTownSettings()">Save</button><button class="ghost" onclick="app.townTrack()">Refresh views now</button><button class="ghost" onclick="app.openFolder('videos')">Open videos folder</button></div>
                 <div id="town-lessons" class="hint"></div>
-            </div>
+            </details>
         </div>
     </div>
 </section>
@@ -2021,14 +2076,14 @@ class App {
         const TABS = [['todo', 'To do', ['staged', 'ready', 'script']], ['work', 'In progress', ['scouting', 'writing', 'checking', 'titling', 'rendering']], ['posted', 'Posted', ['posted']], ['archive', 'Archive', ['rejected', 'failed']]];
         this.townTab = this.townTab || 'todo';
         this.townFilter = this.townFilter || 'all';
-        const key = JSON.stringify([this.townTab, this.townFilter, d.episodes.map(e => [e.id, e.status, e.updatedAt, e.stats])]);
+        const key = JSON.stringify([this.townTab, this.townFilter, d.queue, d.episodes.map(e => [e.id, e.status, e.updatedAt, e.stats])]);
         if (key === this.townEpKey) return;
         this.townEpKey = key;
         const pick = (el, items, current, set) => {
             el.innerHTML = '';
             items.forEach(([id, text]) => {
                 const b = document.createElement('button');
-                b.type = 'button'; b.textContent = text;
+                b.type = 'button'; b.className = 'tab'; b.textContent = text;
                 b.setAttribute('aria-pressed', String(id === current));
                 b.onclick = () => { set(id); this.renderTown(this.townState); };
                 el.appendChild(b);
@@ -2052,7 +2107,10 @@ class App {
             div.className = 'ep';
             const views = ep.stats && ep.stats.youtube ? `${ep.stats.youtube.views.toLocaleString('en-US')} views · ${ep.stats.youtube.likes.toLocaleString('en-US')} likes` : '';
             const v = ep.updatedAt ? `?v=${encodeURIComponent(ep.updatedAt)}` : '';
-            div.innerHTML = `<div class="ep-media">${ep.hasVideo ? `<video src="/api/studio/videos/${ep.video && ep.video.file || ep.id}${v}" controls preload="metadata" playsinline></video>` : '<div class="ep-thumb">&#127916;</div>'}` +
+            const compact = !ep.hasVideo && !ep.hasThumb; // nothing to show yet: no empty video tile
+            if (compact) div.classList.add('ep-compact');
+            div.innerHTML = compact ? `<div style="display:grid;gap:6px;min-width:0"><div><span class="ep-status ${escapeHtml(ep.status)}">${escapeHtml(label[ep.status] || ep.status)}</span></div>
+                <h3></h3><div class="meta"></div><div class="row"></div></div>` : `<div class="ep-media">${ep.hasVideo ? `<video src="/api/studio/videos/${ep.video && ep.video.file || ep.id}${v}" controls preload="metadata" playsinline></video>` : '<div class="ep-thumb">&#127916;</div>'}` +
                 (ep.hasThumb ? `<a href="/api/studio/thumbs/${ep.id}.jpg${v}" download="${ep.id}-thumbnail.jpg" title="Save the thumbnail"><img class="ep-thumb-img" src="/api/studio/thumbs/${ep.id}.jpg${v}" alt="Thumbnail"></a>` : '') + '</div>' +
                 `<div style="display:grid;gap:6px;min-width:0"><div><span class="ep-status ${escapeHtml(ep.status)}">${escapeHtml(label[ep.status] || ep.status)}</span></div>
                 <h3></h3><div class="meta"></div><div class="row"></div></div>`;
@@ -2092,7 +2150,24 @@ class App {
             // Scripts oldest first, so a series reads in episode order; everything else newest first.
             const list = eps.filter(e => !status || e.status === status).sort((a, b) => status === 'script' ? a.createdAt.localeCompare(b.createdAt) : 0);
             if (!list.length) continue;
-            if (heading) { const h = document.createElement('h3'); h.className = 'ep-group'; h.textContent = `${heading} (${list.length})`; box.appendChild(h); }
+            if (heading) {
+                const h = document.createElement('h3'); h.className = 'ep-group'; h.textContent = `${heading} (${list.length})`;
+                if (status === 'script') {
+                    // Record all: one after another, oldest first. While it runs, the button stops it after the current one.
+                    const b = document.createElement('button');
+                    b.type = 'button'; b.className = d.queue ? 'ghost' : 'success';
+                    b.textContent = d.queue ? `Stop after this one (${d.queue} waiting)` : `Record all ${list.length}`;
+                    b.onclick = async () => {
+                        const r = await fetch('/api/studio/record-all', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(d.queue ? { stop: true } : { show: this.townFilter === 'all' ? null : this.townFilter }) });
+                        const res = await r.json().catch(() => ({}));
+                        if (!r.ok) return this.toast(res.error || 'Could not start');
+                        this.toast(d.queue ? 'The queue stops after this recording' : `Recording ${list.length}, oldest first. They'll land in Watch and approve.`);
+                        this.townEpKey = null; this.pollTown();
+                    };
+                    h.appendChild(b);
+                }
+                box.appendChild(h);
+            }
             list.forEach(ep => box.appendChild(card(ep)));
         }
     }
@@ -2131,13 +2206,27 @@ class App {
             box.innerHTML = '';
             d.shows.forEach(sh => {
                 const b = document.createElement('button');
-                b.type = 'button';
+                b.type = 'button'; b.className = 'tab';
                 b.setAttribute('aria-pressed', String(sh.id === this.townShow));
                 b.title = sh.describe;
                 b.innerHTML = `<b>${escapeHtml(sh.name)}</b>`;
                 b.onclick = () => { this.townShow = sh.id; this.townSettings({ show: sh.id }); this.renderNewEpisode(this.townState); };
                 box.appendChild(b);
             });
+            const add = document.createElement('button');
+            add.type = 'button'; add.className = 'tab new-show';
+            add.innerHTML = '<b>+ New show</b>';
+            add.onclick = () => this.openShowForm(null);
+            box.appendChild(add);
+            // What the selected show is, and what you can do with it: copy a built-in, edit or delete your own.
+            const sh = d.shows.find(x => x.id === this.townShow), about = document.getElementById('town-show-about');
+            about.innerHTML = '';
+            if (sh) {
+                const p = document.createElement('span'); p.textContent = sh.describe + (sh.research ? ' Writes only from sources.' : ''); about.appendChild(p);
+                const act = (text, fn) => { const a = document.createElement('button'); a.type = 'button'; a.className = 'link-btn'; a.textContent = text; a.onclick = fn; about.appendChild(a); };
+                if (sh.custom) { act('Edit', () => this.openShowForm(sh)); act('Delete', () => this.deleteShow(sh)); }
+                else act('Copy and edit', () => this.openShowForm({ ...sh, id: null, name: sh.name + ' (mine)', write: sh.style, length: 'medium' }));
+            }
         }
         const sel = document.getElementById('town-voice');
         if (sel.dataset.show !== this.townShow || !sel.options.length) {
@@ -2188,7 +2277,71 @@ class App {
         } finally { this.townHearing = false; btn.disabled = false; }
     }
 
+    // Your own shows: a name, what it is about, how to write it, and a built-in look to draw it in.
+    openShowForm(sh) {
+        this.showEditing = sh && sh.custom ? sh.id : null;
+        document.getElementById('sf-title').textContent = this.showEditing ? `Edit ${sh.name}` : sh ? 'Copy of a built-in show' : 'New show';
+        const v = (id, x) => { document.getElementById(id).value = x || ''; };
+        v('sf-name', sh && sh.name); v('sf-describe', sh && sh.describe); v('sf-write', sh && (sh.write || sh.style));
+        document.getElementById('sf-look').value = (sh && sh.look) || 'night';
+        document.getElementById('sf-length').value = (sh && sh.length) || 'medium';
+        document.getElementById('sf-research').checked = !!(sh && sh.research);
+        const f = document.getElementById('show-form');
+        f.hidden = false;
+        document.getElementById('sf-name').focus();
+        f.scrollIntoView({ block: 'nearest', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+    }
+
+    closeShowForm() { document.getElementById('show-form').hidden = true; }
+
+    async saveShow() {
+        const v = id => document.getElementById(id).value;
+        const r = await fetch('/api/studio/shows', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
+            id: this.showEditing, name: v('sf-name'), describe: v('sf-describe'), write: v('sf-write'), look: v('sf-look'), length: v('sf-length'),
+            research: document.getElementById('sf-research').checked, voice: v('town-voice'), select: true }) });
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok) return this.toast(d.error || 'Could not save the show');
+        this.closeShowForm();
+        this.townShow = d.settings.show; this.townShowsKey = null; this.townEpKey = null;
+        document.getElementById('town-voice').dataset.show = '';
+        this.toast('Show saved');
+        this.pollTown();
+    }
+
+    async deleteShow(sh) {
+        if (!confirm(`Delete the show "${sh.name}"? Its posted episodes stay.`)) return;
+        const r = await fetch('/api/studio/shows/delete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: sh.id }) });
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok) return this.toast(d.error || 'Could not delete the show');
+        this.townShow = d.settings.show; this.townShowsKey = null; this.townEpKey = null;
+        document.getElementById('town-voice').dataset.show = '';
+        this.pollTown();
+    }
+
+    // Start from an idea (the crew writes) or from your own script (the crew only titles, voices and records it).
+    townMode(mode) {
+        this.townModeNow = mode;
+        document.getElementById('town-mode-idea').setAttribute('aria-pressed', String(mode === 'idea'));
+        document.getElementById('town-mode-script').setAttribute('aria-pressed', String(mode === 'script'));
+        document.getElementById('town-from-idea').hidden = mode !== 'idea';
+        document.getElementById('town-from-script').hidden = mode !== 'script';
+        const t = document.getElementById('town-own-text');
+        t.oninput = t.oninput || (() => {
+            const paras = t.value.split(/\n\s*\n/).filter(x => x.trim()), words = t.value.split(/\s+/).filter(Boolean).length;
+            document.getElementById('town-own-count').textContent = paras.length ? `${paras.length < 4 ? 'Needs at least 4 paragraphs. ' : ''}Hook, ${Math.max(0, paras.length - 2)} scene${paras.length === 3 ? '' : 's'}, ending · ${words} words, about ${Math.round(words / 2.6 / 1.1)} seconds` : '';
+        });
+    }
+
     async townRun() {
+        if (this.townModeNow === 'script') {
+            const r = await fetch('/api/studio/script', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ show: this.townShow, title: document.getElementById('town-own-title').value, text: document.getElementById('town-own-text').value }) });
+            const d = await r.json().catch(() => ({}));
+            if (!r.ok) return this.toast(d.error || 'That script could not be used');
+            document.getElementById('town-own-title').value = ''; document.getElementById('town-own-text').value = ''; document.getElementById('town-own-count').textContent = '';
+            this.toast('Got it. The Dispatcher is writing the title; then it waits in Read the script.');
+            this.sfx('start');
+            return this.pollTown();
+        }
         const idea = document.getElementById('town-idea').value.trim();
         const r = await fetch('/api/studio/run', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ show: this.townShow, idea }) });
         const d = await r.json().catch(() => ({}));
@@ -2234,9 +2387,15 @@ class App {
         // Collapsed until you open it, so a long queue of scripts stays easy to scan.
         this.townOpen = this.townOpen || {};
         ed.hidden = !this.townOpen[ep.id];
-        btn(ed.hidden ? 'Read script' : 'Hide script', e => { ed.hidden = !ed.hidden; this.townOpen[ep.id] = !ed.hidden; e.target.textContent = ed.hidden ? 'Read script' : 'Hide script'; });
         btn('Record it', async () => { if (await save()) this.townAction(ep, 'record'); }, 'success');
+        btn(ed.hidden ? 'Read script' : 'Hide script', e => {
+            ed.hidden = !ed.hidden; this.townOpen[ep.id] = !ed.hidden;
+            e.target.textContent = ed.hidden ? 'Read script' : 'Hide script';
+            saveBtn.hidden = ed.hidden;
+        });
         btn('Save edits', async () => { if (await save()) { this.toast('Script saved'); this.pollTown(); } });
+        const saveBtn = row.lastElementChild; // only useful while the script is open
+        saveBtn.hidden = ed.hidden;
         btn('Ask for changes', () => this.townRevisePrompt(ep, box));
     }
 

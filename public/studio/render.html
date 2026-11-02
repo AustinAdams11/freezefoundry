@@ -34,10 +34,10 @@ const FPS = 30, RATE = 48000, T0 = 0.05; // the show's clock starts T0 seconds i
 
 try {
   const ep = await api('').then(r => { if (!r.ok) throw new Error('episode not found'); return r.json(); });
-  const show = FFStudio.shows[ep.show];
+  const look = ep.look || ep.show, show = FFStudio.shows[look]; // your own shows are drawn in a built-in look
   if (!show) throw new Error('unknown show ' + ep.show);
-  const spec = FFStudio.clean[ep.show](ep.spec);
-  if (ep.show !== 'ranked') FFStudio.assets.frostpeak = await image('/img/frostpeak.jpg'); // story shows film the valley
+  const spec = FFStudio.clean[look](ep.spec);
+  if (look !== 'ranked') FFStudio.assets.frostpeak = await image('/img/frostpeak.jpg'); // story shows film the valley
 
   // Narration: one clip per segment.
   const lines = show.lines(spec), clips = lines.map(() => null), words = lines.map(() => null);
