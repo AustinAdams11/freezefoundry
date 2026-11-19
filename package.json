@@ -53,7 +53,18 @@
       ],
       "category": "public.app-category.developer-tools",
       "artifactName": "Freeze-Foundry-${arch}.${ext}",
-      "icon": "public/icon.png"
+      "icon": "public/icon.png",
+      "extendInfo": {
+        "NSDocumentsFolderUsageDescription": "Freeze Foundry keeps its data and your workspace in Documents/Freeze Foundry.",
+        "NSLocalNetworkUsageDescription": "LAN Foundry looks for LM Studio and Ollama on your home network. Watch polls hosts you add, which may be on that network.",
+        "NSDesktopFolderUsageDescription": "Freeze Foundry uses this folder only if you point a workspace there.",
+        "NSDownloadsFolderUsageDescription": "Freeze Foundry uses this folder only if you point a workspace there.",
+        "NSCameraUsageDescription": null,
+        "NSMicrophoneUsageDescription": null,
+        "NSAudioCaptureUsageDescription": null,
+        "NSBluetoothAlwaysUsageDescription": null,
+        "NSBluetoothPeripheralUsageDescription": null
+      }
     },
     "publish": {
       "provider": "github",
